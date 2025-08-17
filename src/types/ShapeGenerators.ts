@@ -19,12 +19,33 @@ export class Line extends Shape {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        ctx.beginPath();
-        ctx.moveTo(this.start.x, this.start.y);
-        ctx.lineTo(this.end.x, this.end.y);
-        ctx.strokeStyle = this.strokeStyle;
-        ctx.lineWidth = this.lineWidth;
-        ctx.stroke();
+        if(this.pixelated) {
+            const dx = this.end.x - this.start.x;
+            const dy = this.end.y - this.start.y;
+
+            let x = this.start.x;
+            let y = this.start.y;
+            this.drawPixel({ x, y }, ctx);
+
+            const passo = (Math.abs(dx) > Math.abs(dy)) ? Math.abs(dx) : Math.abs(dy);
+            
+            const stepX = dx / passo;
+            const stepY = dy / passo;
+
+            for(let i = 0; i < passo; i++) {
+                x += stepX;
+                y += stepY;
+                
+                this.drawPixel({ x: Math.round(x), y: Math.round(y) }, ctx);
+            }
+        } else {
+            ctx.beginPath();
+            ctx.moveTo(this.start.x, this.start.y);
+            ctx.lineTo(this.end.x, this.end.y);
+            ctx.strokeStyle = this.strokeStyle;
+            ctx.lineWidth = this.lineWidth;
+            ctx.stroke();
+        }
     }
 
     contains(p: Point) {

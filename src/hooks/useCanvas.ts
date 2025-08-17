@@ -34,7 +34,7 @@ const useCanvas = (pixelSize: number = 20) => {
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         
         if(lastPixelatedMode.current !== pixelated) {
-            drawnShapes.current = pixelated && board.current ? [board.current] : [];
+            drawnShapes.current = [board.current!];
             redoStackRef.current = [];
             lastPixelatedMode.current = pixelated;
         }
@@ -64,9 +64,15 @@ const useCanvas = (pixelSize: number = 20) => {
                         strokeStyle: "#ddd",
                         lineWidth: 1,
                         pixelSize: pixelSize,
-                        pixelated: true,
+                        pixelated: pixelated,
                     }
                 );
+
+                if(drawnShapes.current.length === 0) {
+                    drawnShapes.current = [board.current];
+                } else {
+                    drawnShapes.current[0] = board.current;
+                }
 
                 const ctx = canvas.getContext("2d");
                 if(ctx) {
@@ -89,7 +95,7 @@ const useCanvas = (pixelSize: number = 20) => {
     }, [pixelated, pixelSize, thickness, currentColor, board, canvasRef, containerRef, contextRef, redrawAllShapes]);
 
     const undo = useCallback(() => {
-        if(drawnShapes.current.length === 0) return;
+        if(drawnShapes.current.length <= 1) return;
 
         const current = drawnShapes.current.pop();
         if(current) {
@@ -119,7 +125,7 @@ const useCanvas = (pixelSize: number = 20) => {
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            start.current = { x: x, y: y };
+            start.current = (pixelated) ? board.current!.map({ x: x, y: y }) : { x: x, y: y };
 
             if(selectedShape.current === 'freeform') {
                 currentShape.current = new FreeForm([start.current], {
@@ -143,21 +149,19 @@ const useCanvas = (pixelSize: number = 20) => {
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
 
+                const point = (pixelated) ? board.current!.map({ x: x, y: y }) : { x: x, y: y };
+
                 if(selectedShape.current === 'freeform') {
                     if(currentShape.current instanceof FreeForm) {
                         const form = currentShape.current;
                         const lastPoint = form.points[form.points.length - 1];
                         
-                        let point = { x, y };
-                        
                         if(isEraserActive.current) ctx.globalCompositeOperation = 'destination-out';
 
                         if(pixelated) {
-                            point = board.current!.map(point);
-                            
                             const hasPixel = form.contains(point);
                             if(!hasPixel) {
-                                ctx.fillStyle = form.strokeStyle;
+                                ctx.strokeStyle = form.strokeStyle;
                                 form.drawPixel(point, ctx);
                                 
                                 if(isEraserActive.current) form.drawPixelGrid(point, ctx);
@@ -182,10 +186,10 @@ const useCanvas = (pixelSize: number = 20) => {
                     }
                 } else {
                     if(currentShape.current) redrawAllShapes();
-                    
+
                     const shape = generator({ 
                         start: start.current, 
-                        end: { x, y },
+                        end: point,
                         color: currentColor.current,
                         thickness: thickness.current,
                         kind: selectedShape.current,

@@ -29,6 +29,8 @@ export default class Board extends Shape {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
+        if(!this.pixelated) return; 
+
         const gco = ctx.globalCompositeOperation;
         ctx.globalCompositeOperation = 'destination-over';
         ctx.strokeStyle = this.strokeStyle;
