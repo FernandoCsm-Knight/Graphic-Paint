@@ -45,7 +45,6 @@ export default class FreeForm extends Shape {
             ctx.beginPath();
 
             ctx.strokeStyle = this.strokeStyle;
-            ctx.fillStyle = this.fillStyle;
             ctx.lineWidth = this.lineWidth;
 
             for(let i = 0; i < this.points.length; i++) {
@@ -80,7 +79,7 @@ export default class FreeForm extends Shape {
 
         if(response) {
             if(this.pixelated) {
-                response = this.points.find(p => p.x === p.x && p.y === p.y) !== undefined;
+                response = this.points.find(pt => pt.x === p.x && pt.y === p.y) !== undefined;
             } else {
                 const margin = this.lineWidth / 2 + 2;
     

@@ -40,7 +40,7 @@ const useCanvas = (pixelSize: number = 20) => {
         }
 
         drawnShapes.current.forEach(shape => shape.draw(ctx));
-    }, [drawnShapes, pixelated, board]);
+    }, [drawnShapes, pixelated, board, contextRef]);
 
     useEffect(() => {
         const setupCanvas = (preserve = true) => {
@@ -86,7 +86,7 @@ const useCanvas = (pixelSize: number = 20) => {
         const ro = new ResizeObserver(() => setupCanvas(true));
         if(containerRef.current) ro.observe(containerRef.current);
         return () => ro.disconnect();
-    }, [pixelated, pixelSize, thickness, currentColor, board]);
+    }, [pixelated, pixelSize, thickness, currentColor, board, canvasRef, containerRef, contextRef, redrawAllShapes]);
 
     const undo = useCallback(() => {
         if(drawnShapes.current.length === 0) return;
@@ -131,7 +131,7 @@ const useCanvas = (pixelSize: number = 20) => {
                 });
             }
         }
-    }, [start, selectedShape, isEraserActive]);
+    }, [start, selectedShape, isEraserActive, pixelated, pixelSize, currentColor, thickness, canvasRef, contextRef]);
 
     const handlePointerMove = useCallback((e: PointerEvent<HTMLCanvasElement>) => {
         if(isDrawing.current) {
@@ -153,7 +153,7 @@ const useCanvas = (pixelSize: number = 20) => {
                         if(isEraserActive.current) ctx.globalCompositeOperation = 'destination-out';
 
                         if(pixelated) {
-                            point = board.current?.map(point) ?? point;
+                            point = board.current!.map(point);
                             
                             const hasPixel = form.contains(point);
                             if(!hasPixel) {
@@ -198,7 +198,7 @@ const useCanvas = (pixelSize: number = 20) => {
                 } 
             }
         }
-    }, [selectedShape, isEraserActive, redrawAllShapes]);
+    }, [selectedShape, isEraserActive, redrawAllShapes, pixelated, pixelSize, currentColor, thickness, canvasRef, contextRef]);
 
     const handlePointerUp = useCallback(() => {
         if(currentShape.current) {
@@ -213,7 +213,7 @@ const useCanvas = (pixelSize: number = 20) => {
             ctx.beginPath();
             ctx.globalCompositeOperation = 'source-over';
         }
-    }, []);
+    }, [contextRef]);
 
     return {
         handlePointerDown,
