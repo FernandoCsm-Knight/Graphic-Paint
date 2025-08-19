@@ -148,13 +148,15 @@ const useCanvas = (pixelSize: number = 20) => {
             start.current = (pixelated) ? board.current!.map({ x: x, y: y }) : { x: x, y: y };
 
             if(selectedShape.current === 'freeform') {
-                currentShape.current = new FreeForm([start.current], {
+                const form = new FreeForm([start.current], {
                     strokeStyle: currentColor.current,
                     lineWidth: thickness.current,
                     isEraser: isEraserActive.current,
                     pixelated: pixelated,
                     pixelSize: pixelSize
                 });
+
+                currentShape.current = form;
             }
         }
     }, [start, selectedShape, isEraserActive, pixelated, pixelSize, currentColor, thickness, canvasRef, contextRef]);
@@ -182,9 +184,10 @@ const useCanvas = (pixelSize: number = 20) => {
                             const hasPixel = form.contains(point);
                             if(!hasPixel) {
                                 ctx.strokeStyle = form.strokeStyle;
-                                form.drawPixel(point, ctx);
+                                form.lineTo(point, ctx);
                                 
                                 if(isEraserActive.current) form.drawPixelGrid(point, ctx);
+                                form.addPoint(point);
                             }
                         } else {
                             const distance = Math.hypot(x - lastPoint.x, y - lastPoint.y);
@@ -199,10 +202,11 @@ const useCanvas = (pixelSize: number = 20) => {
                                 ctx.lineJoin = 'round';
                                 ctx.stroke();   
                             }
+
+                            form.addPoint(point);
                         }
                         
                         ctx.globalCompositeOperation = 'source-over';
-                        form.addPoint(point);
                     }
                 } else {
                     if(currentShape.current) redrawAllShapes();

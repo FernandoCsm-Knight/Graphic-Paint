@@ -1,4 +1,4 @@
-import { GripHorizontal, Settings, Shapes } from "lucide-react";
+import { GripHorizontal, Settings, Shapes, PaintBucket } from "lucide-react";
 import { useDraggable } from "../hooks/useDraggable";
 import ColorSelector from "./menu/ColorSelector";
 import EraserButton from "./menu/EraserButton";
@@ -32,6 +32,9 @@ const Menu = () => {
                     <EraserButton/>
                     <PaintButton ref={shapeButtonRef} onClick={openShapeMenu} stayActive>
                         <Shapes className="text-gray-700 w-4 h-4 sm:w-5 sm:h-5"/>
+                    </PaintButton>
+                    <PaintButton stayActive>
+                        <PaintBucket className="text-gray-700 w-4 h-4 sm:w-5 sm:h-5"/>
                     </PaintButton>
                     <WidthSelector/>
                     <div className="flex flex-col gap-1">

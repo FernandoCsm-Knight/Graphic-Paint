@@ -28,9 +28,7 @@ export default class Board extends Shape {
                gridPos.y >= 0 && gridPos.y < this.yCount;
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
-        if(!this.pixelated) return; 
-
+    pixelatedDraw(ctx: CanvasRenderingContext2D): void {
         const gco = ctx.globalCompositeOperation;
         ctx.globalCompositeOperation = 'destination-over';
         ctx.strokeStyle = this.strokeStyle;
@@ -52,6 +50,8 @@ export default class Board extends Shape {
 
         ctx.globalCompositeOperation = gco;
     }
+
+    standardDraw(): void {}
 
     contains(p: Point): boolean {
         return p.x <= this.width && p.y <= this.height && p.x >= 0 && p.y >= 0;

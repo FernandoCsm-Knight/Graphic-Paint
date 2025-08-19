@@ -41,9 +41,16 @@ export abstract class Shape {
         this.pixelSize = opts.pixelSize ?? 20;
     }
 
-    abstract draw(ctx: CanvasRenderingContext2D): void;
+    draw(ctx: CanvasRenderingContext2D): void {
+        if(this.pixelated) this.pixelatedDraw(ctx);
+        else this.standardDraw(ctx);
+    }
+
     abstract contains(p: Point): boolean;
     abstract moveBy(dx: number, dy: number): void;
+
+    abstract pixelatedDraw(ctx: CanvasRenderingContext2D): void;
+    abstract standardDraw(ctx: CanvasRenderingContext2D): void;
 
     drawPixel(p: Point, ctx: CanvasRenderingContext2D): void {
         ctx.fillRect(p.x * this.pixelSize, p.y * this.pixelSize, this.pixelSize, this.pixelSize);

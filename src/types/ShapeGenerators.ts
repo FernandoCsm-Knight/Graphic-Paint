@@ -18,34 +18,34 @@ export class Line extends Shape {
         this.end = end;
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
-        if(this.pixelated) {
-            const dx = this.end.x - this.start.x;
-            const dy = this.end.y - this.start.y;
+    pixelatedDraw(ctx: CanvasRenderingContext2D): void {
+        const dx = this.end.x - this.start.x;
+        const dy = this.end.y - this.start.y;
 
-            let x = this.start.x;
-            let y = this.start.y;
-            this.drawPixel({ x, y }, ctx);
+        let x = this.start.x;
+        let y = this.start.y;
+        this.drawPixel({ x, y }, ctx);
 
-            const passo = (Math.abs(dx) > Math.abs(dy)) ? Math.abs(dx) : Math.abs(dy);
+        const passo = (Math.abs(dx) > Math.abs(dy)) ? Math.abs(dx) : Math.abs(dy);
+        
+        const stepX = dx / passo;
+        const stepY = dy / passo;
+
+        for(let i = 0; i < passo; i++) {
+            x += stepX;
+            y += stepY;
             
-            const stepX = dx / passo;
-            const stepY = dy / passo;
-
-            for(let i = 0; i < passo; i++) {
-                x += stepX;
-                y += stepY;
-                
-                this.drawPixel({ x: Math.round(x), y: Math.round(y) }, ctx);
-            }
-        } else {
-            ctx.beginPath();
-            ctx.moveTo(this.start.x, this.start.y);
-            ctx.lineTo(this.end.x, this.end.y);
-            ctx.strokeStyle = this.strokeStyle;
-            ctx.lineWidth = this.lineWidth;
-            ctx.stroke();
+            this.drawPixel({ x: Math.round(x), y: Math.round(y) }, ctx);
         }
+    }
+
+    standardDraw(ctx: CanvasRenderingContext2D): void {
+        ctx.beginPath();
+        ctx.moveTo(this.start.x, this.start.y);
+        ctx.lineTo(this.end.x, this.end.y);
+        ctx.strokeStyle = this.strokeStyle;
+        ctx.lineWidth = this.lineWidth;
+        ctx.stroke();
     }
 
     contains(p: Point) {
@@ -75,7 +75,32 @@ export class Square extends Shape {
         this.bottomRight = bottomRight;
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
+    pixelatedDraw(ctx: CanvasRenderingContext2D): void {
+        const dx = this.bottomRight.x - this.topLeft.x;
+        const dy = this.bottomRight.y - this.topLeft.y;
+        const side = Math.max(Math.abs(dx), Math.abs(dy));
+
+        let x = this.topLeft.x;
+        let y = this.topLeft.y;
+        this.drawPixel({ x, y }, ctx);
+
+        const incrX = dx > 0 ? 1 : -1;
+        const incrY = dy > 0 ? 1 : -1;
+
+        for(let i = 0; i < side; i++) {
+            x += incrX;
+            this.drawPixel({ x: x, y }, ctx);
+            this.drawPixel({ x: x, y: y + (incrY > 0 ? side : -side) }, ctx);
+        }
+
+        for(let i = 0; i < side; i++) {
+            y += incrY;
+            this.drawPixel({ x, y: y }, ctx);
+            this.drawPixel({ x: x - (incrX > 0 ? side : -side), y: y }, ctx);
+        }
+    }
+
+    standardDraw(ctx: CanvasRenderingContext2D): void {
         const dx = this.bottomRight.x - this.topLeft.x;
         const dy = this.bottomRight.y - this.topLeft.y;
         const side = Math.max(Math.abs(dx), Math.abs(dy));
@@ -121,7 +146,31 @@ export class Rectangle extends Shape {
         this.bottomRight = bottomRight;
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
+    pixelatedDraw(ctx: CanvasRenderingContext2D): void {
+        const dx = this.bottomRight.x - this.topLeft.x;
+        const dy = this.bottomRight.y - this.topLeft.y;
+
+        let x = this.topLeft.x;
+        let y = this.topLeft.y;
+        this.drawPixel({ x, y }, ctx);
+
+        const incrX = dx > 0 ? 1 : -1;
+        const incrY = dy > 0 ? 1 : -1;
+
+        for(let i = 0; i < Math.abs(dx); i++) {
+            x += incrX;
+            this.drawPixel({ x: x, y: y }, ctx);
+            this.drawPixel({ x: x, y: y + dy }, ctx);
+        }
+
+        for(let i = 0; i < Math.abs(dy); i++) {
+            y += incrY;
+            this.drawPixel({ x: x, y: y }, ctx);
+            this.drawPixel({ x: x - dx, y: y }, ctx);
+        }
+    }
+
+    standardDraw(ctx: CanvasRenderingContext2D): void {
         ctx.beginPath();
         ctx.rect(this.topLeft.x, this.topLeft.y, this.bottomRight.x - this.topLeft.x, this.bottomRight.y - this.topLeft.y);
         ctx.strokeStyle = this.strokeStyle;
@@ -157,7 +206,9 @@ export class Circle extends Shape {
         this.radius = radius;
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
+    pixelatedDraw(): void {}
+
+    standardDraw(ctx: CanvasRenderingContext2D): void {
         ctx.beginPath();
         ctx.arc(this.center.x, this.center.y, this.radius, 0, 2 * Math.PI);
         ctx.strokeStyle = this.strokeStyle;
@@ -189,7 +240,9 @@ export class Arrow extends Shape {
         this.end = end;
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
+    pixelatedDraw(): void {}
+
+    standardDraw(ctx: CanvasRenderingContext2D): void {
         const angle = Math.atan2(this.end.y - this.start.y, this.end.x - this.start.x);
         const headLength = 2 * this.lineWidth;
 
@@ -244,7 +297,9 @@ export class Triangle extends Shape {
         }
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
+    pixelatedDraw(): void {}
+
+    standardDraw(ctx: CanvasRenderingContext2D): void {
         ctx.beginPath();
         ctx.moveTo(this.points[0].x, this.points[0].y);
         ctx.lineTo(this.points[1].x, this.points[1].y);
@@ -286,7 +341,9 @@ export class Diamond extends Shape {
         }
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
+    pixelatedDraw(): void {}
+
+    standardDraw(ctx: CanvasRenderingContext2D): void {
         ctx.beginPath();
         ctx.moveTo(this.points[0].x, this.points[0].y);
        
@@ -331,7 +388,9 @@ export class Pentagon extends Shape {
         }
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
+    pixelatedDraw(): void {}
+
+    standardDraw(ctx: CanvasRenderingContext2D): void {
         ctx.beginPath();
         ctx.moveTo(this.points[0].x, this.points[0].y);
 
@@ -376,7 +435,9 @@ export class Hexagon extends Shape {
         }
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
+    pixelatedDraw(): void {}
+
+    standardDraw(ctx: CanvasRenderingContext2D): void {
         ctx.beginPath();
         ctx.moveTo(this.points[0].x, this.points[0].y);
 
@@ -421,7 +482,9 @@ export class Octagon extends Shape {
         }
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
+    pixelatedDraw(): void {}
+
+    standardDraw(ctx: CanvasRenderingContext2D): void {
         ctx.beginPath();
         ctx.moveTo(this.points[0].x, this.points[0].y);
 
@@ -476,7 +539,9 @@ export class Star extends Shape {
         }
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
+    pixelatedDraw(): void {}
+
+    standardDraw(ctx: CanvasRenderingContext2D): void {
         ctx.beginPath();
         ctx.moveTo(this.points[0].x, this.points[0].y);
 

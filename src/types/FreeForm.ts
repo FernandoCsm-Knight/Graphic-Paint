@@ -1,3 +1,4 @@
+import { Line } from "./ShapeGenerators";
 import { Shape, type Point, type ShapeOptions } from "./ShapeTypes";
 
 export default class FreeForm extends Shape {
@@ -35,43 +36,66 @@ export default class FreeForm extends Shape {
         }
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
+    lineTo(p: Point, ctx: CanvasRenderingContext2D): void {
+        const line = new Line(this.points[this.points.length - 1], p, {
+            strokeStyle: this.strokeStyle,
+            lineWidth: this.lineWidth,
+            pixelated: this.pixelated,
+            pixelSize: this.pixelSize
+        });
+
+        line.pixelatedDraw(ctx);
+    }
+
+    pixelatedDraw(ctx: CanvasRenderingContext2D): void {
         if(this.points.length === 0) return;
 
-        if(this.pixelated) {
-            const gco = ctx.globalCompositeOperation;
-            if(this.isEraser) ctx.globalCompositeOperation = 'destination-out';
+        const gco = ctx.globalCompositeOperation;
+        if(this.isEraser) ctx.globalCompositeOperation = 'destination-out';
 
-            ctx.beginPath();
+        ctx.beginPath();
 
-            ctx.strokeStyle = this.strokeStyle;
-            ctx.lineWidth = this.lineWidth;
+        ctx.strokeStyle = this.strokeStyle;
+        ctx.lineWidth = this.lineWidth;
 
-            for(let i = 0; i < this.points.length; i++) {
-                this.drawPixel(this.points[i], ctx);
-                if(this.isEraser) this.drawPixelGrid(this.points[i], ctx);
-            }
-
-            ctx.globalCompositeOperation = gco;
-        } else {
-            const gco = ctx.globalCompositeOperation;
-            if(this.isEraser) ctx.globalCompositeOperation = 'destination-out';
-
-            ctx.beginPath();
-            ctx.moveTo(this.points[0].x, this.points[0].y);
+        for(let i = 0; i < this.points.length - 1; i++) {
+            if(this.isEraser)  {
+                this.drawPixelGrid(this.points[i], ctx);
+            } else {
+                const line = new Line(this.points[i], this.points[i + 1], {
+                    strokeStyle: this.strokeStyle,
+                    lineWidth: this.lineWidth,
+                    pixelated: this.pixelated,
+                    pixelSize: this.pixelSize
+                });
     
-            for(let i = 1; i < this.points.length; i++) {
-                ctx.lineTo(this.points[i].x, this.points[i].y);
+                line.pixelatedDraw(ctx);
             }
-            
-            ctx.strokeStyle = this.strokeStyle;
-            ctx.lineWidth = this.lineWidth;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.stroke();
-
-            ctx.globalCompositeOperation = gco;
         }
+
+        ctx.globalCompositeOperation = gco;
+    }
+
+    standardDraw(ctx: CanvasRenderingContext2D): void {
+        if(this.points.length === 0) return;
+
+        const gco = ctx.globalCompositeOperation;
+        if(this.isEraser) ctx.globalCompositeOperation = 'destination-out';
+
+        ctx.beginPath();
+        ctx.moveTo(this.points[0].x, this.points[0].y);
+
+        for(let i = 1; i < this.points.length; i++) {
+            ctx.lineTo(this.points[i].x, this.points[i].y);
+        }
+        
+        ctx.strokeStyle = this.strokeStyle;
+        ctx.lineWidth = this.lineWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+
+        ctx.globalCompositeOperation = gco;
     }
 
     contains(p: Point): boolean {
