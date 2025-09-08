@@ -1,5 +1,15 @@
 import type { Point } from "./ShapeTypes";
-import { Line, Rectangle, Circle, Square, Arrow, Triangle, Diamond, Pentagon, Hexagon, Octagon, Star } from "./ShapeGenerators";
+import Line from "../shapes/Line";
+import Circle from "../shapes/Circle";
+import Octagon from "../shapes/Octagon";
+import Hexagon from "../shapes/Hexagon";
+import Star from "../shapes/Star";
+import Triangle from "../shapes/Triangle";
+import Square from "../shapes/Square";
+import Rectangle from "../shapes/Rectangle";
+import Pentagon from "../shapes/Pentagon";
+import Diamond from "../shapes/Diamond";
+import Arrow from "../shapes/Arrow";
 
 type ShapeGeneratorProps = {
     start: Point;

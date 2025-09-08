@@ -1,6 +1,12 @@
 
 export type Point = { x: number; y: number };
 
+export const lineInfo = (start: Point, end: Point): { angle: number; size: number } => {
+    const angle = Math.atan2(end.y - start.y, end.x - start.x);
+    const size = Math.hypot(end.x - start.x, end.y - start.y);
+    return { angle, size };
+};
+
 export type Geometric = 'circle' | 
                     'square' | 
                     'triangle' | 

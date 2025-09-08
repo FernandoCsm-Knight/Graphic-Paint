@@ -1,4 +1,5 @@
-import { Line } from "./ShapeGenerators";
+
+import Line from "../shapes/Line";
 import { Shape, type Point, type ShapeOptions } from "./ShapeTypes";
 
 export default class FreeForm extends Shape {
@@ -37,14 +38,39 @@ export default class FreeForm extends Shape {
     }
 
     lineTo(p: Point, ctx: CanvasRenderingContext2D): void {
-        const line = new Line(this.points[this.points.length - 1], p, {
-            strokeStyle: this.strokeStyle,
-            lineWidth: this.lineWidth,
-            pixelated: this.pixelated,
-            pixelSize: this.pixelSize
-        });
+        const lastPoint = this.points[this.points.length - 1];
+        const distance = Math.hypot(p.x - lastPoint.x, p.y - lastPoint.y);
 
-        line.pixelatedDraw(ctx);
+        const gco = ctx.globalCompositeOperation;
+        if(this.isEraser) ctx.globalCompositeOperation = 'destination-out';
+
+        ctx.strokeStyle = this.strokeStyle;
+
+        if(this.pixelated) {
+            if(!this.contains(p)) {
+                const line = new Line(lastPoint, p, {
+                    strokeStyle: this.strokeStyle,
+                    lineWidth: this.lineWidth,
+                    pixelated: this.pixelated,
+                    pixelSize: this.pixelSize
+                });
+        
+                line.pixelatedDraw(ctx);
+                this.addPoint(p);
+            }
+        } else if(distance > 2) {
+            ctx.beginPath();
+            ctx.moveTo(lastPoint.x, lastPoint.y);
+            ctx.lineTo(p.x, p.y);
+            ctx.lineWidth = this.lineWidth;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+
+            this.addPoint(p);
+        }
+
+        ctx.globalCompositeOperation = gco;
     }
 
     pixelatedDraw(ctx: CanvasRenderingContext2D): void {

@@ -175,38 +175,7 @@ const useCanvas = (pixelSize: number = 20) => {
 
                 if(selectedShape.current === 'freeform') {
                     if(currentShape.current instanceof FreeForm) {
-                        const form = currentShape.current;
-                        const lastPoint = form.points[form.points.length - 1];
-                        
-                        if(isEraserActive.current) ctx.globalCompositeOperation = 'destination-out';
-
-                        if(pixelated) {
-                            const hasPixel = form.contains(point);
-                            if(!hasPixel) {
-                                ctx.strokeStyle = form.strokeStyle;
-                                form.lineTo(point, ctx);
-                                
-                                if(isEraserActive.current) form.drawPixelGrid(point, ctx);
-                                form.addPoint(point);
-                            }
-                        } else {
-                            const distance = Math.hypot(x - lastPoint.x, y - lastPoint.y);
-                            
-                            if(distance > 2) {                                
-                                ctx.beginPath();
-                                ctx.moveTo(lastPoint.x, lastPoint.y);
-                                ctx.lineTo(x, y);
-                                ctx.strokeStyle = form.strokeStyle;
-                                ctx.lineWidth = form.lineWidth;
-                                ctx.lineCap = 'round';
-                                ctx.lineJoin = 'round';
-                                ctx.stroke();   
-                            }
-
-                            form.addPoint(point);
-                        }
-                        
-                        ctx.globalCompositeOperation = 'source-over';
+                        currentShape.current.lineTo(point, ctx);
                     }
                 } else {
                     if(currentShape.current) redrawAllShapes();
@@ -226,7 +195,7 @@ const useCanvas = (pixelSize: number = 20) => {
                 } 
             }
         }
-    }, [selectedShape, isEraserActive, redrawAllShapes, pixelated, pixelSize, currentColor, thickness, canvasRef, contextRef]);
+    }, [selectedShape, redrawAllShapes, pixelated, pixelSize, currentColor, thickness, canvasRef, contextRef]);
 
     const handlePointerUp = useCallback(() => {
         if(currentShape.current) {
