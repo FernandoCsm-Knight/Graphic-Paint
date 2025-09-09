@@ -14,6 +14,7 @@ const PaintProvider = ({ children }: PaintProviderProps) => {
         containerRef: useRef<HTMLDivElement | null>(null),
         contextRef: useRef<CanvasRenderingContext2D | null>(null),
         isEraserActive: useRef<boolean>(false),
+        isFillActive: useRef<boolean>(false),
         currentColor: useRef<string>('#000000'),
         selectedShape: useRef<Geometric>('freeform'),
         thickness: useRef<number>(5),

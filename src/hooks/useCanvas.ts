@@ -5,6 +5,7 @@ import generator from "../types/ShapeGenerator";
 import FreeForm from "../types/FreeForm";
 import Board from "../types/Board";
 import ClipboardImage from "../types/ClipboardImage";
+import { FloodFill } from "../algorithms/FloodFill";
 
 const useCanvas = (pixelSize: number = 20) => {
     const { 
@@ -14,6 +15,7 @@ const useCanvas = (pixelSize: number = 20) => {
         thickness, 
         currentColor, 
         isEraserActive, 
+        isFillActive,
         pixelated,
         selectedShape
     } = useContext(PaintContext)!;
@@ -135,8 +137,6 @@ const useCanvas = (pixelSize: number = 20) => {
     }, [redrawAllShapes]);
 
     const handlePointerDown = useCallback((e: PointerEvent<HTMLCanvasElement>) => {
-        isDrawing.current = true;
-        
         const ctx = contextRef.current;
         const canvas = canvasRef.current;
         
@@ -145,6 +145,13 @@ const useCanvas = (pixelSize: number = 20) => {
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
+            // Se o modo de preenchimento está ativo, execute o flood fill
+            if(isFillActive.current && pixelated) {
+                FloodFill.fill(ctx, x, y, currentColor.current, pixelSize);
+                return;
+            }
+
+            isDrawing.current = true;
             start.current = (pixelated) ? board.current!.map({ x: x, y: y }) : { x: x, y: y };
 
             if(selectedShape.current === 'freeform') {
@@ -159,7 +166,7 @@ const useCanvas = (pixelSize: number = 20) => {
                 currentShape.current = form;
             }
         }
-    }, [start, selectedShape, isEraserActive, pixelated, pixelSize, currentColor, thickness, canvasRef, contextRef]);
+    }, [start, selectedShape, isEraserActive, isFillActive, pixelated, pixelSize, currentColor, thickness, canvasRef, contextRef]);
 
     const handlePointerMove = useCallback((e: PointerEvent<HTMLCanvasElement>) => {
         if(isDrawing.current) {

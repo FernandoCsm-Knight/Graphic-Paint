@@ -6,6 +6,7 @@ export type PaintContextType = {
     containerRef: RefObject<HTMLDivElement | null>;
     contextRef: RefObject<CanvasRenderingContext2D | null>;
     isEraserActive: RefObject<boolean>;
+    isFillActive: RefObject<boolean>;
     currentColor: RefObject<string>;
     thickness: RefObject<number>;
     selectedShape: RefObject<Geometric>;
