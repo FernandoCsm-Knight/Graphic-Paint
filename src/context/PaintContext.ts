@@ -1,18 +1,20 @@
 import { createContext, type RefObject } from "react";
-import type { Geometric } from "../types/ShapeTypes";
+import type { Geometric } from "../types/Graphics";
 
 export type PaintContextType = {
     canvasRef: RefObject<HTMLCanvasElement | null>;
     containerRef: RefObject<HTMLDivElement | null>;
     contextRef: RefObject<CanvasRenderingContext2D | null>;
-    isEraserActive: RefObject<boolean>;
-    isFillActive: RefObject<boolean>;
     currentColor: RefObject<string>;
     thickness: RefObject<number>;
     selectedShape: RefObject<Geometric>;
     
     pixelated: boolean;
     setPixelated: (value: boolean) => void;
+    isEraserActive: boolean;
+    setEraser: (value: boolean) => void;
+    isFillActive: boolean;
+    setFill: (value: boolean) => void;
 
 };
 

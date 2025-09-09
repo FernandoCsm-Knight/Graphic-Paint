@@ -1,4 +1,5 @@
-import { Shape, type Point, type ShapeOptions } from "../types/ShapeTypes";
+import type { Point } from "../types/Graphics";
+import { Shape, type ShapeOptions } from "../types/ShapeTypes";
 
 export default class Circle extends Shape {
     kind = 'circle' as const;

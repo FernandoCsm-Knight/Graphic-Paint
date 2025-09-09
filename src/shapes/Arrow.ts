@@ -1,5 +1,6 @@
-import { Shape, type Point, type ShapeOptions } from "../types/ShapeTypes";
+import { Shape, type ShapeOptions } from "../types/ShapeTypes";
 import bresenham from "../algorithms/BresenhamLine";
+import type { Point } from "../types/Graphics";
 
 export default class Arrow extends Shape {
     kind = 'arrow' as const;

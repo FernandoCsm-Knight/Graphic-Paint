@@ -1,11 +1,12 @@
 import { useEffect, useRef, useCallback, type PointerEvent, useContext } from "react";
 import { PaintContext } from "../context/PaintContext";
-import type { Point, Shape } from "../types/ShapeTypes";
+import { Shape } from "../types/ShapeTypes";
 import generator from "../types/ShapeGenerator";
 import FreeForm from "../types/FreeForm";
 import Board from "../types/Board";
 import ClipboardImage from "../types/ClipboardImage";
-import { FloodFill } from "../algorithms/FloodFill";
+import FloodFill from "../algorithms/FloodFill";
+import { map, type Point } from "../types/Graphics";
 
 const useCanvas = (pixelSize: number = 20) => {
     const { 
@@ -146,19 +147,20 @@ const useCanvas = (pixelSize: number = 20) => {
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            if(isFillActive.current && pixelated) {
-                FloodFill.fill(ctx, board.current!.map({ x: x, y: y }), currentColor.current, pixelSize);
+            if(isFillActive && pixelated) {
+                FloodFill.fill(ctx, map({ x: x, y: y }, pixelSize), currentColor.current, pixelSize, isEraserActive);
                 return;
             }
 
             isDrawing.current = true;
-            start.current = (pixelated) ? board.current!.map({ x: x, y: y }) : { x: x, y: y };
+            start.current = (pixelated) ? map({ x: x, y: y }, pixelSize) : { x: x, y: y };
 
             if(selectedShape.current === 'freeform') {
                 const form = new FreeForm([start.current], {
                     strokeStyle: currentColor.current,
                     lineWidth: thickness.current,
-                    isEraser: isEraserActive.current,
+                    isEraser: isEraserActive,
+                    filled: isFillActive,
                     pixelated: pixelated,
                     pixelSize: pixelSize
                 });
@@ -178,7 +180,7 @@ const useCanvas = (pixelSize: number = 20) => {
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
 
-                const point = (pixelated) ? board.current!.map({ x: x, y: y }) : { x: x, y: y };
+                const point = (pixelated) ? map({ x: x, y: y }, pixelSize) : { x: x, y: y };
 
                 if(selectedShape.current === 'freeform') {
                     if(currentShape.current instanceof FreeForm) {

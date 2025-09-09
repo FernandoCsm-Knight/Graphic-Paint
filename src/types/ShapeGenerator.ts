@@ -1,4 +1,4 @@
-import type { Point } from "./ShapeTypes";
+import type { Point } from "./Graphics";
 import Line from "../shapes/Line";
 import Circle from "../shapes/Circle";
 import Octagon from "../shapes/Octagon";

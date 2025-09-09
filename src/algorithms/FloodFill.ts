@@ -1,19 +1,18 @@
-import type { Point } from "../types/ShapeTypes";
+import { isSameColor, pixelCenter, type Point, type RGBA } from "../types/Graphics";
 
-type RGBA = { r: number; g: number; b: number; a: number };
-
-export class FloodFill {
+export default class FloodFill {
     static fill(
         ctx: CanvasRenderingContext2D,
         point: Point,
         fillColor: string,
-        pixelSize: number
+        pixelSize: number,
+        isEraser: boolean
     ): void {
         const canvas = ctx.canvas;
-        const fillColorRgb = this.hexToRgb(fillColor);
+        const fillColorRgb = isEraser ? { r: 0, g: 0, b: 0, a: 0 } : this.hexToRgb(fillColor);
 
         const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        const center = this.pixelCenter(point, pixelSize);
+        const center = pixelCenter(point, pixelSize);
 
         const index = (center.y * canvas.width + center.x) * 4;
         const seed = {
@@ -23,9 +22,9 @@ export class FloodFill {
             a: data[index + 3]
         };
 
-        if(seed.a < 250 || !this.isSameColor(seed, fillColorRgb, 0)) {
+        if(seed.a < 250 || !isSameColor(seed, fillColorRgb, 0)) {
             const isTransparentSeed = seed.a < 250;
-    
+
             this.floodFillPixelated(
                 ctx,
                 data,
@@ -33,7 +32,8 @@ export class FloodFill {
                 seed,
                 fillColorRgb,
                 pixelSize,
-                isTransparentSeed
+                isTransparentSeed,
+                isEraser
             );
         }
     }
@@ -45,7 +45,8 @@ export class FloodFill {
         targetColor: RGBA,
         fillColor: RGBA,
         pixelSize: number,
-        targetIsTransparent: boolean
+        targetIsTransparent: boolean,
+        isEraser: boolean
     ): void {
         const canvas = ctx.canvas;
 
@@ -58,7 +59,7 @@ export class FloodFill {
         const gco = ctx.globalCompositeOperation;
 
         ctx.fillStyle = `rgb(${fillColor.r}, ${fillColor.g}, ${fillColor.b})`;
-        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalCompositeOperation = isEraser ? 'destination-out' :'source-over';
         ctx.globalAlpha = 1;
         
         const tolerance = 2;
@@ -68,7 +69,7 @@ export class FloodFill {
             const key = `${p.x},${p.y}`;
 
             if(!visited.has(key) && (p.x >= 0 && p.x <= maxX && p.y >= 0 && p.y <= maxY)) {
-                const center = this.pixelCenter(p, pixelSize);
+                const center = pixelCenter(p, pixelSize);
 
                 const idx = (center.y * canvas.width + center.x) * 4;
                 const r = data[idx];
@@ -80,7 +81,7 @@ export class FloodFill {
                 if(targetIsTransparent) {
                     isTarget = a < 250;
                 } else {
-                    isTarget = a >= 250 && this.isSameColor({ r, g, b, a }, targetColor, tolerance);
+                    isTarget = a >= 250 && isSameColor({ r, g, b, a }, targetColor, tolerance);
                 }
 
                 if(isTarget) {                    
@@ -96,24 +97,6 @@ export class FloodFill {
         }
 
         ctx.globalCompositeOperation = gco;
-    }
-
-    private static pixelCenter(p: Point, pixelSize: number): Point {
-        const cx = p.x * pixelSize + Math.floor(pixelSize / 2);
-        const cy = p.y * pixelSize + Math.floor(pixelSize / 2);
-        return { x: cx, y: cy };
-    }
-    
-    private static isSameColor(
-        a: RGBA,
-        b: RGBA,
-        tolerance: number
-    ): boolean {
-        return (
-            Math.abs(a.r - b.r) <= tolerance &&
-            Math.abs(a.g - b.g) <= tolerance &&
-            Math.abs(a.b - b.b) <= tolerance
-        );
     }
     
     private static hexToRgb(hex: string): RGBA {

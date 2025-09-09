@@ -1,4 +1,4 @@
-import type { Point } from "../types/ShapeTypes";
+import type { Point } from "../types/Graphics";
 import bresenham from "./BresenhamLine";
 
 export const rasterizePixelatedPolygon = (

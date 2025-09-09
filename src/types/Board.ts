@@ -1,4 +1,5 @@
-import { Shape, type Point, type ShapeOptions } from "./ShapeTypes";
+import type { Point } from "./Graphics";
+import { Shape, type ShapeOptions } from "./ShapeTypes";
 
 export default class Board extends Shape {
     kind = 'board' as const;
@@ -14,13 +15,6 @@ export default class Board extends Shape {
         this.height = height;
         this.xCount = Math.floor(width / this.pixelSize);
         this.yCount = Math.floor(height / this.pixelSize);
-    }
-
-    map(p: Point): Point {
-        return {
-            x: Math.floor(p.x / this.pixelSize),
-            y: Math.floor(p.y / this.pixelSize)
-        }
     }
 
     isValidGridPosition(gridPos: Point): boolean {

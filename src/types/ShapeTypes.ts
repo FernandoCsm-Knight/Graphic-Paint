@@ -1,41 +1,20 @@
-
-export type Point = { x: number; y: number };
-
-export const lineInfo = (start: Point, end: Point): { angle: number; size: number } => {
-    const angle = Math.atan2(end.y - start.y, end.x - start.x);
-    const size = Math.hypot(end.x - start.x, end.y - start.y);
-    return { angle, size };
-};
-
-export type Geometric = 'circle' | 
-                    'square' | 
-                    'triangle' | 
-                    'diamond' | 
-                    'pentagon' | 
-                    'hexagon' | 
-                    'octagon' | 
-                    'star' | 
-                    'rect' | 
-                    'line' | 
-                    'arrow' | 
-                    'board' |
-                    'image' |
-                    'freeform';
+import type { Geometric, Point } from "./Graphics";
 
 export type ShapeOptions = {
     strokeStyle?: string;
     fillStyle?: string;
     lineWidth?: number;
+    filled?: boolean;
     pixelated?: boolean;
     pixelSize?: number;
 };
 
 export abstract class Shape {
     abstract kind: Geometric;
-
     strokeStyle: string;
     fillStyle: string;
     lineWidth: number;
+    filled: boolean;
     pixelated: boolean;
     pixelSize: number;
 
@@ -43,6 +22,7 @@ export abstract class Shape {
         this.strokeStyle = opts.strokeStyle ?? '#000000';
         this.fillStyle = opts.fillStyle ?? '#FFFFFF';
         this.lineWidth = opts.lineWidth ?? 1;
+        this.filled = opts.filled ?? false;
         this.pixelated = opts.pixelated ?? false;
         this.pixelSize = opts.pixelSize ?? 20;
     }

@@ -1,5 +1,6 @@
-import { Shape, type Point, type ShapeOptions } from "../types/ShapeTypes";
+import { Shape, type ShapeOptions } from "../types/ShapeTypes";
 import { rasterizePixelatedPolygon, rasterizePolygon } from "../algorithms/PolygonRasterization";
+import type { Point } from "../types/Graphics";
 
 export default class Star extends Shape {
     kind = 'star' as const;
