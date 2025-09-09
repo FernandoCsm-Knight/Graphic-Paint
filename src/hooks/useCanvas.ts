@@ -100,6 +100,7 @@ const useCanvas = (pixelSize: number = 20) => {
                 if(ctx) {
                     ctx.imageSmoothingEnabled = false;
                     
+                    ctx.globalAlpha = 1;
                     ctx.lineCap = 'round';
                     ctx.lineJoin = 'round';
                     
@@ -145,9 +146,8 @@ const useCanvas = (pixelSize: number = 20) => {
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            // Se o modo de preenchimento está ativo, execute o flood fill
             if(isFillActive.current && pixelated) {
-                FloodFill.fill(ctx, x, y, currentColor.current, pixelSize);
+                FloodFill.fill(ctx, board.current!.map({ x: x, y: y }), currentColor.current, pixelSize);
                 return;
             }
 
