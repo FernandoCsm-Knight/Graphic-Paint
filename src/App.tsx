@@ -61,7 +61,7 @@ function App() {
             <MenuProvider>
                 <Menu />
             </MenuProvider>
-            <main ref={containerRef} className='h-full w-full relative inline-block'>
+            <main ref={containerRef} className='h-full w-full relative'>
                 <canvas
                     ref={replacementCanvasRef}
                     className='absolute border-0 pointer-events-none top-0 left-0'
