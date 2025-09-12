@@ -123,7 +123,12 @@ const useCanvas = (pixelSize: number = 20) => {
                 replacementCanvas.width = cssWidth;
                 replacementCanvas.height = cssHeight;
 
-                const ctx = canvas.getContext("2d");
+                const contextSettings: CanvasRenderingContext2DSettings = {
+                    alpha: true,
+                    willReadFrequently: true
+                };
+
+                const ctx = canvas.getContext("2d", contextSettings);
                 if(ctx) {
                     ctx.imageSmoothingEnabled = false;
                     ctx.globalAlpha = 1;
@@ -182,26 +187,27 @@ const useCanvas = (pixelSize: number = 20) => {
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            if(isFillActive && pixelated) {
-                FloodFill.fill(ctx, map({ x: x, y: y }, pixelSize), currentColor.current, pixelSize, isEraserActive);
-                return;
+            if(isFillActive) {
+                FloodFill.fill(ctx, { x: x, y: y }, currentColor.current, pixelSize, isEraserActive, pixelated);
+            } else {
+
+                isDrawing.current = true;
+                start.current = (pixelated) ? map({ x: x, y: y }, pixelSize) : { x: x, y: y };
+    
+                if(selectedShape === 'freeform') {
+                    const form = new FreeForm([start.current], {
+                        strokeStyle: currentColor.current,
+                        lineWidth: thickness.current,
+                        isEraser: isEraserActive,
+                        filled: isFillActive,
+                        pixelated: pixelated,
+                        pixelSize: pixelSize
+                    });
+    
+                    currentShape.current = form;
+                }
             }
 
-            isDrawing.current = true;
-            start.current = (pixelated) ? map({ x: x, y: y }, pixelSize) : { x: x, y: y };
-
-            if(selectedShape === 'freeform') {
-                const form = new FreeForm([start.current], {
-                    strokeStyle: currentColor.current,
-                    lineWidth: thickness.current,
-                    isEraser: isEraserActive,
-                    filled: isFillActive,
-                    pixelated: pixelated,
-                    pixelSize: pixelSize
-                });
-
-                currentShape.current = form;
-            }
         }
     }, [start, selectedShape, isEraserActive, isFillActive, pixelated, pixelSize, currentColor, thickness, canvasRef, contextRef]);
 
