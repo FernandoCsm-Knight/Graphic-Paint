@@ -4,7 +4,7 @@ import { Shape } from "../types/ShapeTypes";
 import generator from "../types/ShapeGenerator";
 import FreeForm from "../types/FreeForm";
 import ClipboardImage from "../types/ClipboardImage";
-import FloodFill from "../algorithms/FloodFill";
+import FloodFillShape from "../shapes/FloodFillShape";
 import { map, type Point } from "../types/Graphics";
 
 const useCanvas = () => {
@@ -185,13 +185,21 @@ const useCanvas = () => {
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            if(isFillActive) {
-                FloodFill.fill(ctx, { x: x, y: y }, currentColor.current, settings.pixelSize, isEraserActive, pixelated);
-            } else {
+            isDrawing.current = true;
+            start.current = (pixelated) ? map({ x: x, y: y }, settings.pixelSize) : { x: x, y: y };
 
-                isDrawing.current = true;
-                start.current = (pixelated) ? map({ x: x, y: y }, settings.pixelSize) : { x: x, y: y };
-    
+            if(isFillActive) {
+                const floodFillShape = new FloodFillShape({
+                    point: start.current,
+                    strokeStyle: currentColor.current,
+                    isEraser: isEraserActive,
+                    pixelated: pixelated,
+                    pixelSize: settings.pixelSize
+                });
+                
+                floodFillShape.draw(ctx);
+                currentShape.current = floodFillShape;
+            } else {
                 if(selectedShape === 'freeform') {
                     const form = new FreeForm([start.current], {
                         strokeStyle: currentColor.current,

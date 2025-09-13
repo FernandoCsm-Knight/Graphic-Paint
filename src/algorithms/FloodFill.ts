@@ -1,4 +1,4 @@
-import { isSameColor, map, pixelCenter, type Point, type RGBA } from "../types/Graphics";
+import { isSameColor, pixelCenter, type Point, type RGBA } from "../types/Graphics";
 
 export default class FloodFill {
     static fill(
@@ -16,7 +16,7 @@ export default class FloodFill {
         
         let center: Point;
         if (pixelated) {
-            center = pixelCenter(map(point, pixelSize), pixelSize);
+            center = pixelCenter(point, pixelSize);
         } else {
             center = {
                 x: Math.max(0, Math.min(Math.floor(point.x), canvas.width - 1)),
@@ -38,7 +38,7 @@ export default class FloodFill {
                 this.floodFillPixelated(
                     ctx,
                     data,
-                    map(point, pixelSize),
+                    point,
                     seed,
                     fillColorRgb,
                     pixelSize,
