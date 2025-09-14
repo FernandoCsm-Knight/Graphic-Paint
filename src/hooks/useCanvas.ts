@@ -55,7 +55,6 @@ const useCanvas = () => {
         if (snapshot) {
             canvasSnapshots.current.push(snapshot);
             currentSnapshot.current = snapshot;
-            // Limpar redo stack quando nova ação é feita
             redoSnapshotsRef.current = [];
         }
     }, [takeSnapshot]);
@@ -94,13 +93,11 @@ const useCanvas = () => {
             lastPixelatedMode.current = pixelated;
         }
 
-        // Redesenhar todas as formas (usado apenas em situações especiais como resize)
         drawnShapes.current.forEach(shape => shape.draw(ctx));
         
-        // Salvar snapshot inicial se não existe
-        if (canvasSnapshots.current.length === 0) {
+        if(canvasSnapshots.current.length === 0) {
             const initialSnapshot = takeSnapshot();
-            if (initialSnapshot) {
+            if(initialSnapshot) {
                 canvasSnapshots.current.push(initialSnapshot);
                 currentSnapshot.current = initialSnapshot;
             }
@@ -201,23 +198,16 @@ const useCanvas = () => {
     }, [pixelated, settings, thickness, currentColor, canvasRef, replacementCanvasRef, containerRef, contextRef, replacementContextRef, redrawAllShapes, redrawGrid, clearGrid]);
 
     const undo = useCallback(() => {
-        if(canvasSnapshots.current.length <= 1) return; // Mantém pelo menos o estado inicial
+        if(canvasSnapshots.current.length <= 1) return;
 
-        // Salvar estado atual no redo stack antes de fazer undo
         const currentSnap = canvasSnapshots.current.pop();
-        if (currentSnap) {
-            redoSnapshotsRef.current.push(currentSnap);
-        }
-
-        // Remover forma correspondente da lista de shapes
+        if(currentSnap) redoSnapshotsRef.current.push(currentSnap);
+        
         const removedShape = drawnShapes.current.pop();
-        if (removedShape) {
-            redoStackRef.current.push(removedShape);
-        }
+        if(removedShape) redoStackRef.current.push(removedShape);
 
-        // Restaurar snapshot anterior
         const previousSnapshot = canvasSnapshots.current[canvasSnapshots.current.length - 1];
-        if (previousSnapshot) {
+        if(previousSnapshot) {
             restoreSnapshot(previousSnapshot);
             currentSnapshot.current = previousSnapshot;
         }
@@ -226,19 +216,15 @@ const useCanvas = () => {
     const redo = useCallback(() => {
         if(redoSnapshotsRef.current.length === 0) return;
 
-        // Restaurar snapshot do redo
         const redoSnapshot = redoSnapshotsRef.current.pop();
-        if (redoSnapshot) {
+        if(redoSnapshot) {
             canvasSnapshots.current.push(redoSnapshot);
             restoreSnapshot(redoSnapshot);
             currentSnapshot.current = redoSnapshot;
         }
 
-        // Restaurar forma correspondente
         const redoShape = redoStackRef.current.pop();
-        if (redoShape) {
-            drawnShapes.current.push(redoShape);
-        }
+        if(redoShape) drawnShapes.current.push(redoShape);
     }, [restoreSnapshot]);
 
     const handlePointerDown = useCallback((e: PointerEvent<HTMLCanvasElement>) => {
@@ -266,13 +252,6 @@ const useCanvas = () => {
                 
                 floodFillShape.draw(ctx);
                 currentShape.current = floodFillShape;
-                
-                // FloodFill é instantâneo, então finalizamos imediatamente
-                drawnShapes.current.push(floodFillShape);
-                redoStackRef.current = [];
-                saveCurrentState();
-                isDrawing.current = false;
-                currentShape.current = null;
             } else {
                 if(selectedShape === 'freeform') {
                     const form = new FreeForm([start.current], {
@@ -284,7 +263,8 @@ const useCanvas = () => {
                         pixelSize: settings.pixelSize,
                         lineAlgorithm: settings.lineAlgorithm
                     });
-    
+                    
+                    form.draw(ctx);
                     currentShape.current = form;
                 }
             }
@@ -352,7 +332,6 @@ const useCanvas = () => {
             if(currentShape.current) {
                 drawnShapes.current.push(currentShape.current);
                 redoStackRef.current = [];
-                // Salvar snapshot após finalizar a forma
                 saveCurrentState();
             }
     

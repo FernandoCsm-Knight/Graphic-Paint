@@ -23,7 +23,7 @@ const Menu = () => {
                 className="absolute z-50 rounded-xl shadow-lg bg-gray-200/30 backdrop-blur-sm max-w-[95vw] max-h-[95vh] overflow-hidden"
                 style={draggable.style}
             >
-                <div className="relative flex items-center gap-2 sm:gap-4 p-2 sm:p-4 flex-wrap sm:flex-nowrap">
+                <div className="relative flex items-center gap-2 sm:gap-3 p-2 sm:p-4 flex-wrap sm:flex-nowrap">
                     <MenuTitle/>
                     <ColorSelector/>
                     <EraserButton/>

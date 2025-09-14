@@ -50,6 +50,7 @@ export default class FreeForm extends Shape {
         if(this.pixelated) {
             ctx.fillStyle = this.strokeStyle;
             if(!this.contains(p)) {
+                if(this.points.length === 1) this.drawPixel(lastPoint, ctx);
                 const algorithm = this.lineAlgorithm === 'dda' ? dda : bresenham;
                 algorithm(lastPoint, p, this.drawPixel.bind(this), ctx);
                 this.addPoint(p);
@@ -74,15 +75,19 @@ export default class FreeForm extends Shape {
 
         const gco = ctx.globalCompositeOperation;
         if(this.isEraser) ctx.globalCompositeOperation = 'destination-out';
-    const prev = ctx.fillStyle;
-    ctx.fillStyle = this.strokeStyle;
+        const prev = ctx.fillStyle;
+        ctx.fillStyle = this.strokeStyle;
 
-        for(let i = 0; i < this.points.length - 1; i++) {
-            const algorithm = this.lineAlgorithm === 'dda' ? dda : bresenham;
-            algorithm(this.points[i], this.points[i + 1], this.drawPixel.bind(this), ctx);
+        if(this.points.length === 1) {
+            this.drawPixel(this.points[0], ctx);
+        } else {
+            for(let i = 0; i < this.points.length - 1; i++) {
+                const algorithm = this.lineAlgorithm === 'dda' ? dda : bresenham;
+                algorithm(this.points[i], this.points[i + 1], this.drawPixel.bind(this), ctx);
+            }
         }
 
-    ctx.fillStyle = prev;
+        ctx.fillStyle = prev;
         ctx.globalCompositeOperation = gco;
     }
 
@@ -92,18 +97,25 @@ export default class FreeForm extends Shape {
         const gco = ctx.globalCompositeOperation;
         if(this.isEraser) ctx.globalCompositeOperation = 'destination-out';
 
-        ctx.beginPath();
-        ctx.moveTo(this.points[0].x, this.points[0].y);
+        if(this.points.length === 1) {
+            ctx.beginPath();
+            ctx.arc(this.points[0].x, this.points[0].y, this.lineWidth / 2, 0, 2 * Math.PI);
+            ctx.fillStyle = this.strokeStyle;
+            ctx.fill();
+        } else {
+            ctx.beginPath();
+            ctx.moveTo(this.points[0].x, this.points[0].y);
 
-        for(let i = 1; i < this.points.length; i++) {
-            ctx.lineTo(this.points[i].x, this.points[i].y);
+            for(let i = 1; i < this.points.length; i++) {
+                ctx.lineTo(this.points[i].x, this.points[i].y);
+            }
+            
+            ctx.strokeStyle = this.strokeStyle;
+            ctx.lineWidth = this.lineWidth;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
         }
-        
-        ctx.strokeStyle = this.strokeStyle;
-        ctx.lineWidth = this.lineWidth;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.stroke();
 
         ctx.globalCompositeOperation = gco;
     }

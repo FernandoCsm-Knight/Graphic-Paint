@@ -22,7 +22,7 @@ const WidthSelector = () => {
 
     return(
         <label className="flex items-center flex-col gap-1 sm:gap-2 min-w-0 flex-shrink">
-            <span className="bg-gray-300 px-1.5 sm:px-2.5 py-0.5 rounded-md text-xs sm:text-sm whitespace-nowrap">Width {lineWidth}</span>
+            <span className="bg-gray-300 px-1.5 sm:px-2.5 py-0.5 rounded-md text-xs sm:text-sm whitespace-nowrap">width {lineWidth}</span>
             <input type="range" min="1" max={pixelated ? "5" :"100"} step="1" value={lineWidth} onChange={(e) => {onLineWidthChange(Number.parseInt(e.target.value))}} className="w-20 sm:w-32 h-2 bg-gray-300 rounded-lg cursor-pointer accent-gray-700" />
         </label>
     );
