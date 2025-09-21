@@ -4,6 +4,7 @@ import { Shape } from "../types/ShapeTypes";
 import generator from "../types/ShapeGenerator";
 import FreeForm from "../types/FreeForm";
 import ClipboardImage from "../types/ClipboardImage";
+import { ClipboardImageLoader } from "../utils/ClipboardImageLoader";
 import FloodFillShape from "../shapes/FloodFillShape";
 import { map, type Point } from "../types/Graphics";
 
@@ -18,6 +19,7 @@ const useCanvas = () => {
         currentColor, 
         isEraserActive, 
         isFillActive,
+        isSelectionActive,
         pixelated,
         selectedShape,
         settings
@@ -30,29 +32,25 @@ const useCanvas = () => {
     const redoStackRef = useRef<Shape[]>([]);
     const currentShape = useRef<Shape | null>(null);
 
-    // Sistema de snapshots para performance O(1)
     const canvasSnapshots = useRef<ImageData[]>([]);
     const redoSnapshotsRef = useRef<ImageData[]>([]);
     const currentSnapshot = useRef<ImageData | null>(null);
 
     const lastPixelatedMode = useRef<boolean>(pixelated);
 
-    // Funções utilitárias para snapshots
     const takeSnapshot = useCallback((): ImageData | null => {
         const ctx = contextRef.current;
-        if (!ctx) return null;
-        return ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+        return (ctx) ? ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height) : null;
     }, [contextRef]);
 
     const restoreSnapshot = useCallback((snapshot: ImageData) => {
         const ctx = contextRef.current;
-        if (!ctx) return;
-        ctx.putImageData(snapshot, 0, 0);
+        if(ctx) ctx.putImageData(snapshot, 0, 0);
     }, [contextRef]);
 
     const saveCurrentState = useCallback(() => {
         const snapshot = takeSnapshot();
-        if (snapshot) {
+        if(snapshot) {
             canvasSnapshots.current.push(snapshot);
             currentSnapshot.current = snapshot;
             redoSnapshotsRef.current = [];
@@ -64,7 +62,7 @@ const useCanvas = () => {
         drawnShapes.current.push(clipboardImage);
         
         const ctx = contextRef.current;
-        if (ctx) {
+        if(ctx) {
             clipboardImage.draw(ctx);
             saveCurrentState();
         }
@@ -227,6 +225,41 @@ const useCanvas = () => {
         if(redoShape) drawnShapes.current.push(redoShape);
     }, [restoreSnapshot]);
 
+    // Selection overlay helpers (drawn on replacement canvas over/under grid)
+    const drawSelectionRect = useCallback((x: number, y: number, w: number, h: number) => {
+        const overlay = replacementContextRef.current;
+        if(!overlay) return;
+        // draw over existing overlay (grid remains if behind)
+        overlay.save();
+        overlay.setLineDash([4, 4]);
+        overlay.lineWidth = 1;
+        overlay.strokeStyle = '#1d4ed8';
+        overlay.fillStyle = 'rgba(59,130,246,0.15)';
+
+        overlay.clearRect(0, 0, overlay.canvas.width, overlay.canvas.height);
+        if(pixelated && settings.gridDisplayMode !== 'none') {
+            redrawGrid(overlay.canvas.width, overlay.canvas.height);
+        }
+
+        overlay.beginPath();
+        overlay.rect(x, y, w, h);
+        overlay.fill();
+        overlay.stroke();
+        overlay.restore();
+    }, [replacementContextRef, redrawGrid, pixelated, settings.gridDisplayMode]);
+
+    const clearSelectionOverlay = useCallback(() => {
+        const overlay = replacementContextRef.current;
+        if(!overlay) return;
+        overlay.clearRect(0, 0, overlay.canvas.width, overlay.canvas.height);
+        if (pixelated && settings.gridDisplayMode !== 'none') {
+            redrawGrid(overlay.canvas.width, overlay.canvas.height);
+        }
+    }, [replacementContextRef, redrawGrid, pixelated, settings.gridDisplayMode]);
+
+    const selectionStart = useRef<Point | null>(null);
+    const selectionEnd = useRef<Point | null>(null);
+
     const handlePointerDown = useCallback((e: PointerEvent<HTMLCanvasElement>) => {
         if(e.button !== 0) return;
 
@@ -240,6 +273,16 @@ const useCanvas = () => {
 
             isDrawing.current = true;
             start.current = (pixelated) ? map({ x: x, y: y }, settings.pixelSize) : { x: x, y: y };
+
+            if(isSelectionActive) {
+                const snap = (v: number) => pixelated ? Math.floor(v / settings.pixelSize) * settings.pixelSize : v;
+                const sx = snap(x);
+                const sy = snap(y);
+                selectionStart.current = { x: sx, y: sy };
+                selectionEnd.current = { x: sx, y: sy };
+                drawSelectionRect(sx, sy, 1, 1);
+                return;
+            }
 
             if(isFillActive) {
                 const floodFillShape = new FloodFillShape({
@@ -270,7 +313,7 @@ const useCanvas = () => {
             }
 
         }
-    }, [start, selectedShape, isEraserActive, isFillActive, pixelated, settings, currentColor, thickness, canvasRef, contextRef, saveCurrentState]);
+    }, [start, selectedShape, isEraserActive, isFillActive, isSelectionActive, pixelated, settings, currentColor, thickness, canvasRef, contextRef, saveCurrentState, drawSelectionRect]);
 
     const rafId = useRef<number | null>(null);
     const pendingPoint = useRef<Point | null>(null);
@@ -286,6 +329,21 @@ const useCanvas = () => {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         const point = (pixelated) ? map({ x, y }, settings.pixelSize) : { x, y };
+
+        if(isSelectionActive) {
+            if(selectionStart.current) {
+                const snap = (v: number) => pixelated ? Math.floor(v / settings.pixelSize) * settings.pixelSize : v;
+                const nx = snap(x);
+                const ny = snap(y);
+                selectionEnd.current = { x: nx, y: ny };
+                const sx = Math.min(selectionStart.current.x, nx);
+                const sy = Math.min(selectionStart.current.y, ny);
+                const w = Math.abs(nx - selectionStart.current.x);
+                const h = Math.abs(ny - selectionStart.current.y);
+                drawSelectionRect(sx, sy, w, h);
+            }
+            return;
+        }
 
         if(selectedShape === 'freeform') {
             if(currentShape.current instanceof FreeForm) {
@@ -321,7 +379,7 @@ const useCanvas = () => {
                 shape.draw(ctx);
             });
         }
-    }, [selectedShape, restoreSnapshot, pixelated, settings, currentColor, thickness, canvasRef, contextRef]);
+    }, [selectedShape, restoreSnapshot, isSelectionActive, pixelated, settings, currentColor, thickness, canvasRef, contextRef, drawSelectionRect]);
 
     const handlePointerUp = useCallback(() => {
         if(isDrawing.current) {
@@ -329,7 +387,46 @@ const useCanvas = () => {
                 cancelAnimationFrame(rafId.current);
                 rafId.current = null;
             }
-            if(currentShape.current) {
+            if(isSelectionActive && selectionStart.current && selectionEnd.current) {
+                const ctx = contextRef.current;
+                if(ctx) {
+                    // compute selection rect
+                    const sx = Math.min(selectionStart.current.x, selectionEnd.current.x);
+                    const sy = Math.min(selectionStart.current.y, selectionEnd.current.y);
+                    const sw = Math.abs(selectionEnd.current.x - selectionStart.current.x);
+                    const sh = Math.abs(selectionEnd.current.y - selectionStart.current.y);
+
+                    if (sw > 1 && sh > 1) {
+                        // Extract image data and draw onto a temp canvas, then copy to clipboard
+                        const imageData = ctx.getImageData(sx, sy, sw, sh);
+                        const temp = document.createElement('canvas');
+                        temp.width = sw; temp.height = sh;
+                        const tctx = temp.getContext('2d');
+                        if(tctx) {
+                            tctx.putImageData(imageData, 0, 0);
+                            temp.toBlob(async (blob) => {
+                                try {
+                                    if(blob) {
+                                        await ClipboardImageLoader.copyImageToClipboard(blob);
+                                        alert('Seleção copiada para a área de transferência');
+                                    }
+                                } catch (err) {
+                                    // Fallback: open image in a new tab for manual save
+                                    const url = temp.toDataURL();
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = 'recorte.png';
+                                    a.click();
+                                } finally {
+                                    clearSelectionOverlay();
+                                }
+                            }, 'image/png');
+                        }
+                    }
+                }
+                selectionStart.current = null;
+                selectionEnd.current = null;
+            } else if(currentShape.current) {
                 drawnShapes.current.push(currentShape.current);
                 redoStackRef.current = [];
                 saveCurrentState();
@@ -343,7 +440,7 @@ const useCanvas = () => {
                 ctx.globalCompositeOperation = 'source-over';
             }
         }
-    }, [contextRef, saveCurrentState]);
+    }, [contextRef, saveCurrentState, isSelectionActive, clearSelectionOverlay]);
 
     return {
         handlePointerDown,

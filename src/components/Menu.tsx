@@ -11,6 +11,7 @@ import { MenuContext } from "../context/MenuContext";
 import ShapesButton from "./menu/ShapesButton";
 import SettingsButton from "./menu/SettingsButton";
 import SettingsMenu from "./menu/SettingsMenu";
+import SelectionButton from "./menu/SelectionButton";
 
 const Menu = () => {
     const { shapeMenu, settingsMenu } = useContext(MenuContext)!;
@@ -28,6 +29,7 @@ const Menu = () => {
                     <ColorSelector/>
                     <EraserButton/>
                     <ShapesButton/>
+                    <SelectionButton/>
                     <FillButton/>
                     <WidthSelector/>
                     <div className="flex flex-col items-center gap-1">

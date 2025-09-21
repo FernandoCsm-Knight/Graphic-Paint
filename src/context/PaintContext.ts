@@ -28,10 +28,11 @@ export type PaintContextType = {
     setEraser: (value: boolean) => void;
     isFillActive: boolean;
     setFill: (value: boolean) => void;
+    isSelectionActive: boolean;
+    setSelectionActive: (value: boolean) => void;
     selectedShape: Geometric;
     setSelectedShape: (value: Geometric) => void;
 
-    // Configurações da versão pixelada
     settings: PaintSettings;
 };
 

@@ -6,7 +6,7 @@ import { PaintContext } from './context/PaintContext';
 import { ClipboardImageLoader } from './utils/ClipboardImageLoader';
 
 function App() {
-    const { canvasRef, replacementCanvasRef, containerRef, settings } = useContext(PaintContext)!;
+    const { canvasRef, replacementCanvasRef, containerRef, settings, isSelectionActive } = useContext(PaintContext)!;
 
     const {
         handlePointerDown,
@@ -64,7 +64,7 @@ function App() {
             <main ref={containerRef} className='h-full w-full relative'>
                 <canvas
                     ref={replacementCanvasRef}
-                    className={`absolute border-0 pointer-events-none top-0 left-0 ${settings.gridDisplayMode === 'front' ? 'z-20' : 'z-0'}`}
+                    className={`absolute border-0 pointer-events-none top-0 left-0 ${(settings.gridDisplayMode === 'front' || isSelectionActive) ? 'z-20' : 'z-0'}`}
                 ></canvas>
                 <canvas
                     ref={canvasRef}

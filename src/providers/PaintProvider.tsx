@@ -10,6 +10,7 @@ const PaintProvider = ({ children }: PaintProviderProps) => {
     const [pixelated, setPixelated] = useState<boolean>(false);
     const [isEraserActive, setEraser] = useState<boolean>(false);
     const [isFillActive, setFill] = useState<boolean>(false);
+    const [isSelectionActive, setSelectionActive] = useState<boolean>(false);
     const [selectedShape, setSelectedShape] = useState<Geometric>('freeform');
     
     const [pixelSize, setPixelSize] = useState<number>(20);
@@ -40,6 +41,8 @@ const PaintProvider = ({ children }: PaintProviderProps) => {
         setEraser: setEraser,
         isFillActive: isFillActive,
         setFill: setFill,
+    isSelectionActive: isSelectionActive,
+    setSelectionActive: setSelectionActive,
         selectedShape: selectedShape,
         setSelectedShape: setSelectedShape,
 
