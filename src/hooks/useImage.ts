@@ -1,9 +1,8 @@
 import { useCallback, useContext } from "react";
 import { PaintContext } from "../context/PaintContext";
 import { ClipboardImageLoader } from "../utils/ClipboardImageLoader";
-import ClipboardImage from "../types/ClipboardImage";
 
-const useImage = (callback: (clipboardImage: ClipboardImage, snapshot: ImageData | null) => void) => {
+const useImage = (callback: (snapshot: ImageData | null) => void) => {
     const {
         contextRef,
         canvasRef
@@ -60,14 +59,7 @@ const useImage = (callback: (clipboardImage: ClipboardImage, snapshot: ImageData
     }, []);
 
     const pasteSnapshot = useCallback(async (): Promise<void> => {
-        const image = await ClipboardImageLoader.loadImageFromClipboard();
-        const clipboardImage = new ClipboardImage(image);
-        const ctx = contextRef.current;
-
-        if(ctx) {
-            clipboardImage.draw(ctx);
-            callback(clipboardImage, takeSnapshot());
-        }
+        if(contextRef.current) callback(takeSnapshot());
     }, [contextRef, callback, takeSnapshot]);
 
     return {

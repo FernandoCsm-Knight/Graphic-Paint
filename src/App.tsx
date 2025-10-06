@@ -3,9 +3,13 @@ import Menu from './components/Menu'
 import useCanvas from './hooks/useCanvas';
 import MenuProvider from './providers/MenuProvider';
 import { PaintContext } from './context/PaintContext';
+import { ReplacementContext } from './context/ReplacementContext';
+import { SettingsContext } from './context/SettingsContext';
 
 function App() {
-    const { canvasRef, replacementCanvasRef, containerRef, settings, isSelectionActive } = useContext(PaintContext)!;
+    const { canvasRef, containerRef, isSelectionActive } = useContext(PaintContext)!;
+    const { replacementCanvasRef } = useContext(ReplacementContext)!;
+    const { gridDisplayMode } = useContext(SettingsContext)!;
 
     const {
         handlePointerDown,
@@ -55,7 +59,7 @@ function App() {
             <main ref={containerRef} className='h-full w-full relative'>
                 <canvas
                     ref={replacementCanvasRef}
-                    className={`absolute border-0 pointer-events-none top-0 left-0 ${(settings.gridDisplayMode === 'front' || isSelectionActive) ? 'z-20' : 'z-0'}`}
+                    className={`absolute border-0 pointer-events-none top-0 left-0 ${(gridDisplayMode === 'front' || isSelectionActive) ? 'z-20' : 'z-0'}`}
                 ></canvas>
                 <canvas
                     ref={canvasRef}

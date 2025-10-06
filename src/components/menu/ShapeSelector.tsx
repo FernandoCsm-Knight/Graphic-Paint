@@ -18,6 +18,7 @@ import {
 import { PaintContext } from "../../context/PaintContext";
 import type { Geometric } from "../../types/Graphics";
 import { BsHeptagon } from "react-icons/bs";
+import { TbOvalVertical } from "react-icons/tb";
 
 const ShapeSelector = () => {
     const { shapeButtonRef } = useContext(MenuContext)!;
@@ -45,7 +46,8 @@ const ShapeSelector = () => {
                             { key: 'heptagon', icon: <BsHeptagon className="w-4 h-4 sm:w-5 sm:h-5"/>},
                             { key: 'octagon', icon: <LuOctagon className="w-4 h-4 sm:w-5 sm:h-5" /> },
                             { key: 'star', icon: <LuStar className="w-4 h-4 sm:w-5 sm:h-5" /> },
-                            { key: 'rect', icon: <LuRectangleHorizontal className="w-4 h-4 sm:w-5 sm:h-5" /> }
+                            { key: 'rect', icon: <LuRectangleHorizontal className="w-4 h-4 sm:w-5 sm:h-5" /> },
+                            { key: 'ellipse', icon: <TbOvalVertical className="w-4 h-4 sm:w-5 sm:h-5" />}
                         ].map(({ key, icon }) => (
                             <PaintButton
                                 key={key}

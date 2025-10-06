@@ -3,7 +3,7 @@ export type RGBA = { r: number; g: number; b: number; a: number };
 export type Geometric = 'circle' | 'square' | 'triangle' | 'diamond' | 
                         'pentagon' | 'hexagon' | 'heptagon' | 'octagon' | 'star' | 
                         'rect' | 'line' | 'arrow' | 'board' | 'image' |
-                        'freeform' | 'floodfill';
+                        'freeform' | 'ellipse' | 'floodfill';
 
 export const lineInfo = (start: Point, end: Point): { angle: number; size: number } => {
     const angle = Math.atan2(end.y - start.y, end.x - start.x);

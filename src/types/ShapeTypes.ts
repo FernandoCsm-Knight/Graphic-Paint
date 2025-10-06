@@ -1,5 +1,5 @@
 import type { Geometric, Point } from "./Graphics";
-import type { LineAlgorithm } from "../context/PaintContext";
+import type { LineAlgorithm } from "../context/SettingsContext";
 
 export type ShapeOptions = {
     strokeStyle?: string;

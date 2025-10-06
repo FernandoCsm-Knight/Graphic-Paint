@@ -1,25 +1,32 @@
 
 import { useContext } from "react";
-import { PaintContext, type LineAlgorithm, type GridDisplayMode } from "../../context/PaintContext";
+import { PaintContext } from "../../context/PaintContext";
 import GlassCard from "./GlassCard";
+import { SettingsContext, type GridDisplayMode, type LineAlgorithm } from "../../context/SettingsContext";
 
 const SettingsMenu = () => {
-    const { 
-        pixelated, 
-        settings
-    } = useContext(PaintContext)!;
+    const { pixelated } = useContext(PaintContext)!;
+
+    const {
+        pixelSize,
+        setPixelSize,
+        lineAlgorithm,
+        setLineAlgorithm,
+        gridDisplayMode,
+        setGridDisplayMode
+    } = useContext(SettingsContext)!;
     
     const handlePixelSizeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const size = parseInt(event.target.value);
-        if(size >= 1 && size <= 100) settings.setPixelSize(size);
+        if(size >= 1 && size <= 100) setPixelSize(size);
     };
 
     const handleLineAlgorithmChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        settings.setLineAlgorithm(event.target.value as LineAlgorithm);
+        setLineAlgorithm(event.target.value as LineAlgorithm);
     };
 
     const handleGridDisplayModeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        settings.setGridDisplayMode(event.target.value as GridDisplayMode);
+        setGridDisplayMode(event.target.value as GridDisplayMode);
     };
 
     if (!pixelated) {
@@ -53,12 +60,12 @@ const SettingsMenu = () => {
                                 min="5"
                                 max="50"
                                 step="1"
-                                value={settings.pixelSize}
+                                value={pixelSize}
                                 onChange={handlePixelSizeChange}
                                 className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                             />
                             <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded min-w-[3rem] text-center">
-                                {settings.pixelSize}px
+                                {pixelSize}px
                             </span>
                         </div>
                     </div>
@@ -68,7 +75,7 @@ const SettingsMenu = () => {
                             Algoritmo de Linha
                         </label>
                         <select
-                            value={settings.lineAlgorithm}
+                            value={lineAlgorithm}
                             onChange={handleLineAlgorithmChange}
                             className="w-full p-2 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
@@ -76,7 +83,7 @@ const SettingsMenu = () => {
                             <option value="dda">DDA (Digital Differential Analyzer)</option>
                         </select>
                         <div className="text-xs text-gray-500 mt-1">
-                            {settings.lineAlgorithm === 'bresenham' 
+                            {lineAlgorithm === 'bresenham' 
                                 ? 'Algoritmo mais preciso e eficiente para rasterização'
                                 : 'Algoritmo simples baseado em interpolação linear'
                             }
@@ -88,7 +95,7 @@ const SettingsMenu = () => {
                             Exibição do Grid
                         </label>
                         <select
-                            value={settings.gridDisplayMode}
+                            value={gridDisplayMode}
                             onChange={handleGridDisplayModeChange}
                             className="w-full p-2 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
@@ -97,9 +104,9 @@ const SettingsMenu = () => {
                             <option value="none">Sem grid</option>
                         </select>
                         <div className="text-xs text-gray-500 mt-1">
-                            {settings.gridDisplayMode === 'behind' && 'Grid aparece atrás dos pixels desenhados'}
-                            {settings.gridDisplayMode === 'front' && 'Grid aparece sobre os pixels desenhados'}
-                            {settings.gridDisplayMode === 'none' && 'Grid não é exibido'}
+                            {gridDisplayMode === 'behind' && 'Grid aparece atrás dos pixels desenhados'}
+                            {gridDisplayMode === 'front' && 'Grid aparece sobre os pixels desenhados'}
+                            {gridDisplayMode === 'none' && 'Grid não é exibido'}
                         </div>
                     </div>
                 </div>

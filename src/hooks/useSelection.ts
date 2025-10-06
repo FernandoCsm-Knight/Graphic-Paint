@@ -2,14 +2,18 @@ import { useCallback, useContext, useRef } from "react";
 import { PaintContext } from "../context/PaintContext";
 import type { Point } from "../types/Graphics";
 import useImage from "./useImage";
+import { ReplacementContext } from "../context/ReplacementContext";
+import { SettingsContext } from "../context/SettingsContext";
 
 const useSelection = () => {
     const {
         contextRef,
-        replacementContextRef,
-        pixelated,
-        settings
+        pixelated
     } = useContext(PaintContext)!;
+
+    const { pixelSize } = useContext(SettingsContext)!;
+
+    const { replacementContextRef } = useContext(ReplacementContext)!;
 
     const selectionStart = useRef<Point | null>(null);
     const selectionEnd = useRef<Point | null>(null);
@@ -17,8 +21,8 @@ const useSelection = () => {
     const { copyCanvasToClipboard } = useImage(() => {});
 
     const snap = useCallback((value: number): number => {
-        return pixelated ? Math.floor(value / settings.pixelSize) * settings.pixelSize : value;
-    }, [pixelated, settings]);
+        return pixelated ? Math.floor(value / pixelSize) * pixelSize : value;
+    }, [pixelated, pixelSize]);
 
     const drawSelectionRect = useCallback((x: number, y: number, w: number, h: number) => {
         const overlay = replacementContextRef.current;
