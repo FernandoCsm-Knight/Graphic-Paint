@@ -11,9 +11,9 @@ export default class Ellipse extends Shape {
     constructor(start: Point, end: Point, opts: ShapeOptions) {
         super(opts);
 
-        const center = { x: Math.floor((start.x + end.x) / 2), y: Math.floor((start.y + end.y) / 2) };
-        const radiusX = Math.abs(end.x - start.x) / 2;
-        const radiusY = Math.abs(end.y - start.y) / 2;
+        const center = { x: Math.round((start.x + end.x) / 2), y: Math.round((start.y + end.y) / 2) };
+        const radiusX = Math.round(Math.abs(end.x - start.x) / 2);
+        const radiusY = Math.round(Math.abs(end.y - start.y) / 2);
 
         this.center = center;
         this.radiusX = radiusX;

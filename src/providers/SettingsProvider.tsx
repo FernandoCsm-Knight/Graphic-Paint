@@ -6,6 +6,7 @@ const SettingsProvider = ( { children }: { children: React.ReactNode } ) => {
     const [pixelSize, setPixelSize] = useState<number>(20);
     const [lineAlgorithm, setLineAlgorithm] = useState<LineAlgorithm>("bresenham");
     const [gridDisplayMode, setGridDisplayMode] = useState<GridDisplayMode>("behind");
+    const [pageSizeEraser, setPageSizeEraser] = useState<boolean>(false);
 
     const settingsContext = {
         pixelSize: pixelSize,
@@ -13,7 +14,9 @@ const SettingsProvider = ( { children }: { children: React.ReactNode } ) => {
         lineAlgorithm: lineAlgorithm,
         setLineAlgorithm: setLineAlgorithm,
         gridDisplayMode: gridDisplayMode,
-        setGridDisplayMode: setGridDisplayMode
+        setGridDisplayMode: setGridDisplayMode,
+        pageSizeEraser: pageSizeEraser,
+        setPageSizeEraser: setPageSizeEraser
     };
     
     return (

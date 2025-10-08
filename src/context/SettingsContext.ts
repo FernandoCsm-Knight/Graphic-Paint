@@ -10,6 +10,8 @@ export type SettingsContextType = {
     setLineAlgorithm: (value: LineAlgorithm) => void;
     gridDisplayMode: GridDisplayMode;
     setGridDisplayMode: (value: GridDisplayMode) => void;
+    pageSizeEraser: boolean;
+    setPageSizeEraser: (value: boolean) => void;
 }
 
 export const SettingsContext = createContext<SettingsContextType | undefined>(undefined);

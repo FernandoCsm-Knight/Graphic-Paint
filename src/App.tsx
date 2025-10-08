@@ -5,11 +5,12 @@ import MenuProvider from './providers/MenuProvider';
 import { PaintContext } from './context/PaintContext';
 import { ReplacementContext } from './context/ReplacementContext';
 import { SettingsContext } from './context/SettingsContext';
+import PageSizeEraser from './components/PageSizeEraser';
 
 function App() {
     const { canvasRef, containerRef, isSelectionActive } = useContext(PaintContext)!;
     const { replacementCanvasRef } = useContext(ReplacementContext)!;
-    const { gridDisplayMode } = useContext(SettingsContext)!;
+    const { gridDisplayMode, pageSizeEraser } = useContext(SettingsContext)!;
 
     const {
         handlePointerDown,
@@ -70,6 +71,7 @@ function App() {
                     onPointerCancel={handlePointerUp}
                     onPointerLeave={handlePointerUp}
                 ></canvas>
+                {(pageSizeEraser) ? <PageSizeEraser/> : null}
             </main>
         </>
     );
