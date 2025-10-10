@@ -59,19 +59,23 @@ const PageSizeEraser = () => {
     const { ref, onPointerDown, style, setPosition } = useDraggable({
         initial: getInitialPosition(),
         axis: "y",
-        clamp: false,
+        clamp: true,
         onDragStart: () => setIsActive(true),
-        onDrag: handleDrag,
+
         onDragEnd: handleDragEnd,
         onResize: handleResize
     });
 
     return (
-        <>
+        <div 
+        ref={ref}
+        onPointerDown={onPointerDown}
+        style={{...style, transition: isActive ? 'none' : 'top 0.3s ease-out, left 0.3s ease-out'}}
+        className="flex items-center justify-center w-full min-w-[100vw] absolute">
             {isActive && previewHeight > 0 && (
                 <div 
                     style={{
-                        position: 'fixed',
+                        position: 'absolute',
                         bottom: 0,
                         left: 0,
                         right: 0,
@@ -85,14 +89,6 @@ const PageSizeEraser = () => {
             )}
 
             <div 
-                ref={ref}
-                onPointerDown={onPointerDown}
-                style={{
-                    ...style,
-                    position: 'fixed',
-                    transform: 'translateX(-50%)',
-                    transition: isActive ? 'none' : 'top 0.3s ease-out, left 0.3s ease-out',
-                }}
                 className={`
                     w-full 
                     z-50
@@ -112,7 +108,7 @@ const PageSizeEraser = () => {
                 <LuGripHorizontal className={`transition-colors ${isActive ? 'text-red-600' : 'text-gray-500'} sm:h-5 sm:w-5 h-4 w-4`}/>
                 <div className={`grow border-t-2 rounded-2xl mx-4 transition-colors ${isActive ? 'border-red-500' : 'border-gray-400'}`}></div>
             </div>
-        </>
+        </div>
     );
 
 };

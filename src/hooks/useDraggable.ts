@@ -12,7 +12,7 @@ export type DraggableOptions = {
   onDragStart?: () => void;
   onDragEnd?: (pos: Point) => void;
   onDrag?: (pos: Point) => void;
-  onResize?: (prev: Point) => Point; // Callback customizado para resize
+  onResize?: (prev: Point) => Point;
 };
 
 export type UseDraggableReturn = {
@@ -37,11 +37,18 @@ export const useDraggable = (options: DraggableOptions = {}) => {
         const el = targetRef.current;
         const w = el?.offsetWidth ?? 0;
         const h = el?.offsetHeight ?? 0;
-        const maxX = Math.max(0, window.innerWidth - w);
-        const maxY = Math.max(0, window.innerHeight - h);
+        
+        const scrollX = window.scrollX || window.pageXOffset;
+        const scrollY = window.scrollY || window.pageYOffset;
+        
+        const minX = scrollX;
+        const minY = scrollY;
+        const maxX = scrollX + window.innerWidth - w;
+        const maxY = scrollY + window.innerHeight - h;
+        
         return {
-            x: Math.min(Math.max(0, x), maxX),
-            y: Math.min(Math.max(0, y), maxY),
+            x: Math.min(Math.max(minX, x), maxX),
+            y: Math.min(Math.max(minY, y), maxY),
         };
     }, [clamp]);
 
@@ -54,8 +61,12 @@ export const useDraggable = (options: DraggableOptions = {}) => {
         const el = targetRef.current;
         if (!el) return;
         const rect = el.getBoundingClientRect();
-        const x = Math.max(0, Math.round(window.innerWidth / 2 - rect.width / 2));
-        const y = 20; 
+        
+        const scrollX = window.scrollX || window.pageXOffset;
+        const scrollY = window.scrollY || window.pageYOffset;
+        
+        const x = scrollX + Math.max(0, Math.round(window.innerWidth / 2 - rect.width / 2));
+        const y = scrollY + 20; 
         setPosition({ x, y });
     }, [initial]);
 
@@ -63,7 +74,6 @@ export const useDraggable = (options: DraggableOptions = {}) => {
         const element = targetRef.current;
         if (!element) return;
 
-        // Usa window resize em vez de ResizeObserver para evitar disparo constante
         const handleWindowResize = () => {
             setPosition((prev: Point) => (onResize) ? onResize(prev) : clampToViewport(prev.x, prev.y));
         };
@@ -72,11 +82,24 @@ export const useDraggable = (options: DraggableOptions = {}) => {
         return () => window.removeEventListener('resize', handleWindowResize);
     }, [clampToViewport, onResize]);
 
+    useEffect(() => {
+        const element = targetRef.current;
+        if (!element) return;
+
+        const handleWindowScroll = () => {
+            setPosition((prev: Point) => clampToViewport(prev.x, prev.y));
+        };
+
+        window.addEventListener('scroll', handleWindowScroll);
+        return () => window.removeEventListener('scroll', handleWindowScroll);
+    }, [clampToViewport]);
+
     const onPointerDown: DraggableHandle = useCallback((e) => {
         e.preventDefault();
         const el = targetRef.current;
         if (!el) return;
         const rect = el.getBoundingClientRect();
+        
         dragOffsetRef.current = {
             dx: e.clientX - rect.left,
             dy: e.clientY - rect.top,
@@ -84,8 +107,11 @@ export const useDraggable = (options: DraggableOptions = {}) => {
 
         initialPosRef.current = { ...posRef.current };
         const handlePointerMove = (ev: PointerEvent) => {
-            let nx = ev.clientX - dragOffsetRef.current.dx;
-            let ny = ev.clientY - dragOffsetRef.current.dy;
+            const currentScrollX = window.scrollX || window.pageXOffset;
+            const currentScrollY = window.scrollY || window.pageYOffset;
+            
+            let nx = ev.clientX + currentScrollX - dragOffsetRef.current.dx;
+            let ny = ev.clientY + currentScrollY - dragOffsetRef.current.dy;
 
             if(axis === "x") ny = initialPosRef.current.y;
             else if (axis === "y") nx = initialPosRef.current.x;

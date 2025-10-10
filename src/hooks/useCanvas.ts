@@ -72,10 +72,10 @@ const useCanvas = () => {
 
             if(canvas && replacementCanvas && parent) {
                 const rect = parent.getBoundingClientRect();
-                const cssWidth = Math.floor(rect.width);
-                const cssHeight = Math.floor(rect.height);
+                const cssWidth = Math.floor(rect.width) * 2;
+                const cssHeight = Math.floor(rect.height) * 2;
 
-                canvas.style.width = cssWidth + "px";
+                canvas.style.width = cssWidth  + "px";
                 canvas.style.height = cssHeight + "px";
                 canvas.width = cssWidth;
                 canvas.height = cssHeight;
@@ -114,9 +114,8 @@ const useCanvas = () => {
         };
 
         setupCanvas();
-        const ro = new ResizeObserver(() => setupCanvas());
-        if(containerRef.current) ro.observe(containerRef.current);
-        return () => ro.disconnect();
+        containerRef.current?.addEventListener('resize', setupCanvas);
+        return () => containerRef.current?.removeEventListener('resize', setupCanvas);
     }, [pixelated, pixelSize, thickness, currentColor, canvasRef, replacementCanvasRef, containerRef, contextRef, replacementContextRef, drawGrid, clearGrid, restoreSnapshot, lastSnapshot, gridDisplayMode]);
 
     const undo = useCallback(() => {
