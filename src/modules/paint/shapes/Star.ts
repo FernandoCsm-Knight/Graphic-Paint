@@ -1,4 +1,4 @@
-import { Shape, type ShapeOptions } from "./ShapeTypes";
+import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
 import { rasterizePixelatedPolygon, rasterizePolygon } from "../algorithms/PolygonRasterization";
 import type { Point } from "../../../functions/geometry";
 
@@ -38,6 +38,12 @@ export default class Star extends Shape {
 
     standardDraw(ctx: CanvasRenderingContext2D): void {
         rasterizePolygon(this.points, this.lineWidth, this.strokeStyle, ctx);
+    }
+
+    getBoundingBox(): BoundingBox {
+        const xs = this.points.map(p => p.x), ys = this.points.map(p => p.y);
+        const x = Math.min(...xs), y = Math.min(...ys);
+        return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
     }
 
     moveBy(dx: number, dy: number): void {

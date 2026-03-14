@@ -1,7 +1,7 @@
 import bresenham from "../algorithms/BresenhamLine";
 import dda from "../algorithms/DDA";
 import type { Point } from "../../../functions/geometry";
-import { Shape, type ShapeOptions } from "./ShapeTypes";
+import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
 
 export default class FreePolygon extends Shape {
     kind = 'polygon' as const;
@@ -38,6 +38,12 @@ export default class FreePolygon extends Shape {
             ctx.fill();
         }
         ctx.stroke();
+    }
+
+    getBoundingBox(): BoundingBox {
+        const xs = this.points.map(p => p.x), ys = this.points.map(p => p.y);
+        const x = Math.min(...xs), y = Math.min(...ys);
+        return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
     }
 
     moveBy(dx: number, dy: number): void {

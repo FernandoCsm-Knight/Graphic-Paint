@@ -1,5 +1,5 @@
 import type { Point } from "../../../functions/geometry";
-import { Shape, type ShapeOptions } from "./ShapeTypes";
+import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
 
 export default class Ellipse extends Shape {
     kind = 'ellipse' as const;
@@ -78,6 +78,12 @@ export default class Ellipse extends Shape {
         ctx.lineWidth = this.lineWidth;
         ctx.stroke();
     }
+
+    getBoundingBox(): BoundingBox {
+        return { x: this.center.x - this.radiusX, y: this.center.y - this.radiusY, width: this.radiusX * 2, height: this.radiusY * 2 };
+    }
+
+    getCenter() { return { x: this.center.x, y: this.center.y }; }
 
     moveBy(dx: number, dy: number): void {
         this.center.x += dx;

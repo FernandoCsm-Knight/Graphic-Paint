@@ -1,4 +1,4 @@
-import { Shape, type ShapeOptions } from "./ShapeTypes";
+import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
 import bresenham from "../algorithms/BresenhamLine";
 import type { Point } from "../../../functions/geometry";
 
@@ -54,6 +54,12 @@ export default class Arrow extends Shape {
         ctx.strokeStyle = this.strokeStyle;
         ctx.lineWidth = this.lineWidth;
         ctx.stroke();
+    }
+
+    getBoundingBox(): BoundingBox {
+        const x = Math.min(this.start.x, this.end.x);
+        const y = Math.min(this.start.y, this.end.y);
+        return { x, y, width: Math.abs(this.end.x - this.start.x), height: Math.abs(this.end.y - this.start.y) };
     }
 
     moveBy(dx: number, dy: number): void {

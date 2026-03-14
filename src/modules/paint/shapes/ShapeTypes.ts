@@ -12,6 +12,8 @@ export type ShapeOptions = {
     lineAlgorithm?: LineAlgorithm;
 };
 
+export type BoundingBox = { x: number; y: number; width: number; height: number };
+
 export abstract class Shape {
     abstract kind: Geometric;
     strokeStyle: string;
@@ -21,6 +23,7 @@ export abstract class Shape {
     pixelated: boolean;
     pixelSize: number;
     lineAlgorithm: LineAlgorithm;
+    rotation: number = 0;
 
     constructor(opts: ShapeOptions) {
         this.strokeStyle = opts.strokeStyle ?? '#000000';
@@ -33,11 +36,43 @@ export abstract class Shape {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        if(this.pixelated) {
+        const needsRotation = this.rotation !== 0;
+        if (needsRotation) {
+            const { x: cx, y: cy } = this.getCenter();
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(this.rotation);
+            ctx.translate(-cx, -cy);
+        }
+        if (this.pixelated) {
             ctx.fillStyle = this.strokeStyle;
             this.pixelatedDraw(ctx);
+        } else {
+            this.standardDraw(ctx);
         }
-        else this.standardDraw(ctx);
+        if (needsRotation) ctx.restore();
+    }
+
+    /** Set the absolute rotation angle (radians) around getCenter(). */
+    rotateTo(angle: number): void {
+        this.rotation = angle;
+    }
+
+    /**
+     * Returns the axis-aligned bounding box of the shape geometry in document
+     * coordinates, BEFORE any rotation is applied. Used for overlay drawing and
+     * hit-testing in pending-placement mode.
+     */
+    abstract getBoundingBox(): BoundingBox;
+
+    /**
+     * Returns the geometric center of the shape, used as the rotation pivot.
+     * Derived from getBoundingBox() — override only if a shape has a natural
+     * center that differs from its bbox center (e.g. Circle).
+     */
+    getCenter(): Point {
+        const bb = this.getBoundingBox();
+        return { x: bb.x + bb.width / 2, y: bb.y + bb.height / 2 };
     }
 
     abstract moveBy(dx: number, dy: number): void;

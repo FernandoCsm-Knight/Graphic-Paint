@@ -1,7 +1,7 @@
 import bresenham from "../algorithms/BresenhamLine";
 import dda from "../algorithms/DDA";
 import type { Point } from "../../../functions/geometry";
-import { Shape, type ShapeOptions } from "./ShapeTypes";
+import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
 
 export default class FreeForm extends Shape {
     kind = 'freeform' as const;
@@ -153,12 +153,18 @@ export default class FreeForm extends Shape {
         return response;
     }
     
+    getBoundingBox(): BoundingBox {
+        const bb = this.boundingBox;
+        if (!bb) return { x: 0, y: 0, width: 0, height: 0 };
+        return { x: bb.minX, y: bb.minY, width: bb.maxX - bb.minX, height: bb.maxY - bb.minY };
+    }
+
     moveBy(dx: number, dy: number): void {
         for(let i = 0; i < this.points.length; i++) {
             this.points[i].x += dx;
             this.points[i].y += dy;
         }
-        
+
         this.updateBoundingBox();
     }
 

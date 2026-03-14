@@ -1,5 +1,5 @@
 import type { Point } from "../../../functions/geometry";
-import { Shape, type ShapeOptions } from "./ShapeTypes";
+import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
 
 export default class Square extends Shape {
     kind = 'square' as const;
@@ -59,6 +59,15 @@ export default class Square extends Shape {
         ctx.strokeStyle = this.strokeStyle;
         ctx.lineWidth = this.lineWidth;
         ctx.stroke();
+    }
+
+    getBoundingBox(): BoundingBox {
+        const dx = this.bottomRight.x - this.topLeft.x;
+        const dy = this.bottomRight.y - this.topLeft.y;
+        const side = Math.max(Math.abs(dx), Math.abs(dy));
+        const x = dx >= 0 ? this.topLeft.x : this.topLeft.x - side;
+        const y = dy >= 0 ? this.topLeft.y : this.topLeft.y - side;
+        return { x, y, width: side, height: side };
     }
 
     moveBy(dx: number, dy: number): void {

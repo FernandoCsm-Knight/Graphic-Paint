@@ -1,4 +1,4 @@
-import { Shape, type ShapeOptions } from "./ShapeTypes";
+import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
 import { type Geometric } from "../types/Graphics";
 import type { Point } from "../../../functions/geometry";
 import FloodFill from "../algorithms/FloodFill";
@@ -22,6 +22,10 @@ export default class FillShape extends Shape {
         this.point = options.point;
         this.isEraser = options.isEraser ?? false;
         this.algorithm = options.algorithm ?? "scanline";
+    }
+
+    getBoundingBox(): BoundingBox {
+        return { x: this.point.x, y: this.point.y, width: 1, height: 1 };
     }
 
     moveBy(dx: number, dy: number): void {

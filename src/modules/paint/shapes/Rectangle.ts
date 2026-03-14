@@ -1,5 +1,5 @@
 import type { Point } from "../../../functions/geometry";
-import { Shape, type ShapeOptions } from "./ShapeTypes";
+import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
 
 export default class Rectangle extends Shape {
     kind = 'rect' as const;
@@ -44,6 +44,12 @@ export default class Rectangle extends Shape {
         ctx.strokeStyle = this.strokeStyle;
         ctx.lineWidth = this.lineWidth;
         ctx.stroke();
+    }
+
+    getBoundingBox(): BoundingBox {
+        const x = Math.min(this.topLeft.x, this.bottomRight.x);
+        const y = Math.min(this.topLeft.y, this.bottomRight.y);
+        return { x, y, width: Math.abs(this.bottomRight.x - this.topLeft.x), height: Math.abs(this.bottomRight.y - this.topLeft.y) };
     }
 
     moveBy(dx: number, dy: number): void {

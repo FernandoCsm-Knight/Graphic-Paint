@@ -11,6 +11,7 @@ import { map } from "../types/Graphics";
 import useSelection from "./useSelection";
 import usePanZoom from "./usePanZoom";
 import usePolygonDrawing from "./usePolygonDrawing";
+import usePendingPlacement from "./usePendingPlacement";
 import type { SceneItem } from "./useScene";
 import type { Point } from "../../../functions/geometry";
 
@@ -56,11 +57,13 @@ const useDrawingHandlers = ({
         getMinAllowedZoom,
     });
 
+    const pending = usePendingPlacement({ renderViewport, redrawFromScene, pushShape });
+
     const polygon = usePolygonDrawing({
         contextRef,
         renderViewport,
         redrawFromScene,
-        pushShape,
+        enterPending: pending.enterPending,
         currentColor,
         thickness,
         pixelated,
@@ -98,6 +101,13 @@ const useDrawingHandlers = ({
 
         const { x, y } = point;
         const mappedPoint = pixelated ? map({ x, y }, pixelSize) : { x, y };
+
+        // While a shape is pending confirmation, all clicks are handled by the
+        // pending placement logic (move drag, rotate drag, or confirm on outside click).
+        if (pending.hasPending()) {
+            pending.onPointerDown(mappedPoint);
+            return;
+        }
 
         if (selectedShape === 'polygon') {
             polygon.onPointerDown(mappedPoint);
@@ -149,6 +159,12 @@ const useDrawingHandlers = ({
 
         const { x, y } = currentPoint;
         const point = pixelated ? map({ x, y }, pixelSize) : { x, y };
+
+        // Pending placement takes priority over all tool-specific move handling
+        if (pending.hasPending()) {
+            pending.onPointerMove(point);
+            return;
+        }
 
         if (selectedShape === 'polygon') {
             polygon.onPointerMove(point);
@@ -205,6 +221,17 @@ const useDrawingHandlers = ({
 
     const handlePointerUp = useCallback((e?: PointerEvent<HTMLCanvasElement>) => {
         if (panUp(e)) return;
+
+        // End an active move/rotate drag on a pending shape (shape stays pending).
+        // Must be checked before the polygon guard so that releasing a drag on a
+        // pending FreePolygon correctly ends the drag.
+        if (pending.onPointerUp()) {
+            if (e?.currentTarget.hasPointerCapture(e.pointerId)) {
+                e.currentTarget.releasePointerCapture(e.pointerId);
+            }
+            return;
+        }
+
         if (selectedShape === 'polygon') return;
 
         if (isDrawing.current) {
@@ -219,11 +246,13 @@ const useDrawingHandlers = ({
                 stopSelection();
             } else if (currentShape.current && ctx) {
                 if (currentShape.current instanceof FreeForm || currentShape.current instanceof FillShape) {
+                    // Expensive operations go straight to scene as a snapshot
                     pushShape(takeSnapshotShape(ctx));
+                    renderViewport();
                 } else {
-                    pushShape(currentShape.current);
+                    // Regular shapes enter pending placement for optional move/rotate
+                    pending.enterPending(currentShape.current);
                 }
-                renderViewport();
             }
 
             isDrawing.current = false;
@@ -237,7 +266,7 @@ const useDrawingHandlers = ({
         if (e?.currentTarget.hasPointerCapture(e.pointerId)) {
             e.currentTarget.releasePointerCapture(e.pointerId);
         }
-    }, [panUp, selectedShape, contextRef, isSelectionActive, renderViewport, pushShape, takeSnapshotShape, stopSelection]);
+    }, [panUp, selectedShape, contextRef, isSelectionActive, renderViewport, pushShape, takeSnapshotShape, stopSelection, pending]);
 
     return {
         handlePointerDown,

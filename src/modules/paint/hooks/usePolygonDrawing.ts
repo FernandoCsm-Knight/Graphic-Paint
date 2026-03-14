@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { RefObject } from "react";
 import FreePolygon from "../shapes/FreePolygon";
+import { type Shape } from "../shapes/ShapeTypes";
 import bresenham from "../algorithms/BresenhamLine";
 import dda from "../algorithms/DDA";
-import type { SceneItem } from "./useScene";
 import type { Point } from "../../../functions/geometry";
 import type { Geometric } from "../types/Graphics";
 import type { LineAlgorithm } from "../context/SettingsContext";
@@ -12,7 +12,7 @@ type UsePolygonDrawingInput = {
     contextRef: RefObject<CanvasRenderingContext2D | null>;
     renderViewport: () => void;
     redrawFromScene: (ctx: CanvasRenderingContext2D) => void;
-    pushShape: (shape: SceneItem) => void;
+    enterPending: (shape: Shape) => void;
     currentColor: RefObject<string>;
     thickness: RefObject<number>;
     pixelated: boolean;
@@ -25,7 +25,7 @@ const usePolygonDrawing = ({
     contextRef,
     renderViewport,
     redrawFromScene,
-    pushShape,
+    enterPending,
     currentColor,
     thickness,
     pixelated,
@@ -173,11 +173,11 @@ const usePolygonDrawing = ({
                 lineAlgorithm,
             });
             shape.draw(ctx);
-            pushShape(shape);
+            enterPending(shape);
+        } else {
+            renderViewport();
         }
-
-        renderViewport();
-    }, [contextRef, redrawFromScene, currentColor, thickness, pixelated, pixelSize, lineAlgorithm, pushShape, renderViewport]);
+    }, [contextRef, redrawFromScene, currentColor, thickness, pixelated, pixelSize, lineAlgorithm, enterPending, renderViewport]);
 
     // ── Cancel ────────────────────────────────────────────────────────────────
 
