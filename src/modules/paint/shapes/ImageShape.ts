@@ -1,14 +1,10 @@
+import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
+
 /**
- * A placed image in the scene graph.
- *
- * Stores an HTMLImageElement with its position and dimensions on the document
- * canvas. Like SnapshotShape, it does NOT extend Shape — images have no
- * stroke/fill/lineWidth/pixelated semantics.
- *
- * The `kind` field mirrors the 'image' Geometric type so consumers can
- * discriminate ImageShape from SnapshotShape when needed.
+ * A placed image treated as a regular scene shape so it can participate in the
+ * same pending placement flow as vector geometry.
  */
-export default class ImageShape {
+export default class ImageShape extends Shape {
     readonly kind = 'image' as const;
     readonly image: HTMLImageElement;
     x: number;
@@ -22,7 +18,9 @@ export default class ImageShape {
         y: number,
         width: number,
         height: number,
+        opts: ShapeOptions = {},
     ) {
+        super(opts);
         this.image = image;
         this.x = x;
         this.y = y;
@@ -30,12 +28,25 @@ export default class ImageShape {
         this.height = height;
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
-        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+    getBoundingBox(): BoundingBox {
+        return {
+            x: this.x,
+            y: this.y,
+            width: this.width,
+            height: this.height,
+        };
     }
 
     moveBy(dx: number, dy: number): void {
         this.x += dx;
         this.y += dy;
+    }
+
+    pixelatedDraw(ctx: CanvasRenderingContext2D): void {
+        this.standardDraw(ctx);
+    }
+
+    standardDraw(ctx: CanvasRenderingContext2D): void {
+        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
     }
 }

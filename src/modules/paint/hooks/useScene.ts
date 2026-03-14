@@ -1,7 +1,6 @@
 import { useCallback, useRef } from "react";
 import { Shape } from "../shapes/ShapeTypes";
 import SnapshotShape from "../shapes/SnapshotShape";
-import ImageShape from "../shapes/ImageShape";
 
 /**
  * A scene item is either a lightweight vector shape (geometry + style data),
@@ -11,9 +10,10 @@ import ImageShape from "../shapes/ImageShape";
  * Vector shapes are cheap to store (~100 bytes) and cheap to replay.
  * SnapshotShapes are expensive to store (~15 MB) but instantaneous to restore
  * via putImageData — used for freeform strokes and fill operations.
- * ImageShapes store an HTMLImageElement reference and are replayed via drawImage.
+ * ImageShapes now extend Shape, so pasted images can reuse the same pending
+ * placement, movement, and rotation flow as vector items.
  */
-export type SceneItem = Shape | SnapshotShape | ImageShape;
+export type SceneItem = Shape | SnapshotShape;
 
 /**
  * Manages the ordered list of drawn items and the redo stack.

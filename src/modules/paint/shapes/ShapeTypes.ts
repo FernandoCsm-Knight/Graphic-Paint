@@ -15,7 +15,7 @@ export type ShapeOptions = {
 export type BoundingBox = { x: number; y: number; width: number; height: number };
 
 export abstract class Shape {
-    abstract kind: Geometric;
+    abstract readonly kind: Geometric;
     strokeStyle: string;
     fillStyle: string;
     lineWidth: number;

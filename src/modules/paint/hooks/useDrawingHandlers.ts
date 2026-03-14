@@ -273,6 +273,9 @@ const useDrawingHandlers = ({
         handlePointerMove,
         handlePointerUp,
         handleWheel,
+        enterPendingShape: pending.enterPending,
+        confirmPendingShape: pending.confirmPending,
+        hasPendingShape: pending.hasPending,
     };
 };
 

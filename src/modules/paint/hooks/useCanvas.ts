@@ -35,7 +35,15 @@ const useCanvas = () => {
         setRenderViewport(renderViewport);
     }, [renderViewport, setRenderViewport]);
 
-    const { handlePointerDown, handlePointerMove, handlePointerUp, handleWheel } =
+    const {
+        handlePointerDown,
+        handlePointerMove,
+        handlePointerUp,
+        handleWheel,
+        enterPendingShape,
+        confirmPendingShape,
+        hasPendingShape,
+    } =
         useDrawingHandlers({
             renderViewport,
             getViewportSize,
@@ -82,15 +90,18 @@ const useCanvas = () => {
         const ctx = contextRef.current;
         if (!ctx) return;
         try {
+            if (hasPendingShape()) {
+                confirmPendingShape();
+            }
             const img = await ClipboardImageLoader.loadImageFromClipboard();
             const imageShape = new ImageShape(img, 0, 0, img.naturalWidth, img.naturalHeight);
+            redrawFromScene(ctx);
             imageShape.draw(ctx);
-            pushShape(imageShape);
-            renderViewport();
+            enterPendingShape(imageShape);
         } catch {
             alert('Falha ao colar imagem da área de transferência');
         }
-    }, [contextRef, pushShape, renderViewport]);
+    }, [confirmPendingShape, contextRef, enterPendingShape, hasPendingShape, redrawFromScene]);
 
     useEffect(() => {
         const setupCanvas = () => {
