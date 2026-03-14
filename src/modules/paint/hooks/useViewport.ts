@@ -20,11 +20,10 @@ const useViewport = (documentCanvasRef: RefObject<HTMLCanvasElement | null>) => 
 
     const getViewportSize = useCallback(() => {
         const viewport = containerRef.current;
-        if (!viewport) return { width: 0, height: 0 };
-        return {
+        return (viewport) ? {
             width: Math.max(1, Math.floor(viewport.clientWidth)),
             height: Math.max(1, Math.floor(viewport.clientHeight))
-        };
+        } : { width: 0, height: 0 };
     }, [containerRef]);
 
     const resizeViewportCanvas = useCallback((canvas: HTMLCanvasElement, width: number, height: number) => {

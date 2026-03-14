@@ -1,13 +1,11 @@
 import { useContext } from "react";
 import { LuCrop } from "react-icons/lu";
 import { PaintContext } from "../../../../context/PaintContext";
-import { MenuContext } from "../../../../context/MenuContext";
 import WorkspaceToolButton from "../../../../../../components/WorkspaceToolButton";
 
 
 const SelectionButton = () => {
     const { isSelectionActive, setSelectionActive, setFill, setEraser, setPanModeActive, setSelectedShape } = useContext(PaintContext)!;
-    const { setShapeMenu } = useContext(MenuContext)!;
 
     const handleClick = () => {
         const next = !isSelectionActive;
@@ -18,7 +16,6 @@ const SelectionButton = () => {
             setEraser(false);
             setPanModeActive(false);
             setSelectedShape('freeform');
-            setShapeMenu(false);
         }
     };
 

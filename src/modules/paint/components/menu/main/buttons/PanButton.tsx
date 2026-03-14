@@ -1,12 +1,10 @@
 import { useContext } from "react";
 import { LuHand } from "react-icons/lu";
 import { PaintContext } from "../../../../context/PaintContext";
-import { MenuContext } from "../../../../context/MenuContext";
 import WorkspaceToolButton from "../../../../../../components/WorkspaceToolButton";
 
 const PanButton = () => {
     const { isPanModeActive, setPanModeActive, setEraser, setFill, setSelectionActive, setSelectedShape } = useContext(PaintContext)!;
-    const { setShapeMenu } = useContext(MenuContext)!;
 
     const handleClick = () => {
         const next = !isPanModeActive;
@@ -16,7 +14,6 @@ const PanButton = () => {
             setFill(false);
             setSelectionActive(false);
             setSelectedShape('freeform');
-            setShapeMenu(false);
             document.body.style.cursor = 'default';
         }
     };

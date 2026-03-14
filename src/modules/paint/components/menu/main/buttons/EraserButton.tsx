@@ -4,7 +4,7 @@ import WorkspaceToolButton from "../../../../../../components/WorkspaceToolButto
 import { PaintContext } from "../../../../context/PaintContext";
 
 const EraserButton = () => {
-    const { isEraserActive, setEraser, setFill, setSelectionActive, setPanModeActive } = useContext(PaintContext)!;
+    const { isEraserActive, setEraser, setFill, setSelectionActive, setPanModeActive, setSelectedShape } = useContext(PaintContext)!;
 
     const handleClick = () => {
         const next = !isEraserActive;
@@ -13,6 +13,7 @@ const EraserButton = () => {
             setFill(false);
             setSelectionActive(false);
             setPanModeActive(false);
+            setSelectedShape('freeform');
         }
     };
 
