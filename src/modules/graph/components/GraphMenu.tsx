@@ -83,7 +83,7 @@ const GraphMenu = () => {
                             </p>
                         </div>
                         <span className="ui-menu-title-badge rounded-full px-[var(--pm-btn-pad)] py-0.5 text-xs font-semibold uppercase tracking-[0.18em]">
-                            {directed ? 'Dirigido' : 'Não-dir.'}
+                            {directed ? 'Digrafo' : 'Grafo'}
                         </span>
                     </div>
 
@@ -96,7 +96,7 @@ const GraphMenu = () => {
                                 !directed ? 'ui-menu-segment-active shadow-sm' : ''
                             }`}
                         >
-                            Não-dirigido
+                            Grafo
                         </button>
                         <button
                             type="button"
@@ -105,7 +105,7 @@ const GraphMenu = () => {
                                 directed ? 'ui-menu-segment-active shadow-sm' : ''
                             }`}
                         >
-                            Dirigido
+                            Digrafo
                         </button>
                     </div>
                 </div>
