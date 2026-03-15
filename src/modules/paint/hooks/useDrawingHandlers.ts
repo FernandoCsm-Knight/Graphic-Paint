@@ -85,12 +85,20 @@ const useDrawingHandlers = ({
     });
 
     const pending = usePendingPlacement({ renderViewport, redrawFromScene, pushShape });
+    const {
+        hasPending: hasPendingShape,
+        onPointerDown: pendingPointerDown,
+        onPointerMove: pendingPointerMove,
+        onPointerUp: pendingPointerUp,
+        enterPending: enterPendingShape,
+        confirmPending: confirmPendingShape,
+    } = pending;
 
     const polygon = usePolygonDrawing({
         contextRef,
         renderViewport,
         redrawFromScene,
-        enterPending: pending.enterPending,
+        enterPending: enterPendingShape,
         currentColor,
         thickness,
         pixelated,
@@ -161,8 +169,8 @@ const useDrawingHandlers = ({
 
         // While a shape is pending confirmation, all clicks are handled by the
         // pending placement logic (move drag, rotate drag, or confirm on outside click).
-        if (pending.hasPending()) {
-            pending.onPointerDown(mappedPoint);
+        if (hasPendingShape()) {
+            pendingPointerDown(mappedPoint);
         } else if (selectedShape === 'polygon') {
             polygon.onPointerDown(mappedPoint);
         } else {
@@ -203,6 +211,7 @@ const useDrawingHandlers = ({
         hasFloating, selectionDown,
         isSelectionActive, startSelection, isFillActive, currentColor, isEraserActive,
         selectedShape, thickness, lineAlgorithm, renderViewport, polygon,
+        hasPendingShape, pendingPointerDown,
     ]);
 
     const handlePointerMove = useCallback((e: PointerEvent<HTMLCanvasElement>) => {
@@ -221,8 +230,8 @@ const useDrawingHandlers = ({
         }
 
         // Pending placement takes priority over all tool-specific move handling
-        if (pending.hasPending()) {
-            pending.onPointerMove(point);
+        if (hasPendingShape()) {
+            pendingPointerMove(point);
         } else if (selectedShape === 'polygon') {
             polygon.onPointerMove(point);
         } else if (isDrawing.current && contextRef.current) {
@@ -244,6 +253,7 @@ const useDrawingHandlers = ({
         hasFloating, selectionMove,
         isSelectionActive, updateSelection, selectedShape,
         scheduleShapePreview, renderViewport, polygon,
+        hasPendingShape, pendingPointerMove,
     ]);
 
     const handlePointerUp = useCallback((e?: PointerEvent<HTMLCanvasElement>) => {
@@ -259,7 +269,7 @@ const useDrawingHandlers = ({
             return;
         }
 
-        if (!pending.onPointerUp() && selectedShape !== 'polygon' && isDrawing.current) {
+        if (!pendingPointerUp() && selectedShape !== 'polygon' && isDrawing.current) {
             if (rafId.current !== null) {
                 cancelAnimationFrame(rafId.current);
                 rafId.current = null;
@@ -276,7 +286,7 @@ const useDrawingHandlers = ({
                     renderViewport();
                 } else {
                     // Regular shapes enter pending placement for optional move/rotate
-                    pending.enterPending(currentShape.current);
+                    enterPendingShape(currentShape.current);
                 }
             }
 
@@ -291,16 +301,28 @@ const useDrawingHandlers = ({
         if (e?.currentTarget.hasPointerCapture(e.pointerId)) {
             e.currentTarget.releasePointerCapture(e.pointerId);
         }
-    }, [panUp, selectionUp, selectedShape, contextRef, isSelectionActive, renderViewport, pushShape, takeSnapshotShape, stopSelection, pending]);
+    }, [
+        panUp,
+        selectionUp,
+        selectedShape,
+        contextRef,
+        isSelectionActive,
+        renderViewport,
+        pushShape,
+        takeSnapshotShape,
+        stopSelection,
+        pendingPointerUp,
+        enterPendingShape,
+    ]);
 
     return {
         handlePointerDown,
         handlePointerMove,
         handlePointerUp,
         handleWheel,
-        enterPendingShape: pending.enterPending,
-        confirmPendingShape: pending.confirmPending,
-        hasPendingShape: pending.hasPending,
+        enterPendingShape,
+        confirmPendingShape,
+        hasPendingShape,
         cancelSelection,
         commitSelection,
     };

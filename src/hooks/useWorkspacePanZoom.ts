@@ -55,6 +55,8 @@ const useWorkspacePanZoom = ({
     clampViewOffset,
     getMinAllowedZoom,
 }: WorkspacePanZoomInput) => {
+    const worldSizeRef = useRef(worldSize);
+    worldSizeRef.current = worldSize;
     const panSession = useRef<{
         pointerId: number;
         mode: "middle" | "tool";
@@ -65,29 +67,31 @@ const useWorkspacePanZoom = ({
 
     const maybeGrowWorld = useCallback((candidateOffset: Point) => {
         const { width: viewportWidth, height: viewportHeight } = getViewportSize();
+        const currentWorldSize = worldSizeRef.current;
         if (viewportWidth <= 0 || viewportHeight <= 0 || !setWorldSize) {
-            return { width: worldSize.width, height: worldSize.height };
+            return { width: currentWorldSize.width, height: currentWorldSize.height };
         }
 
-        let nextWidth = worldSize.width;
-        let nextHeight = worldSize.height;
+        let nextWidth = currentWorldSize.width;
+        let nextHeight = currentWorldSize.height;
 
-        if (candidateOffset.x < Math.min(0, viewportWidth - worldSize.width * zoom)) {
+        if (candidateOffset.x < Math.min(0, viewportWidth - currentWorldSize.width * zoom)) {
             nextWidth += growthStep;
         }
-        if (candidateOffset.y < Math.min(0, viewportHeight - worldSize.height * zoom)) {
+        if (candidateOffset.y < Math.min(0, viewportHeight - currentWorldSize.height * zoom)) {
             nextHeight += growthStep;
         }
 
-        if (nextWidth !== worldSize.width || nextHeight !== worldSize.height) {
+        if (nextWidth !== currentWorldSize.width || nextHeight !== currentWorldSize.height) {
             setWorldSize((previous) => ({
                 width: Math.max(previous.width, nextWidth),
                 height: Math.max(previous.height, nextHeight),
             }));
+            worldSizeRef.current = { width: nextWidth, height: nextHeight };
         }
 
         return { width: nextWidth, height: nextHeight };
-    }, [getViewportSize, growthStep, setWorldSize, worldSize.height, worldSize.width, zoom]);
+    }, [getViewportSize, growthStep, setWorldSize, zoom]);
 
     const onPointerDown = useCallback((event: PointerEvent<Element>): boolean => {
         const interactionElement = interactionRef.current;
@@ -135,13 +139,16 @@ const useWorkspacePanZoom = ({
         };
         const nextWorldSize = maybeGrowWorld(candidateOffset);
 
-        setViewOffset(clampViewOffset(
-            candidateOffset,
-            undefined,
-            undefined,
-            nextWorldSize.width,
-            nextWorldSize.height
-        ));
+        setViewOffset((previous) => {
+            const next = clampViewOffset(
+                candidateOffset,
+                undefined,
+                undefined,
+                nextWorldSize.width,
+                nextWorldSize.height
+            );
+            return next.x === previous.x && next.y === previous.y ? previous : next;
+        });
 
         return true;
     }, [clampViewOffset, isPanModeActive, maybeGrowWorld, setIsPanning, setViewOffset]);
@@ -183,14 +190,17 @@ const useWorkspacePanZoom = ({
         const worldY = (localY - viewOffset.y) / zoom;
 
         setZoom(nextZoom);
-        setViewOffset(clampViewOffset(
-            { x: localX - worldX * nextZoom, y: localY - worldY * nextZoom },
-            viewportWidth,
-            viewportHeight,
-            worldSize.width,
-            worldSize.height,
-            nextZoom
-        ));
+        setViewOffset((previous) => {
+            const next = clampViewOffset(
+                { x: localX - worldX * nextZoom, y: localY - worldY * nextZoom },
+                viewportWidth,
+                viewportHeight,
+                worldSize.width,
+                worldSize.height,
+                nextZoom
+            );
+            return next.x === previous.x && next.y === previous.y ? previous : next;
+        });
     }, [
         clampViewOffset,
         containerRef,

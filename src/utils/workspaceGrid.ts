@@ -3,13 +3,38 @@ import type { Point } from "../functions/geometry";
 export const STANDARD_GRID_SIZE = 32;
 export const GRID_LINE_COLOR = "#d5d9e2";
 export const GRID_LINE_CSS_VAR = "--workspace-grid-line";
+export const THEME_SURFACE_CSS_VAR = "--ui-input-surface";
+export const THEME_ACCENT_CSS_VAR = "--ui-menu-control-active-surface";
 
-const getGridStrokeStyle = () => {
-    if (typeof window === "undefined") return GRID_LINE_COLOR;
+const themeColorCache = {
+    root: null as Element | null,
+    styleSignature: "",
+    values: new Map<string, string>(),
+};
 
-    const themeRoot = document.querySelector(".app-theme") ?? document.documentElement;
-    const resolvedColor = window.getComputedStyle(themeRoot).getPropertyValue(GRID_LINE_CSS_VAR).trim();
-    return resolvedColor || GRID_LINE_COLOR;
+export const resolveThemeCssVar = (cssVar: string, fallback: string) => {
+    if (typeof window === "undefined") return fallback;
+
+    let themeRoot = themeColorCache.root;
+    if (!(themeRoot instanceof Element) || !document.contains(themeRoot)) {
+        themeRoot = document.querySelector(".app-theme") ?? document.documentElement;
+        themeColorCache.root = themeRoot;
+        themeColorCache.styleSignature = "";
+        themeColorCache.values.clear();
+    }
+
+    const styleSignature = themeRoot.getAttribute("style") ?? "";
+    if (styleSignature !== themeColorCache.styleSignature) {
+        themeColorCache.styleSignature = styleSignature;
+        themeColorCache.values.clear();
+    }
+
+    const cachedValue = themeColorCache.values.get(cssVar);
+    if (cachedValue) return cachedValue;
+
+    const resolvedColor = window.getComputedStyle(themeRoot).getPropertyValue(cssVar).trim() || fallback;
+    themeColorCache.values.set(cssVar, resolvedColor);
+    return resolvedColor;
 };
 
 export const getGridCellSize = (pixelated: boolean, pixelSize: number, zoom: number = 1) => {
@@ -29,7 +54,7 @@ export const drawGrid = (
 
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.strokeStyle = getGridStrokeStyle();
+    ctx.strokeStyle = resolveThemeCssVar(GRID_LINE_CSS_VAR, GRID_LINE_COLOR);
     ctx.lineWidth = 1;
     ctx.beginPath();
 

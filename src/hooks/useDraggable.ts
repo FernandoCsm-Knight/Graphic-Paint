@@ -36,10 +36,14 @@ export const useDraggable = (options: DraggableOptions = {}): UseDraggableReturn
         onScroll
     } = options;
 
-    const initialRef = useRef(initial);
-    const hasInitialPosition = !!initialRef.current;
-    const [position, setPosition] = useState<Point>(() => initialRef.current ? initialRef.current() : { x: 0, y: 20 });
-    const positionRef = useRef<Point>(initialRef.current ? initialRef.current() : { x: 0, y: 20 });
+    const initialPositionRef = useRef<Point | null>(null);
+    if (initialPositionRef.current === null) {
+        initialPositionRef.current = initial ? initial() : { x: 0, y: 20 };
+    }
+
+    const hasInitialPosition = !!initial;
+    const [position, setPosition] = useState<Point>(initialPositionRef.current);
+    const positionRef = useRef<Point>(initialPositionRef.current);
     const targetRef = useRef<HTMLDivElement | null>(null);
     const dragOffsetRef = useRef({ dx: 0, dy: 0 });
 
@@ -176,6 +180,7 @@ export const useDraggable = (options: DraggableOptions = {}): UseDraggableReturn
             if (axis === 'y') nextX = positionRef.current.x;
 
             const next = clampToBounds(nextX, nextY);
+            if (next.x === positionRef.current.x && next.y === positionRef.current.y) return;
             positionRef.current = next;
             setPosition(next);
             onDrag?.(next);

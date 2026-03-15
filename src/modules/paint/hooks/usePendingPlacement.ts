@@ -6,6 +6,11 @@ import type { BoundingBox } from "../shapes/ShapeTypes";
 import { getShapeBoundingBoxInDocSpace } from "../utils/boundingBox";
 import type { SceneItem } from "./useScene";
 import type { Point } from "../../../functions/geometry";
+import {
+    resolveThemeCssVar,
+    THEME_ACCENT_CSS_VAR,
+    THEME_SURFACE_CSS_VAR,
+} from "../../../utils/workspaceGrid";
 
 /** Screen-space radius of the rotation handle circle (px). */
 const ROTATION_HANDLE_RADIUS_PX = 8;
@@ -87,6 +92,8 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         const handleDistDoc = ROTATION_HANDLE_DIST_PX / scale;
         const handleRadiusDoc = ROTATION_HANDLE_RADIUS_PX / scale;
         const cornerSize = 6 / scale;
+        const overlayAccent = resolveThemeCssVar(THEME_ACCENT_CSS_VAR, "#1d4ed8");
+        const overlaySurface = resolveThemeCssVar(THEME_SURFACE_CSS_VAR, "#ffffff");
 
         // Pixelated shapes store coordinates in grid-units; convert to canvas pixels.
         const bb = getShapeBoundingBoxInDocSpace(shape);
@@ -104,13 +111,13 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         // Dashed bounding box
         overlay.setLineDash([4 * lw, 4 * lw]);
         overlay.lineWidth = lw;
-        overlay.strokeStyle = '#1d4ed8';
+        overlay.strokeStyle = overlayAccent;
         overlay.strokeRect(cx - hw, cy - hh, bb.width, bb.height);
 
         // Corner handles
         overlay.setLineDash([]);
-        overlay.fillStyle = '#ffffff';
-        overlay.strokeStyle = '#1d4ed8';
+        overlay.fillStyle = overlaySurface;
+        overlay.strokeStyle = overlayAccent;
         overlay.lineWidth = lw;
         for (const [hx, hy] of [
             [cx - hw, cy - hh], [cx + hw, cy - hh],
@@ -129,9 +136,9 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         // Rotation handle circle
         overlay.beginPath();
         overlay.arc(cx, cy - hh - handleDistDoc, handleRadiusDoc, 0, Math.PI * 2);
-        overlay.fillStyle = '#ffffff';
+        overlay.fillStyle = overlaySurface;
         overlay.fill();
-        overlay.strokeStyle = '#1d4ed8';
+        overlay.strokeStyle = overlayAccent;
         overlay.stroke();
 
         overlay.restore();
@@ -250,7 +257,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         return false;
     }, []);
 
-    const hasPending = () => pendingShapeRef.current !== null;
+    const hasPending = useCallback(() => pendingShapeRef.current !== null, []);
 
     return {
         hasPending,
