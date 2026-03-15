@@ -1,192 +1,291 @@
-import { useContext, useMemo } from 'react';
-import { LuCircleDot, LuDownload, LuPanelRight, LuPlay, LuTrash2 } from 'react-icons/lu';
+import {
+    LuCircleDot,
+    LuDownload,
+    LuGrid2X2,
+    LuPlay,
+    LuSquareDashedMousePointer,
+    LuTrash2,
+} from 'react-icons/lu';
 import GlassCard from '../../../components/GlassCard';
 import WorkspaceToolButton from '../../../components/WorkspaceToolButton';
-import { GraphContext } from '../context/GraphContext';
-import { GraphSettingsContext } from '../context/GraphSettingsContext';
-import type { GraphAlgorithm } from '../types/graph';
+import { useGraphContext } from '../context/GraphContext';
+import type { AlgorithmId } from '../types/graph';
+
+const ALGORITHMS: { id: AlgorithmId; label: string }[] = [
+    { id: 'none', label: 'Nenhum' },
+    { id: 'bfs', label: 'BFS' },
+    { id: 'dfs', label: 'DFS' },
+    { id: 'dijkstra', label: 'Dijkstra' },
+];
 
 const GraphMenu = () => {
-    const graph = useContext(GraphContext);
-    const settings = useContext(GraphSettingsContext);
-
-    const algorithmOptions = useMemo<Array<{ value: GraphAlgorithm; label: string }>>(() => {
-        const isDirected = settings?.isDirected ?? false;
-
-        return isDirected
-            ? [
-                  { value: 'bfs', label: 'BFS' },
-                  { value: 'dfs', label: 'DFS' },
-                  { value: 'topological', label: 'Topologica' },
-              ]
-            : [
-                  { value: 'bfs', label: 'BFS' },
-                  { value: 'dfs', label: 'DFS' },
-                  { value: 'components', label: 'Componentes' },
-              ];
-    }, [settings?.isDirected]);
-
-    if (!graph || !settings) return null;
-
+    const { state, dispatch } = useGraphContext();
     const {
+        directed,
+        snapToGrid,
         algorithm,
-        clearGraph,
-        runAlgorithm,
-        setAlgorithm,
-        activeTool,
-        setActiveTool,
-        vertices,
-        edges,
-        isStatusCardVisible,
-        setIsStatusCardVisible,
-        isPlayerVisible,
-        setIsPlayerVisible,
-        clearExecution,
-        exportImage,
-    } = graph;
+        selectingFor,
+        startNodeId,
+        endNodeId,
+        nodes,
+    } = state;
 
-    const { isDirected, setIsDirected } = settings;
+    const nodeCount = Object.keys(nodes).length;
+    const needsStart = algorithm !== 'none';
+    const needsEnd = algorithm === 'dijkstra';
 
-    const initialPosition = () => ({ x: 24, y: 24 });
+    const handleRun = () => {
+        if (algorithm === 'none') return;
+        if (!startNodeId) {
+            dispatch({ type: 'SET_SELECTING_FOR', target: 'startNode' });
+            return;
+        }
+        if (needsEnd && !endNodeId) {
+            dispatch({ type: 'SET_SELECTING_FOR', target: 'endNode' });
+            return;
+        }
+        // Placeholder: algorithms not yet implemented
+        // dispatch({ type: 'SET_ALGORITHM_STEPS', steps: runAlgorithm(...) });
+        alert('Algoritmos serão implementados em breve!');
+    };
+
+    const handleExport = () => {
+        const svg = document.querySelector<SVGSVGElement>('.graph-svg');
+        if (!svg) return;
+        const serializer = new XMLSerializer();
+        const svgStr = serializer.serializeToString(svg);
+        const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'graph.svg';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
 
     return (
-        <header>
-            <GlassCard initial={initialPosition} className="workspace-menu-shell">
-                <div className="relative  flex flex-col gap-[var(--pm-gap)] p-[var(--pm-pad)]">
-                    <div className="ui-menu-title-card flex min-w-0 flex-col gap-[var(--pm-gap)] rounded-xl px-[var(--pm-pad)] py-[var(--pm-btn-pad)] shadow-sm">
-                        <div className="flex items-center justify-between gap-[var(--pm-gap)]">
-                            <div>
-                                <h1 className="text-sm sm:text-base md:text-lg ui-menu-title-heading font-bold uppercase tracking-[0.24em]">
-                                    Graph
-                                </h1>
-                                <p className="ui-panel-muted mt-1 text-xs sm:text-sm">
-                                    {vertices.length} vertice(s) e {edges.length} aresta(s)
-                                </p>
-                            </div>
+        <GlassCard initial={() => ({ x: 24, y: 24 })} className="workspace-menu-shell">
+            <div className="relative min-w-52 md:min-w-72 flex flex-col gap-[var(--pm-gap)] p-[var(--pm-pad)]">
 
-                            <span className="ui-menu-title-badge rounded-full px-[var(--pm-btn-pad)] py-0.5 text-xs font-semibold uppercase tracking-[0.22em] sm:text-sm">
-                                {isDirected ? 'Digrafo' : 'Grafo'}
-                            </span>
+                {/* Header */}
+                <div className="ui-menu-title-card flex min-w-0 flex-col gap-[var(--pm-gap)] rounded-xl px-[var(--pm-pad)] py-[var(--pm-btn-pad)] shadow-sm">
+                    <div className="flex items-center justify-between gap-[var(--pm-gap)]">
+                        <div>
+                            <h1 className="text-sm sm:text-base md:text-lg ui-menu-title-heading font-bold uppercase tracking-[0.24em]">
+                                Graph
+                            </h1>
+                            <p className="ui-panel-muted mt-0.5 text-xs">
+                                {nodeCount} {nodeCount === 1 ? 'vértice' : 'vértices'} ·{' '}
+                                {Object.keys(state.edges).length}{' '}
+                                {Object.keys(state.edges).length === 1 ? 'aresta' : 'arestas'}
+                            </p>
                         </div>
-
-                        <div className="ui-menu-segmented flex items-center gap-1 rounded-lg p-1">
-                            <button
-                                type="button"
-                                onClick={() => setIsDirected(false)}
-                                className={`ui-menu-segment flex-1 rounded-md px-[var(--pm-btn-pad)] py-1.5 text-xs font-semibold transition duration-200 sm:text-sm ${
-                                    !isDirected ? 'ui-menu-segment-active shadow-sm' : ''
-                                }`}
-                            >
-                                Grafo
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => setIsDirected(true)}
-                                className={`ui-menu-segment flex-1 rounded-md px-[var(--pm-btn-pad)] py-1.5 text-xs font-semibold transition duration-200 sm:text-sm ${
-                                    isDirected ? 'ui-menu-segment-active shadow-sm' : ''
-                                }`}
-                            >
-                                Digrafo
-                            </button>
-                        </div>
+                        <span className="ui-menu-title-badge rounded-full px-[var(--pm-btn-pad)] py-0.5 text-xs font-semibold uppercase tracking-[0.18em]">
+                            {directed ? 'Dirigido' : 'Não-dir.'}
+                        </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-[var(--pm-gap)] md:grid-cols-4">
-                        <WorkspaceToolButton
-                            onClick={() => setActiveTool('vertex')}
-                            stayActive
-                            active={activeTool === 'vertex'}
-                            ariaLabel="Ferramenta de vertice"
-                            title="Ferramenta de vertice"
-                            className="flex items-center justify-center gap-2 px-3"
+                    {/* Directed / Undirected segmented control */}
+                    <div className="ui-menu-segmented flex items-center gap-1 rounded-lg p-1">
+                        <button
+                            type="button"
+                            onClick={() => dispatch({ type: 'SET_DIRECTED', value: false })}
+                            className={`text-xs ui-menu-segment flex-1 cursor-pointer rounded-md px-[var(--pm-btn-pad)] py-1.5 font-semibold transition duration-200 ${
+                                !directed ? 'ui-menu-segment-active shadow-sm' : ''
+                            }`}
                         >
-                            <LuCircleDot className="workspace-icon" />
-                            <span className="text-xs font-semibold uppercase tracking-[0.18em] sm:text-sm">
-                                Vertice
-                            </span>
-                        </WorkspaceToolButton>
-
-                        <WorkspaceToolButton
-                            onClick={clearGraph}
-                            ariaLabel="Limpar grafo"
-                            title="Limpar grafo"
-                            className="flex items-center justify-center gap-2 px-3"
+                            Não-dirigido
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => dispatch({ type: 'SET_DIRECTED', value: true })}
+                            className={`text-xs ui-menu-segment flex-1 cursor-pointer rounded-md px-[var(--pm-btn-pad)] py-1.5 font-semibold transition duration-200 ${
+                                directed ? 'ui-menu-segment-active shadow-sm' : ''
+                            }`}
                         >
-                            <LuTrash2 className="workspace-icon" />
-                            <span className="text-xs font-semibold uppercase tracking-[0.18em] sm:text-sm">
-                                Limpar
-                            </span>
-                        </WorkspaceToolButton>
-
-                        <label className="ui-input col-span-2 flex w-full items-center gap-2 rounded-lg px-3 py-2">
-                            <span className="ui-panel-muted text-xs font-semibold uppercase tracking-[0.16em] sm:text-sm">
-                                Algoritmo
-                            </span>
-
-                            <select
-                                value={algorithm}
-                                onChange={(event) => setAlgorithm(event.target.value as GraphAlgorithm)}
-                                className="w-full bg-transparent text-xs font-medium outline-none sm:text-sm"
-                            >
-                                {algorithmOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-
-                        <WorkspaceToolButton
-                            onClick={() => {
-                                if (isPlayerVisible) {
-                                    setIsPlayerVisible(false);
-                                    clearExecution();
-                                } else {
-                                    runAlgorithm();
-                                }
-                            }}
-                            stayActive
-                            active={isPlayerVisible}
-                            ariaLabel="Executar algoritmo"
-                            title="Executar algoritmo"
-                            className="flex items-center justify-center gap-2 px-3"
-                        >
-                            <LuPlay className="workspace-icon" />
-                            <span className="text-xs font-semibold uppercase tracking-[0.18em] sm:text-sm">
-                                Rodar
-                            </span>
-                        </WorkspaceToolButton>
-
-                        <WorkspaceToolButton
-                            onClick={() => setIsStatusCardVisible(!isStatusCardVisible)}
-                            stayActive
-                            active={isStatusCardVisible}
-                            ariaLabel={isStatusCardVisible ? 'Ocultar status' : 'Mostrar status'}
-                            title={isStatusCardVisible ? 'Ocultar status' : 'Mostrar status'}
-                            className="flex items-center justify-center gap-2 px-3"
-                        >
-                            <LuPanelRight className="workspace-icon" />
-                            <span className="text-xs font-semibold uppercase tracking-[0.18em] sm:text-sm">
-                                Status
-                            </span>
-                        </WorkspaceToolButton>
-
-                        <WorkspaceToolButton
-                            onClick={exportImage}
-                            ariaLabel="Exportar imagem"
-                            title="Exportar imagem"
-                            className="col-span-2 flex items-center justify-center gap-2 px-3"
-                        >
-                            <LuDownload className="workspace-icon" />
-                            <span className="text-xs font-semibold uppercase tracking-[0.18em] sm:text-sm">
-                                Exportar
-                            </span>
-                        </WorkspaceToolButton>
+                            Dirigido
+                        </button>
                     </div>
                 </div>
-            </GlassCard>
-        </header>
+
+                {/* Interaction hint */}
+                {state.edgeSourceId && (
+                    <div className="ui-menu-title-badge rounded-lg px-3 py-1.5 text-xs text-center">
+                        Clique direito em outro vértice para criar aresta
+                    </div>
+                )}
+                {selectingFor === 'startNode' && (
+                    <div className="ui-menu-title-badge rounded-lg px-3 py-1.5 text-xs text-center">
+                        Clique em um vértice para definir o início
+                    </div>
+                )}
+                {selectingFor === 'endNode' && (
+                    <div className="ui-menu-title-badge rounded-lg px-3 py-1.5 text-xs text-center">
+                        Clique em um vértice para definir o fim
+                    </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="grid grid-cols-2 gap-[var(--pm-gap)]">
+                    <WorkspaceToolButton
+                        ariaLabel="Snap to grid"
+                        title={snapToGrid ? 'Desativar snap' : 'Ativar snap'}
+                        stayActive
+                        active={snapToGrid}
+                        onClick={() => dispatch({ type: 'SET_SNAP_TO_GRID', value: !snapToGrid })}
+                        className="flex items-center justify-center gap-2 px-3"
+                    >
+                        <LuGrid2X2 className="workspace-icon" />
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em] sm:text-sm">
+                            Snap
+                        </span>
+                    </WorkspaceToolButton>
+
+                    <WorkspaceToolButton
+                        ariaLabel="Limpar grafo"
+                        title="Limpar grafo"
+                        onClick={() => {
+                            if (
+                                Object.keys(nodes).length === 0 ||
+                                window.confirm('Limpar o grafo?')
+                            ) {
+                                dispatch({ type: 'CLEAR_GRAPH' });
+                            }
+                        }}
+                        className="flex items-center justify-center gap-2 px-3"
+                    >
+                        <LuTrash2 className="workspace-icon" />
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em] sm:text-sm">
+                            Limpar
+                        </span>
+                    </WorkspaceToolButton>
+
+                    <WorkspaceToolButton
+                        ariaLabel="Exportar SVG"
+                        title="Exportar como SVG"
+                        onClick={handleExport}
+                        className="flex items-center justify-center gap-2 px-3"
+                    >
+                        <LuDownload className="workspace-icon" />
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em] sm:text-sm">
+                            Exportar
+                        </span>
+                    </WorkspaceToolButton>
+
+                    <WorkspaceToolButton
+                        ariaLabel="Dica de uso"
+                        title="Como usar"
+                        className="flex items-center justify-center gap-2 px-3 col-span-1"
+                    >
+                        <LuCircleDot className="workspace-icon" />
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em] sm:text-sm">
+                            Ajuda
+                        </span>
+                    </WorkspaceToolButton>
+                </div>
+
+                {/* Separator */}
+                <div className="ui-drag-line rounded border" />
+
+                {/* Algorithm section */}
+                <div className="flex flex-col gap-[var(--pm-gap)]">
+                    <span className="ui-panel-muted text-xs uppercase tracking-[0.18em]">
+                        Algoritmo
+                    </span>
+
+                    <select
+                        value={algorithm}
+                        onChange={(e) =>
+                            dispatch({
+                                type: 'SET_ALGORITHM',
+                                algorithm: e.target.value as AlgorithmId,
+                            })
+                        }
+                        className="ui-input rounded-lg px-3 py-[var(--pm-btn-pad)] text-xs font-semibold cursor-pointer"
+                    >
+                        {ALGORITHMS.map((a) => (
+                            <option key={a.id} value={a.id}>
+                                {a.label}
+                            </option>
+                        ))}
+                    </select>
+
+                    {needsStart && (
+                        <div className="grid grid-cols-2 gap-[var(--pm-gap)]">
+                            <WorkspaceToolButton
+                                ariaLabel="Selecionar nó inicial"
+                                title="Clique para selecionar nó inicial"
+                                stayActive
+                                active={selectingFor === 'startNode'}
+                                onClick={() =>
+                                    dispatch({
+                                        type: 'SET_SELECTING_FOR',
+                                        target:
+                                            selectingFor === 'startNode' ? 'none' : 'startNode',
+                                    })
+                                }
+                                className="flex items-center justify-center gap-1.5 px-2"
+                            >
+                                <LuSquareDashedMousePointer className="workspace-icon" />
+                                <span className="text-xs font-semibold uppercase tracking-[0.14em]">
+                                    {startNodeId
+                                        ? `S: ${state.nodes[startNodeId]?.label ?? '?'}`
+                                        : 'Início'}
+                                </span>
+                            </WorkspaceToolButton>
+
+                            {needsEnd && (
+                                <WorkspaceToolButton
+                                    ariaLabel="Selecionar nó final"
+                                    title="Clique para selecionar nó final"
+                                    stayActive
+                                    active={selectingFor === 'endNode'}
+                                    onClick={() =>
+                                        dispatch({
+                                            type: 'SET_SELECTING_FOR',
+                                            target:
+                                                selectingFor === 'endNode' ? 'none' : 'endNode',
+                                        })
+                                    }
+                                    className="flex items-center justify-center gap-1.5 px-2"
+                                >
+                                    <LuSquareDashedMousePointer className="workspace-icon" />
+                                    <span className="text-xs font-semibold uppercase tracking-[0.14em]">
+                                        {endNodeId
+                                            ? `E: ${state.nodes[endNodeId]?.label ?? '?'}`
+                                            : 'Fim'}
+                                    </span>
+                                </WorkspaceToolButton>
+                            )}
+                        </div>
+                    )}
+
+                    <WorkspaceToolButton
+                        ariaLabel="Executar algoritmo"
+                        title="Executar algoritmo"
+                        disabled={algorithm === 'none'}
+                        onClick={handleRun}
+                        className="flex items-center justify-center gap-2 px-3"
+                    >
+                        <LuPlay className="workspace-icon" />
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em] sm:text-sm">
+                            Executar
+                        </span>
+                    </WorkspaceToolButton>
+                </div>
+
+                {/* Usage hints */}
+                <div className="ui-menu-title-card rounded-xl px-[var(--pm-pad)] py-[var(--pm-btn-pad)]">
+                    <p className="ui-panel-muted text-xs leading-relaxed space-y-0.5">
+                        <span className="block">🖱 Duplo-clique → criar vértice</span>
+                        <span className="block">🖱 Clique → selecionar</span>
+                        <span className="block">🖱 Direito → criar aresta</span>
+                        <span className="block">🖱 Duplo-clique no elem. → editar</span>
+                        <span className="block">⌨ Delete → remover seleção</span>
+                    </p>
+                </div>
+            </div>
+        </GlassCard>
     );
 };
 

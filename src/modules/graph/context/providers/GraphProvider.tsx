@@ -1,249 +1,203 @@
-import { useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
-import { GraphContext, type GraphContextType } from '../GraphContext';
-import { GraphSettingsContext } from '../GraphSettingsContext';
-import { runGraphAlgorithm } from '../../algorithms/traversal';
-import type { GraphEdge, GraphVertex } from '../../types/graph';
-import type { Point } from '../../../../functions/geometry';
+import { useReducer, useMemo } from 'react';
+import type { ReactNode } from 'react';
+import { GraphContext } from '../GraphContext';
+import type { GraphState, GraphAction } from '../../types/graph';
 
-type GraphProviderProps = {
-    children: ReactNode;
+const initialState: GraphState = {
+    nodes: {},
+    edges: {},
+    selectedNodeId: null,
+    selectedEdgeId: null,
+    edgeSourceId: null,
+    editingNodeId: null,
+    editingEdgeId: null,
+    directed: true,
+    snapToGrid: true,
+    gridSize: 40,
+    algorithm: 'none',
+    startNodeId: null,
+    endNodeId: null,
+    selectingFor: 'none',
+    algorithmSteps: [],
+    currentStepIndex: 0,
+    isPlaying: false,
+    stepIntervalMs: 800,
 };
 
-const GraphProvider = ({ children }: GraphProviderProps) => {
-    const settings = useContext(GraphSettingsContext);
-    if (!settings) throw new Error('GraphProvider must be used within GraphSettingsProvider.');
+function graphReducer(state: GraphState, action: GraphAction): GraphState {
+    switch (action.type) {
+        case 'ADD_NODE':
+            return { ...state, nodes: { ...state.nodes, [action.node.id]: action.node } };
 
-    const { gridSize, isDirected, snapToGrid, vertexRadius } = settings;
-    const vertexCounterRef = useRef(0);
-    const edgeCounterRef = useRef(0);
+        case 'MOVE_NODE': {
+            const node = state.nodes[action.id];
+            if (!node) return state;
+            let { x, y } = action;
+            if (state.snapToGrid) {
+                x = Math.round(x / state.gridSize) * state.gridSize;
+                y = Math.round(y / state.gridSize) * state.gridSize;
+            }
+            return { ...state, nodes: { ...state.nodes, [action.id]: { ...node, x, y } } };
+        }
 
-    const [vertices, setVertices] = useState<GraphVertex[]>([]);
-    const [edges, setEdges] = useState<GraphEdge[]>([]);
-    const [activeTool, setActiveTool] = useState<'vertex'>('vertex');
-    const [selectedVertexId, setSelectedVertexId] = useState<string | null>(null);
-    const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-    const [pendingEdgeStartId, setPendingEdgeStartId] = useState<string | null>(null);
-    const [isStatusCardVisible, setIsStatusCardVisible] = useState(false);
-    const [isPlayerVisible, setIsPlayerVisible] = useState(false);
-    const [algorithm, setAlgorithm] = useState<GraphContextType['algorithm']>('bfs');
-    const [lastRun, setLastRun] = useState<GraphContextType['lastRun']>(null);
-    const [stepIndex, setStepIndex] = useState<number | null>(null);
-    const exportImageRef = useRef<() => void>(() => undefined);
+        case 'DELETE_NODE': {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [action.id]: _deleted, ...remainingNodes } = state.nodes;
+            const edges = Object.fromEntries(
+                Object.entries(state.edges).filter(
+                    ([, e]) => e.source !== action.id && e.target !== action.id
+                )
+            );
+            return {
+                ...state,
+                nodes: remainingNodes,
+                edges,
+                selectedNodeId: state.selectedNodeId === action.id ? null : state.selectedNodeId,
+                startNodeId: state.startNodeId === action.id ? null : state.startNodeId,
+                endNodeId: state.endNodeId === action.id ? null : state.endNodeId,
+                edgeSourceId: state.edgeSourceId === action.id ? null : state.edgeSourceId,
+                algorithmSteps: [],
+                currentStepIndex: 0,
+                isPlaying: false,
+            };
+        }
 
-    const clearExecution = useCallback(() => {
-        setLastRun(null);
-        setStepIndex(null);
-    }, []);
+        case 'UPDATE_NODE_LABEL': {
+            const node = state.nodes[action.id];
+            if (!node) return state;
+            return {
+                ...state,
+                nodes: { ...state.nodes, [action.id]: { ...node, label: action.label } },
+                editingNodeId: null,
+            };
+        }
 
-    const snapPoint = useCallback((point: Point) => {
-        if (!snapToGrid) return point;
+        case 'ADD_EDGE': {
+            const alreadyExists = Object.values(state.edges).some(
+                (e) => e.source === action.edge.source && e.target === action.edge.target
+            );
+            if (alreadyExists) return { ...state, edgeSourceId: null };
+            return {
+                ...state,
+                edges: { ...state.edges, [action.edge.id]: action.edge },
+                edgeSourceId: null,
+                algorithmSteps: [],
+                currentStepIndex: 0,
+                isPlaying: false,
+            };
+        }
 
-        return {
-            x: Math.round(point.x / gridSize) * gridSize,
-            y: Math.round(point.y / gridSize) * gridSize,
-        };
-    }, [gridSize, snapToGrid]);
+        case 'DELETE_EDGE': {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [action.id]: _deleted, ...remainingEdges } = state.edges;
+            return {
+                ...state,
+                edges: remainingEdges,
+                selectedEdgeId: state.selectedEdgeId === action.id ? null : state.selectedEdgeId,
+                algorithmSteps: [],
+                currentStepIndex: 0,
+                isPlaying: false,
+            };
+        }
 
-    const createVertex = useCallback((position: Point) => {
-        const snapped = snapPoint(position);
-        vertexCounterRef.current += 1;
+        case 'UPDATE_EDGE': {
+            const edge = state.edges[action.id];
+            if (!edge) return state;
+            return {
+                ...state,
+                edges: { ...state.edges, [action.id]: { ...edge, weight: action.weight } },
+                editingEdgeId: null,
+            };
+        }
 
-        const vertex: GraphVertex = {
-            id: `v-${vertexCounterRef.current}`,
-            label: `V${vertexCounterRef.current}`,
-            position: snapped,
-            radius: vertexRadius,
-        };
+        case 'SELECT_NODE':
+            return { ...state, selectedNodeId: action.id, selectedEdgeId: null };
 
-        setVertices((current) => [...current, vertex]);
-        clearExecution();
-    }, [clearExecution, snapPoint, vertexRadius]);
+        case 'SELECT_EDGE':
+            return { ...state, selectedEdgeId: action.id, selectedNodeId: null };
 
-    const edgeExists = useCallback((sourceId: string, targetId: string) => {
-        return edges.some((edge) => {
-            if (edge.source === sourceId && edge.target === targetId) return true;
-            return !edge.directed && edge.source === targetId && edge.target === sourceId;
-        });
-    }, [edges]);
+        case 'START_EDGE_FROM':
+            return { ...state, edgeSourceId: action.id };
 
-    const selectVertex = useCallback((vertexId: string) => {
-        setSelectedVertexId(vertexId);
-        setSelectedEdgeId(null);
-    }, []);
+        case 'CANCEL_EDGE':
+            return { ...state, edgeSourceId: null };
 
-    const connectVertex = useCallback((vertexId: string) => {
-        setPendingEdgeStartId((currentStart) => {
-            if (!currentStart || currentStart === vertexId) return vertexId;
-            if (edgeExists(currentStart, vertexId)) return vertexId;
+        case 'SET_EDITING_NODE':
+            return { ...state, editingNodeId: action.id, editingEdgeId: null };
 
-            edgeCounterRef.current += 1;
-            const edge: GraphEdge = {
-                id: `e-${edgeCounterRef.current}`,
-                source: currentStart,
-                target: vertexId,
-                directed: isDirected,
-                label: 0,
+        case 'SET_EDITING_EDGE':
+            return { ...state, editingEdgeId: action.id, editingNodeId: null };
+
+        case 'SET_DIRECTED':
+            return { ...state, directed: action.value };
+
+        case 'SET_SNAP_TO_GRID':
+            return { ...state, snapToGrid: action.value };
+
+        case 'SET_ALGORITHM':
+            return {
+                ...state,
+                algorithm: action.algorithm,
+                algorithmSteps: [],
+                currentStepIndex: 0,
+                isPlaying: false,
             };
 
-            setEdges((currentEdges) => [...currentEdges, edge]);
-            clearExecution();
-            return null;
-        });
-    }, [clearExecution, edgeExists, isDirected]);
+        case 'SET_SELECTING_FOR':
+            return { ...state, selectingFor: action.target };
 
-    const selectEdge = useCallback((edgeId: string) => {
-        setSelectedEdgeId(edgeId);
-        setSelectedVertexId(null);
-        setPendingEdgeStartId(null);
-    }, []);
+        case 'SET_START_NODE':
+            return { ...state, startNodeId: action.id, selectingFor: 'none' };
 
-    const moveVertex = useCallback((vertexId: string, position: Point) => {
-        const nextPosition = snapPoint(position);
+        case 'SET_END_NODE':
+            return { ...state, endNodeId: action.id, selectingFor: 'none' };
 
-        setVertices((current) => current.map((vertex) => {
-            if (vertex.id !== vertexId) return vertex;
-            return { ...vertex, position: nextPosition };
-        }));
-        clearExecution();
-    }, [clearExecution, snapPoint]);
+        case 'SET_ALGORITHM_STEPS':
+            return {
+                ...state,
+                algorithmSteps: action.steps,
+                currentStepIndex: 0,
+                isPlaying: false,
+            };
 
-    const updateVertexLabel = useCallback((vertexId: string, label: string) => {
-        setVertices((current) => current.map((vertex) => {
-            if (vertex.id !== vertexId) return vertex;
-            return { ...vertex, label };
-        }));
-        clearExecution();
-    }, [clearExecution]);
+        case 'STEP_FORWARD':
+            return {
+                ...state,
+                currentStepIndex: Math.min(state.currentStepIndex + 1, state.algorithmSteps.length - 1),
+            };
 
-    const updateEdgeLabel = useCallback((edgeId: string, label: number) => {
-        setEdges((current) => current.map((edge) => {
-            if (edge.id !== edgeId) return edge;
-            return { ...edge, label };
-        }));
-        clearExecution();
-    }, [clearExecution]);
+        case 'STEP_BACKWARD':
+            return {
+                ...state,
+                currentStepIndex: Math.max(state.currentStepIndex - 1, 0),
+            };
 
-    const cancelPendingEdge = useCallback(() => {
-        setPendingEdgeStartId(null);
-    }, []);
+        case 'SET_PLAYING':
+            return { ...state, isPlaying: action.value };
 
-    const clearSelection = useCallback(() => {
-        setSelectedVertexId(null);
-        setSelectedEdgeId(null);
-        setPendingEdgeStartId(null);
-    }, []);
+        case 'SET_STEP_INTERVAL':
+            return { ...state, stepIntervalMs: action.ms };
 
-    const clearGraph = useCallback(() => {
-        setVertices([]);
-        setEdges([]);
-        clearSelection();
-        clearExecution();
-    }, [clearExecution, clearSelection]);
+        case 'CLEAR_GRAPH':
+            return {
+                ...initialState,
+                directed: state.directed,
+                snapToGrid: state.snapToGrid,
+                gridSize: state.gridSize,
+                stepIntervalMs: state.stepIntervalMs,
+                algorithm: state.algorithm,
+            };
 
-    const removeSelectedElement = useCallback(() => {
-        if (selectedVertexId) {
-            setVertices((current) => current.filter((vertex) => vertex.id !== selectedVertexId));
-            setEdges((current) => current.filter((edge) => edge.source !== selectedVertexId && edge.target !== selectedVertexId));
-            clearSelection();
-            clearExecution();
-            return;
-        }
+        default:
+            return state;
+    }
+}
 
-        if (!selectedEdgeId) return;
+const GraphProvider = ({ children }: { children: ReactNode }) => {
+    const [state, dispatch] = useReducer(graphReducer, initialState);
+    const value = useMemo(() => ({ state, dispatch }), [state]);
 
-        setEdges((current) => current.filter((edge) => edge.id !== selectedEdgeId));
-        setSelectedEdgeId(null);
-        clearExecution();
-    }, [clearExecution, clearSelection, selectedEdgeId, selectedVertexId]);
-
-    const runAlgorithm = useCallback(() => {
-        const result = runGraphAlgorithm({
-            algorithm,
-            vertices,
-            edges,
-            startVertexId: selectedVertexId,
-        });
-        setLastRun(result);
-        if (result.status !== 'error') {
-            setStepIndex(0);
-            setIsPlayerVisible(true);
-        }
-    }, [algorithm, edges, selectedVertexId, vertices]);
-
-    const setExportImage = useCallback((callback: () => void) => {
-        exportImageRef.current = callback;
-    }, []);
-
-    const exportImage = useCallback(() => {
-        exportImageRef.current();
-    }, []);
-
-    const value = useMemo<GraphContextType>(() => ({
-        vertices,
-        edges,
-        activeTool,
-        setActiveTool,
-        selectedVertexId,
-        selectedEdgeId,
-        pendingEdgeStartId,
-        isStatusCardVisible,
-        setIsStatusCardVisible,
-        isPlayerVisible,
-        setIsPlayerVisible,
-        algorithm,
-        setAlgorithm,
-        lastRun,
-        stepIndex,
-        setStepIndex,
-        createVertex,
-        selectVertex,
-        connectVertex,
-        selectEdge,
-        moveVertex,
-        updateVertexLabel,
-        updateEdgeLabel,
-        cancelPendingEdge,
-        clearSelection,
-        clearGraph,
-        removeSelectedElement,
-        runAlgorithm,
-        clearExecution,
-        exportImage,
-        setExportImage,
-    }), [
-        activeTool,
-        algorithm,
-        cancelPendingEdge,
-        clearExecution,
-        clearGraph,
-        clearSelection,
-        connectVertex,
-        createVertex,
-        edges,
-        exportImage,
-        isPlayerVisible,
-        isStatusCardVisible,
-        lastRun,
-        moveVertex,
-        pendingEdgeStartId,
-        removeSelectedElement,
-        runAlgorithm,
-        selectEdge,
-        selectVertex,
-        selectedEdgeId,
-        selectedVertexId,
-        setExportImage,
-        stepIndex,
-        updateEdgeLabel,
-        updateVertexLabel,
-        vertices,
-    ]);
-
-    return (
-        <GraphContext.Provider value={value}>
-            {children}
-        </GraphContext.Provider>
-    );
+    return <GraphContext.Provider value={value}>{children}</GraphContext.Provider>;
 };
 
 export default GraphProvider;

@@ -1,0 +1,468 @@
+import { useEffect, useRef } from 'react';
+import type { RefObject } from 'react';
+import * as d3 from 'd3';
+import type { GraphState, GraphAction, GraphNode, GraphEdge } from '../types/graph';
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const NODE_RADIUS = 22;
+const ARROW_LENGTH = 12;
+
+let _nodeCounter = 0;
+let _edgeCounter = 0;
+
+export function generateNodeId(): string {
+    return `n${++_nodeCounter}`;
+}
+
+export function generateEdgeId(): string {
+    return `e${++_edgeCounter}`;
+}
+
+function snap(value: number, gridSize: number): number {
+    return Math.round(value / gridSize) * gridSize;
+}
+
+// ── Edge geometry helpers ──────────────────────────────────────────────────────
+
+interface EdgeEndpoints {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    midX: number;
+    midY: number;
+    labelX: number;
+    labelY: number;
+}
+
+function computeEdgeEndpoints(
+    sx: number,
+    sy: number,
+    tx: number,
+    ty: number,
+    directed: boolean,
+): EdgeEndpoints | null {
+    const dx = tx - sx;
+    const dy = ty - sy;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < NODE_RADIUS * 2) return null;
+    const ux = dx / len;
+    const uy = dy / len;
+    const x1 = sx + NODE_RADIUS * ux;
+    const y1 = sy + NODE_RADIUS * uy;
+    // For directed graphs leave room for the arrowhead before the target circle
+    const endOffset = directed ? NODE_RADIUS + ARROW_LENGTH : NODE_RADIUS;
+    const x2 = tx - endOffset * ux;
+    const y2 = ty - endOffset * uy;
+    const midX = (sx + tx) / 2;
+    const midY = (sy + ty) / 2;
+    // Offset label perpendicular to the edge
+    const labelX = midX - uy * 14;
+    const labelY = midY + ux * 14;
+    return { x1, y1, x2, y2, midX, midY, labelX, labelY };
+}
+
+// ── Main hook ──────────────────────────────────────────────────────────────────
+
+export function useGraphD3(
+    svgRef: RefObject<SVGSVGElement | null>,
+    state: GraphState,
+    dispatch: React.Dispatch<GraphAction>,
+): void {
+    // Always-fresh refs to avoid stale closures in D3 callbacks
+    const stateRef = useRef(state);
+    const dispatchRef = useRef(dispatch);
+    useEffect(() => {
+        stateRef.current = state;
+    });
+    useEffect(() => {
+        dispatchRef.current = dispatch;
+    });
+
+    const dragMovedRef = useRef(false);
+
+    // ── Setup (once on mount) ──────────────────────────────────────────────────
+    useEffect(() => {
+        const svgEl = svgRef.current;
+        if (!svgEl) return;
+
+        const svg = d3.select(svgEl);
+        svg.selectAll('*').remove();
+
+        // Prevent browser context menu everywhere on the SVG
+        svg.on('contextmenu', (event: Event) => event.preventDefault());
+
+        // ── Defs ──────────────────────────────────────────────────────────────
+        const defs = svg.append('defs');
+
+        // Arrow-head marker (tip aligns with line endpoint)
+        defs.append('marker')
+            .attr('id', 'graph-arrow')
+            .attr('viewBox', '0 -6 12 12')
+            .attr('refX', 12)
+            .attr('refY', 0)
+            .attr('markerWidth', ARROW_LENGTH)
+            .attr('markerHeight', ARROW_LENGTH)
+            .attr('orient', 'auto')
+            .attr('markerUnits', 'userSpaceOnUse')
+            .append('path')
+            .attr('d', 'M0,-6L12,0L0,6Z')
+            .style('fill', 'context-stroke');
+
+        // Grid line pattern — same visual approach as Paint's Grid.ts
+        const gridPat = defs.append('pattern')
+            .attr('id', 'graph-grid')
+            .attr('patternUnits', 'userSpaceOnUse');
+        // Two path segments draw the top and left edge of each cell;
+        // when tiled they form a full grid of lines.
+        gridPat.append('path')
+            .attr('class', 'graph-grid-line')
+            .attr('fill', 'none');
+
+        // ── Background ────────────────────────────────────────────────────────
+        // Use .style() so the inline style beats any CSS-class fill declarations.
+        svg.append('rect')
+            .attr('class', 'graph-bg')
+            .attr('width', '100%')
+            .attr('height', '100%')
+            .style('fill', 'url(#graph-grid)');
+
+        // ── Layers ────────────────────────────────────────────────────────────
+        svg.append('g').attr('class', 'edges-layer');
+        svg.append('g').attr('class', 'nodes-layer');
+
+        // ── Edge-creation preview line ─────────────────────────────────────────
+        svg.append('line')
+            .attr('class', 'edge-preview')
+            .style('display', 'none');
+
+        // ── SVG-level pointer events ───────────────────────────────────────────
+        svg.on('pointerup', (event: PointerEvent) => {
+            if (event.button !== 0) return;
+            if ((event.target as Element).closest('.node-group, .edge-group')) return;
+            if (dragMovedRef.current) return;
+            const s = stateRef.current;
+            if (s.edgeSourceId) {
+                dispatchRef.current({ type: 'CANCEL_EDGE' });
+                return;
+            }
+            if (s.selectingFor !== 'none') {
+                dispatchRef.current({ type: 'SET_SELECTING_FOR', target: 'none' });
+                return;
+            }
+            dispatchRef.current({ type: 'SELECT_NODE', id: null });
+            dispatchRef.current({ type: 'SELECT_EDGE', id: null });
+        });
+
+        svg.on('dblclick', (event: MouseEvent) => {
+            if ((event.target as Element).closest('.node-group, .edge-group')) return;
+            event.preventDefault();
+            const [x, y] = d3.pointer(event, svgEl);
+            const s = stateRef.current;
+            const nx = s.snapToGrid ? snap(x, s.gridSize) : x;
+            const ny = s.snapToGrid ? snap(y, s.gridSize) : y;
+            const id = generateNodeId();
+            dispatchRef.current({
+                type: 'ADD_NODE',
+                node: { id, x: nx, y: ny, label: `V${id.slice(1)}` },
+            });
+        });
+
+        svg.on('mousemove', (event: MouseEvent) => {
+            const s = stateRef.current;
+            if (!s.edgeSourceId) return;
+            const src = s.nodes[s.edgeSourceId];
+            if (!src) return;
+            const [mx, my] = d3.pointer(event, svgEl);
+            svg.select<SVGLineElement>('.edge-preview')
+                .style('display', null)
+                .attr('x1', src.x)
+                .attr('y1', src.y)
+                .attr('x2', mx)
+                .attr('y2', my);
+        });
+
+        // ── Keyboard shortcuts ─────────────────────────────────────────────────
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                dispatchRef.current({ type: 'CANCEL_EDGE' });
+                dispatchRef.current({ type: 'SET_SELECTING_FOR', target: 'none' });
+            }
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if ((e.target as HTMLElement).tagName === 'INPUT') return;
+                const s = stateRef.current;
+                if (s.editingNodeId || s.editingEdgeId) return;
+                if (s.selectedNodeId) {
+                    dispatchRef.current({ type: 'DELETE_NODE', id: s.selectedNodeId });
+                } else if (s.selectedEdgeId) {
+                    dispatchRef.current({ type: 'DELETE_EDGE', id: s.selectedEdgeId });
+                }
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', onKeyDown);
+        };
+    // svgRef is a stable ref object — this effect only needs to run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // ── Render (runs on every state change) ────────────────────────────────────
+    useEffect(() => {
+        const svgEl = svgRef.current;
+        if (!svgEl) return;
+
+        const svg = d3.select(svgEl);
+        const {
+            nodes,
+            edges,
+            selectedNodeId,
+            selectedEdgeId,
+            edgeSourceId,
+            directed,
+            gridSize,
+            algorithmSteps,
+            currentStepIndex,
+            startNodeId,
+            endNodeId,
+            selectingFor,
+        } = state;
+
+        const currentStep = algorithmSteps[currentStepIndex];
+        const nodesArray = Object.values(nodes);
+        const edgesArray = Object.values(edges);
+
+        // ── Grid pattern update ────────────────────────────────────────────────
+        svg.select<SVGPatternElement>('#graph-grid')
+            .attr('width', gridSize)
+            .attr('height', gridSize);
+        // Top + left edge of each cell; tiling forms a full line grid
+        svg.select('.graph-grid-line')
+            .attr('d', `M ${gridSize} 0 L 0 0 0 ${gridSize}`);
+
+        // Hide preview when not in edge-creation mode
+        if (!edgeSourceId) {
+            svg.select('.edge-preview').style('display', 'none');
+        }
+
+        // ── Drag behaviour (created fresh each render so refs are captured) ────
+        const drag = d3
+            .drag<SVGGElement, GraphNode>()
+            .filter((event: PointerEvent) => event.button === 0)
+            .clickDistance(6)
+            .subject((_, d) => ({ x: d.x, y: d.y }))
+            .on('start', function () {
+                dragMovedRef.current = false;
+                d3.select(this).raise();
+            })
+            .on('drag', function (event, d) {
+                dragMovedRef.current = true;
+                const s = stateRef.current;
+                const nx = s.snapToGrid ? snap(event.x, s.gridSize) : event.x;
+                const ny = s.snapToGrid ? snap(event.y, s.gridSize) : event.y;
+
+                d3.select(this).attr('transform', `translate(${nx},${ny})`);
+
+                // Live-update connected edges without touching React state
+                svg.selectAll<SVGGElement, GraphEdge>('g.edge-group').each(function (ed) {
+                    if (ed.source !== d.id && ed.target !== d.id) return;
+                    const sx2 = ed.source === d.id ? nx : (s.nodes[ed.source]?.x ?? 0);
+                    const sy2 = ed.source === d.id ? ny : (s.nodes[ed.source]?.y ?? 0);
+                    const tx2 = ed.target === d.id ? nx : (s.nodes[ed.target]?.x ?? 0);
+                    const ty2 = ed.target === d.id ? ny : (s.nodes[ed.target]?.y ?? 0);
+                    const ep = computeEdgeEndpoints(sx2, sy2, tx2, ty2, s.directed);
+                    if (!ep) return;
+                    const g = d3.select(this);
+                    g.select('.edge-hit-area')
+                        .attr('x1', ep.x1).attr('y1', ep.y1)
+                        .attr('x2', ep.x2).attr('y2', ep.y2);
+                    g.select('.edge-line')
+                        .attr('x1', ep.x1).attr('y1', ep.y1)
+                        .attr('x2', ep.x2).attr('y2', ep.y2);
+                    g.select('.edge-label')
+                        .attr('x', ep.labelX).attr('y', ep.labelY);
+                });
+            })
+            .on('end', function (event, d) {
+                if (dragMovedRef.current) {
+                    const s = stateRef.current;
+                    const nx = s.snapToGrid ? snap(event.x, s.gridSize) : event.x;
+                    const ny = s.snapToGrid ? snap(event.y, s.gridSize) : event.y;
+                    dispatchRef.current({ type: 'MOVE_NODE', id: d.id, x: nx, y: ny });
+                }
+                dragMovedRef.current = false;
+            });
+
+        // ── Edges ──────────────────────────────────────────────────────────────
+        const edgesLayer = svg.select<SVGGElement>('.edges-layer');
+        const edgeGroups = edgesLayer
+            .selectAll<SVGGElement, GraphEdge>('g.edge-group')
+            .data(edgesArray, (d) => d.id);
+
+        const edgeEnter = edgeGroups
+            .enter()
+            .append('g')
+            .attr('class', 'edge-group');
+
+        edgeEnter.append('line').attr('class', 'edge-hit-area');
+        edgeEnter.append('line').attr('class', 'edge-line');
+        edgeEnter.append('text')
+            .attr('class', 'edge-label')
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle');
+
+        const edgeUpdate = edgeEnter.merge(edgeGroups);
+
+        // Click / dblclick handlers on all edge groups
+        edgeUpdate.on('click', function (event: MouseEvent, d: GraphEdge) {
+            event.stopPropagation();
+            if (stateRef.current.edgeSourceId) return;
+            dispatchRef.current({ type: 'SELECT_EDGE', id: d.id });
+        });
+        edgeUpdate.on('dblclick', function (event: MouseEvent, d: GraphEdge) {
+            event.stopPropagation();
+            dispatchRef.current({ type: 'SET_EDITING_EDGE', id: d.id });
+        });
+
+        // Update geometry and visual classes
+        edgeUpdate.each(function (d: GraphEdge) {
+            const src = nodes[d.source];
+            const tgt = nodes[d.target];
+            if (!src || !tgt) return;
+            const ep = computeEdgeEndpoints(src.x, src.y, tgt.x, tgt.y, directed);
+            if (!ep) return;
+            const g = d3.select(this);
+            g.select('.edge-hit-area')
+                .attr('x1', ep.x1).attr('y1', ep.y1)
+                .attr('x2', ep.x2).attr('y2', ep.y2);
+            g.select('.edge-line')
+                .attr('x1', ep.x1).attr('y1', ep.y1)
+                .attr('x2', ep.x2).attr('y2', ep.y2);
+            g.select('.edge-label')
+                .attr('x', ep.labelX)
+                .attr('y', ep.labelY)
+                .text(() => {
+                    const w = d.weight;
+                    return Number.isInteger(w) ? String(w) : w.toFixed(2);
+                });
+        });
+
+        edgeUpdate.select<SVGLineElement>('.edge-line')
+            .attr('class', (d: GraphEdge) => {
+                const parts = ['edge-line'];
+                if (d.id === selectedEdgeId) parts.push('edge-selected');
+                if (currentStep?.visitedEdges.has(d.id)) parts.push('edge-visited');
+                if (currentStep?.activeEdge === d.id) parts.push('edge-active');
+                return parts.join(' ');
+            })
+            .attr('marker-end', directed ? 'url(#graph-arrow)' : null);
+
+        edgeGroups.exit().remove();
+
+        // ── Nodes ──────────────────────────────────────────────────────────────
+        const nodesLayer = svg.select<SVGGElement>('.nodes-layer');
+        const nodeGroups = nodesLayer
+            .selectAll<SVGGElement, GraphNode>('g.node-group')
+            .data(nodesArray, (d) => d.id);
+
+        const nodeEnter = nodeGroups
+            .enter()
+            .append('g')
+            .attr('class', 'node-group');
+
+        nodeEnter.append('circle').attr('class', 'node-circle').attr('r', NODE_RADIUS);
+        nodeEnter.append('text')
+            .attr('class', 'node-label')
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle');
+        nodeEnter.append('text')
+            .attr('class', 'node-badge')
+            .attr('text-anchor', 'middle')
+            .attr('dy', -(NODE_RADIUS + 8));
+
+        const nodeUpdate = nodeEnter.merge(nodeGroups);
+
+        // Apply drag to all nodes
+        nodeUpdate.call(drag);
+
+        // Event handlers on all nodes (re-attached each render; handlers use stateRef so always fresh)
+        // Use pointerup instead of click: D3 v7 suppresses click events via capture-phase listener
+        // after any drag, but pointerup fires before that suppression kicks in.
+        nodeUpdate.on('pointerup', function (event: PointerEvent, d: GraphNode) {
+            if (event.button !== 0) return;
+            event.stopPropagation();
+            if (dragMovedRef.current) return;
+            const s = stateRef.current;
+
+            if (s.selectingFor === 'startNode') {
+                dispatchRef.current({ type: 'SET_START_NODE', id: d.id });
+                return;
+            }
+            if (s.selectingFor === 'endNode') {
+                dispatchRef.current({ type: 'SET_END_NODE', id: d.id });
+                return;
+            }
+            if (s.edgeSourceId) return;
+            dispatchRef.current({ type: 'SELECT_NODE', id: d.id });
+        });
+
+        nodeUpdate.on('dblclick', function (event: MouseEvent, d: GraphNode) {
+            event.stopPropagation();
+            dispatchRef.current({ type: 'SET_EDITING_NODE', id: d.id });
+        });
+
+        nodeUpdate.on('contextmenu', function (event: MouseEvent, d: GraphNode) {
+            event.preventDefault();
+            event.stopPropagation();
+            const s = stateRef.current;
+            if (!s.edgeSourceId) {
+                dispatchRef.current({ type: 'START_EDGE_FROM', id: d.id });
+            } else if (s.edgeSourceId === d.id) {
+                dispatchRef.current({ type: 'CANCEL_EDGE' });
+            } else {
+                const edgeId = generateEdgeId();
+                dispatchRef.current({
+                    type: 'ADD_EDGE',
+                    edge: { id: edgeId, source: s.edgeSourceId, target: d.id, weight: 1 },
+                });
+            }
+        });
+
+        // Update transforms
+        nodeUpdate.attr('transform', (d: GraphNode) => `translate(${d.x},${d.y})`);
+
+        // Update circle class
+        nodeUpdate.select<SVGCircleElement>('.node-circle').attr('class', (d: GraphNode) => {
+            const parts = ['node-circle'];
+            if (d.id === selectedNodeId) parts.push('node-selected');
+            if (d.id === startNodeId) parts.push('node-start');
+            if (d.id === endNodeId) parts.push('node-end');
+            if (d.id === edgeSourceId) parts.push('node-edge-source');
+            if (currentStep?.activeNode === d.id) parts.push('node-active');
+            else if (currentStep?.visitedNodes.has(d.id)) parts.push('node-visited');
+            if (selectingFor !== 'none') parts.push('node-selectable');
+            return parts.join(' ');
+        });
+
+        // Update labels
+        nodeUpdate.select<SVGTextElement>('.node-label').text((d: GraphNode) => d.label);
+
+        // Update start/end badges
+        nodeUpdate.select<SVGTextElement>('.node-badge').text((d: GraphNode) => {
+            const parts: string[] = [];
+            if (d.id === startNodeId) parts.push('S');
+            if (d.id === endNodeId) parts.push('E');
+            return parts.join('/');
+        });
+
+        // Cursor based on mode
+        svg.style(
+            'cursor',
+            selectingFor !== 'none' ? 'crosshair' : edgeSourceId ? 'crosshair' : 'default'
+        );
+
+        nodeGroups.exit().remove();
+    }, [state, svgRef, dragMovedRef]);
+}
