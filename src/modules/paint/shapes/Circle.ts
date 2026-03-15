@@ -70,4 +70,18 @@ export default class Circle extends Shape {
         this.center.x += dx;
         this.center.y += dy;
     }
+
+    resizeToBoundingBox(bounds: BoundingBox): boolean {
+        const center = {
+            x: bounds.x + bounds.width / 2,
+            y: bounds.y + bounds.height / 2,
+        };
+        const radius = Math.max(bounds.width, bounds.height) / 2;
+
+        this.center = this.pixelated
+            ? { x: Math.round(center.x), y: Math.round(center.y) }
+            : center;
+        this.radius = this.pixelated ? Math.round(radius) : radius;
+        return true;
+    }
 };

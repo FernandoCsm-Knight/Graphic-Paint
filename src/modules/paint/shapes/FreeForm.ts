@@ -168,6 +168,12 @@ export default class FreeForm extends Shape {
         this.updateBoundingBox();
     }
 
+    resizeToBoundingBox(bounds: BoundingBox): boolean {
+        const resized = this.resizePointCollection(this.points, bounds);
+        this.updateBoundingBox();
+        return resized;
+    }
+
     addPoint(point: Point): void {
         this.points.push(point);
         

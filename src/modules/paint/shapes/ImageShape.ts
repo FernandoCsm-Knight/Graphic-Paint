@@ -42,6 +42,14 @@ export default class ImageShape extends Shape {
         this.y += dy;
     }
 
+    resizeToBoundingBox(bounds: BoundingBox): boolean {
+        this.x = bounds.x;
+        this.y = bounds.y;
+        this.width = bounds.width;
+        this.height = bounds.height;
+        return true;
+    }
+
     pixelatedDraw(ctx: CanvasRenderingContext2D): void {
         this.standardDraw(ctx);
     }

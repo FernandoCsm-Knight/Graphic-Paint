@@ -52,4 +52,8 @@ export default class Star extends Shape {
             point.y += dy;
         }
     }
+
+    resizeToBoundingBox(bounds: BoundingBox): boolean {
+        return this.resizePointCollection(this.points, bounds);
+    }
 };

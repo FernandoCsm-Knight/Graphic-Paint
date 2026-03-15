@@ -52,4 +52,8 @@ export default class FreePolygon extends Shape {
             pt.y += dy;
         }
     }
+
+    resizeToBoundingBox(bounds: BoundingBox): boolean {
+        return this.resizePointCollection(this.points, bounds);
+    }
 }

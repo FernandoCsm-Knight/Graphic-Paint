@@ -34,4 +34,8 @@ export default class Hexagon extends Shape {
             point.y += dy;
         }
     }
+
+    resizeToBoundingBox(bounds: BoundingBox): boolean {
+        return this.resizePointCollection(this.points, bounds);
+    }
 };

@@ -170,7 +170,7 @@ const useDrawingHandlers = ({
         // While a shape is pending confirmation, all clicks are handled by the
         // pending placement logic (move drag, rotate drag, or confirm on outside click).
         if (hasPendingShape()) {
-            pendingPointerDown(mappedPoint);
+            pendingPointerDown(mappedPoint, point);
         } else if (selectedShape === 'polygon') {
             polygon.onPointerDown(mappedPoint);
         } else {
@@ -231,7 +231,7 @@ const useDrawingHandlers = ({
 
         // Pending placement takes priority over all tool-specific move handling
         if (hasPendingShape()) {
-            pendingPointerMove(point);
+            pendingPointerMove(point, currentPoint);
         } else if (selectedShape === 'polygon') {
             polygon.onPointerMove(point);
         } else if (isDrawing.current && contextRef.current) {

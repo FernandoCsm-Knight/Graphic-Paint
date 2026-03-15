@@ -16,8 +16,11 @@ import {
 const ROTATION_HANDLE_RADIUS_PX = 8;
 /** Screen-space distance from bbox top-center to rotation handle center (px). */
 const ROTATION_HANDLE_DIST_PX = 30;
+/** Screen-space hit radius for resize handles (px). */
+const RESIZE_HANDLE_HIT_RADIUS_PX = 10;
 
-type PendingMode = 'move' | 'rotate' | null;
+type PendingMode = 'move' | 'rotate' | 'resize' | null;
+type ResizeHandle = 'nw' | 'ne' | 'se' | 'sw';
 
 type PendingPlacementInput = {
     renderViewport: () => void;
@@ -37,6 +40,69 @@ const getRotationHandleWorld = (
     const cos = Math.cos(rotation), sin = Math.sin(rotation);
     // Rotate local (0, localY) around origin, then offset by center
     return { x: cx - localY * sin, y: cy + localY * cos };
+};
+
+const rotatePoint = (point: Point, center: Point, angle: number): Point => {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const dx = point.x - center.x;
+    const dy = point.y - center.y;
+
+    return {
+        x: center.x + dx * cos - dy * sin,
+        y: center.y + dx * sin + dy * cos,
+    };
+};
+
+const getBoundingBoxCenter = (bb: BoundingBox): Point => ({
+    x: bb.x + bb.width / 2,
+    y: bb.y + bb.height / 2,
+});
+
+const getBoundingBoxCorners = (bb: BoundingBox): Record<ResizeHandle, Point> => ({
+    nw: { x: bb.x, y: bb.y },
+    ne: { x: bb.x + bb.width, y: bb.y },
+    se: { x: bb.x + bb.width, y: bb.y + bb.height },
+    sw: { x: bb.x, y: bb.y + bb.height },
+});
+
+const getOppositeHandle = (handle: ResizeHandle): ResizeHandle => {
+    switch (handle) {
+        case 'nw': return 'se';
+        case 'ne': return 'sw';
+        case 'se': return 'nw';
+        case 'sw': return 'ne';
+    }
+};
+
+const getHandleDefaultSigns = (handle: ResizeHandle) => {
+    switch (handle) {
+        case 'nw': return { x: -1, y: -1 };
+        case 'ne': return { x: 1, y: -1 };
+        case 'se': return { x: 1, y: 1 };
+        case 'sw': return { x: -1, y: 1 };
+    }
+};
+
+const getResizeBoundsInDocSpace = (shape: Shape): BoundingBox => getShapeBoundingBoxInDocSpace(shape);
+
+const normalizeBoundingBox = (first: Point, second: Point): BoundingBox => ({
+    x: Math.min(first.x, second.x),
+    y: Math.min(first.y, second.y),
+    width: Math.abs(second.x - first.x),
+    height: Math.abs(second.y - first.y),
+});
+
+const toShapeBoundingBox = (shape: Shape, docBounds: BoundingBox): BoundingBox => {
+    if (!shape.pixelated) return docBounds;
+
+    const { pixelSize } = shape;
+    return {
+        x: Math.round(docBounds.x / pixelSize),
+        y: Math.round(docBounds.y / pixelSize),
+        width: Math.max(0, Math.round(docBounds.width / pixelSize) - 1),
+        height: Math.max(0, Math.round(docBounds.height / pixelSize) - 1),
+    };
 };
 
 /** Returns true if doc-space point p is inside the rotated bounding box. */
@@ -74,12 +140,16 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
     const pendingShapeRef = useRef<Shape | null>(null);
     const pendingMode = useRef<PendingMode>(null);
     const dragStart = useRef<Point | null>(null);
+    const resizeHandleRef = useRef<ResizeHandle | null>(null);
+    const resizeAnchorRef = useRef<Point | null>(null);
 
     /** Resets all mutable drag/pending refs to their idle state. */
     const resetPendingState = () => {
         pendingShapeRef.current = null;
         pendingMode.current = null;
         dragStart.current = null;
+        resizeHandleRef.current = null;
+        resizeAnchorRef.current = null;
     };
 
     const drawBoundingBoxOverlay = useCallback((shape: Shape) => {
@@ -96,7 +166,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         const overlaySurface = resolveThemeCssVar(THEME_SURFACE_CSS_VAR, "#ffffff");
 
         // Pixelated shapes store coordinates in grid-units; convert to canvas pixels.
-        const bb = getShapeBoundingBoxInDocSpace(shape);
+        const bb = getResizeBoundsInDocSpace(shape);
         const cx = bb.x + bb.width  / 2;
         const cy = bb.y + bb.height / 2;
         const hw = bb.width / 2, hh = bb.height / 2;
@@ -175,28 +245,41 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
      * Handle a pointer-down event while a shape is pending.
      * Returns true if the event was consumed (caller should not start new drawing).
      */
-    const onPointerDown = useCallback((docPoint: Point): boolean => {
+    const onPointerDown = useCallback((docPoint: Point, canvasPoint?: Point): boolean => {
         const shape = pendingShapeRef.current;
         if (!shape) return false;
 
         const dpr = window.devicePixelRatio || 1;
-        const rawBB = shape.getBoundingBox();
-        const pixelScale = shape.pixelated ? shape.pixelSize : 1;
-        const bb = getShapeBoundingBoxInDocSpace(shape);
-        const cx = bb.x + bb.width  / 2;
-        const cy = bb.y + bb.height / 2;
+        const bb = getResizeBoundsInDocSpace(shape);
+        const center = getBoundingBoxCenter(bb);
         // handleDistDoc in canvas-pixel (doc) space
         const handleDistDoc = ROTATION_HANDLE_DIST_PX / (zoom * dpr);
+        const pointerDocPoint = canvasPoint ?? (shape.pixelated
+            ? { x: docPoint.x * shape.pixelSize, y: docPoint.y * shape.pixelSize }
+            : docPoint);
 
-        // Convert canvas-pixel (doc-space) coords → screen pixels.
-        // docPoint arrives in grid units when pixelated, so multiply by pixelScale first.
         const toScreen = (p: Point) => ({
-            x: (p.x * pixelScale * zoom + viewOffset.x) * dpr,
-            y: (p.y * pixelScale * zoom + viewOffset.y) * dpr,
+            x: (p.x * zoom + viewOffset.x) * dpr,
+            y: (p.y * zoom + viewOffset.y) * dpr,
         });
 
-        const handleWorld = getRotationHandleWorld(bb, shape.rotation, cx, cy, handleDistDoc);
-        const sp = toScreen(docPoint);
+        const sp = toScreen(pointerDocPoint);
+        const corners = getBoundingBoxCorners(bb);
+        for (const handle of ['nw', 'ne', 'se', 'sw'] as ResizeHandle[]) {
+            const handleWorld = rotatePoint(corners[handle], center, shape.rotation);
+            const sh = toScreen(handleWorld);
+            const distToHandle = Math.hypot(sp.x - sh.x, sp.y - sh.y);
+
+            if (distToHandle <= RESIZE_HANDLE_HIT_RADIUS_PX) {
+                pendingMode.current = 'resize';
+                resizeHandleRef.current = handle;
+                resizeAnchorRef.current = rotatePoint(corners[getOppositeHandle(handle)], center, shape.rotation);
+                dragStart.current = docPoint;
+                return true;
+            }
+        }
+
+        const handleWorld = getRotationHandleWorld(bb, shape.rotation, center.x, center.y, handleDistDoc);
         const sh = toScreen(handleWorld);
         const distToHandle = Math.hypot(sp.x - sh.x, sp.y - sh.y);
 
@@ -207,9 +290,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         }
 
         // isInsideRotatedBBox works in grid units (same space as docPoint)
-        const gridCx = rawBB.x + rawBB.width  / 2;
-        const gridCy = rawBB.y + rawBB.height / 2;
-        if (isInsideRotatedBBox(docPoint, rawBB, shape.rotation, gridCx, gridCy)) {
+        if (isInsideRotatedBBox(pointerDocPoint, bb, shape.rotation, center.x, center.y)) {
             pendingMode.current = 'move';
             dragStart.current = docPoint;
             return true;
@@ -224,7 +305,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
      * Handle pointer-move while in pending mode.
      * Returns true if handled (caller should skip normal drawing logic).
      */
-    const onPointerMove = useCallback((docPoint: Point): boolean => {
+    const onPointerMove = useCallback((docPoint: Point, canvasPoint?: Point): boolean => {
         const shape = pendingShapeRef.current;
         if (!shape || pendingMode.current === null || !dragStart.current) return false;
 
@@ -238,6 +319,49 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
             const { x: cx, y: cy } = shape.getCenter();
             // atan2 gives angle from center to pointer; +π/2 aligns "up" with 0°
             shape.rotateTo(Math.atan2(docPoint.y - cy, docPoint.x - cx) + Math.PI / 2);
+        } else if (pendingMode.current === 'resize' && resizeHandleRef.current && resizeAnchorRef.current) {
+            const handle = resizeHandleRef.current;
+            const anchor = resizeAnchorRef.current;
+            const dragPoint = shape.pixelated
+                ? {
+                    x: (docPoint.x + ((handle === 'ne' || handle === 'se') ? 1 : 0)) * shape.pixelSize,
+                    y: (docPoint.y + ((handle === 'sw' || handle === 'se') ? 1 : 0)) * shape.pixelSize,
+                }
+                : (canvasPoint ?? docPoint);
+
+            const axisX = { x: Math.cos(shape.rotation), y: Math.sin(shape.rotation) };
+            const axisY = { x: -Math.sin(shape.rotation), y: Math.cos(shape.rotation) };
+            const delta = {
+                x: dragPoint.x - anchor.x,
+                y: dragPoint.y - anchor.y,
+            };
+
+            let projectedWidth = delta.x * axisX.x + delta.y * axisX.y;
+            let projectedHeight = delta.x * axisY.x + delta.y * axisY.y;
+
+            if (shape.kind === 'square' || shape.kind === 'circle') {
+                const defaultSigns = getHandleDefaultSigns(handle);
+                const widthSign = projectedWidth === 0 ? defaultSigns.x : Math.sign(projectedWidth);
+                const heightSign = projectedHeight === 0 ? defaultSigns.y : Math.sign(projectedHeight);
+                const size = Math.max(Math.abs(projectedWidth), Math.abs(projectedHeight));
+                projectedWidth = widthSign * size;
+                projectedHeight = heightSign * size;
+            }
+
+            const originX = Math.min(0, projectedWidth);
+            const originY = Math.min(0, projectedHeight);
+            const width = Math.abs(projectedWidth);
+            const height = Math.abs(projectedHeight);
+            const center = {
+                x: anchor.x + (originX + width / 2) * axisX.x + (originY + height / 2) * axisY.x,
+                y: anchor.y + (originX + width / 2) * axisX.y + (originY + height / 2) * axisY.y,
+            };
+            const docBounds = normalizeBoundingBox(
+                { x: center.x - width / 2, y: center.y - height / 2 },
+                { x: center.x + width / 2, y: center.y + height / 2 },
+            );
+
+            shape.resizeToBoundingBox(toShapeBoundingBox(shape, docBounds));
         }
 
         redrawFromScene(ctx);
@@ -252,6 +376,8 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         if (pendingMode.current !== null) {
             pendingMode.current = null;
             dragStart.current = null;
+            resizeHandleRef.current = null;
+            resizeAnchorRef.current = null;
             return true;
         }
         return false;

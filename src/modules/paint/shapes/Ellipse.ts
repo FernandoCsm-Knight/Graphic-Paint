@@ -89,4 +89,18 @@ export default class Ellipse extends Shape {
         this.center.x += dx;
         this.center.y += dy;
     }
+
+    resizeToBoundingBox(bounds: BoundingBox): boolean {
+        const center = {
+            x: bounds.x + bounds.width / 2,
+            y: bounds.y + bounds.height / 2,
+        };
+
+        this.center = this.pixelated
+            ? { x: Math.round(center.x), y: Math.round(center.y) }
+            : center;
+        this.radiusX = this.pixelated ? Math.round(bounds.width / 2) : bounds.width / 2;
+        this.radiusY = this.pixelated ? Math.round(bounds.height / 2) : bounds.height / 2;
+        return true;
+    }
 };

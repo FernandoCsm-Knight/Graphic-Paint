@@ -76,4 +76,10 @@ export default class Square extends Shape {
         this.bottomRight.x += dx;
         this.bottomRight.y += dy;
     }
+
+    resizeToBoundingBox(bounds: BoundingBox): boolean {
+        this.topLeft = { x: bounds.x, y: bounds.y };
+        this.bottomRight = { x: bounds.x + bounds.width, y: bounds.y + bounds.height };
+        return true;
+    }
 };

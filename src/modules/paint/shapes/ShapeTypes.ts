@@ -77,6 +77,39 @@ export abstract class Shape {
 
     abstract moveBy(dx: number, dy: number): void;
 
+    /**
+     * Resizes the shape to occupy the provided axis-aligned bounding box before
+     * any rotation is applied. Shapes that do not support resizing can keep the
+     * default no-op implementation.
+     */
+    resizeToBoundingBox(bounds: BoundingBox): boolean {
+        void bounds;
+        return false;
+    }
+
+    protected mapPointToBoundingBox(point: Point, from: BoundingBox, to: BoundingBox): Point {
+        const ratioX = from.width === 0 ? 0.5 : (point.x - from.x) / from.width;
+        const ratioY = from.height === 0 ? 0.5 : (point.y - from.y) / from.height;
+        const nextPoint = {
+            x: to.x + ratioX * to.width,
+            y: to.y + ratioY * to.height,
+        };
+
+        return this.pixelated
+            ? { x: Math.round(nextPoint.x), y: Math.round(nextPoint.y) }
+            : nextPoint;
+    }
+
+    protected resizePointCollection(points: Point[], nextBounds: BoundingBox): boolean {
+        const currentBounds = this.getBoundingBox();
+        for (const point of points) {
+            const mapped = this.mapPointToBoundingBox(point, currentBounds, nextBounds);
+            point.x = mapped.x;
+            point.y = mapped.y;
+        }
+        return true;
+    }
+
     abstract pixelatedDraw(ctx: CanvasRenderingContext2D): void;
     abstract standardDraw(ctx: CanvasRenderingContext2D): void;
 

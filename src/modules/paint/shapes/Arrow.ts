@@ -68,4 +68,11 @@ export default class Arrow extends Shape {
         this.end.x += dx;
         this.end.y += dy;
     }
+
+    resizeToBoundingBox(bounds: BoundingBox): boolean {
+        const currentBounds = this.getBoundingBox();
+        this.start = this.mapPointToBoundingBox(this.start, currentBounds, bounds);
+        this.end = this.mapPointToBoundingBox(this.end, currentBounds, bounds);
+        return true;
+    }
 };
