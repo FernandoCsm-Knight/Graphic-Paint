@@ -23,8 +23,8 @@ const Settings = ({ children }: { children: ReactNode }) => {
         <GlassCard initial={getInitialPos}>
             <section className="p-[var(--pm-pad)]">
                 <h3 className="ui-panel-title-on-dark font-semibold mb-[var(--pm-pad)]">Configurações</h3>
-                <div className="px-[var(--pm-btn-pad)] max-h-[clamp(16rem,35vh,20rem)] max-w-[clamp(16rem,30vw,20rem)] min-w-[clamp(12rem,20vw,16rem)] overflow-y-auto">
-                    <ul className="ui-panel-text-on-dark flex flex-col gap-[var(--pm-gap)] font-medium">
+                <div className="scrollbar px-[var(--pm-btn-pad)] overflow-y-auto">
+                    <ul className="ui-panel-text-on-dark flex flex-col gap-[var(--pm-gap)] font-medium text-xs xl:text-sm">
                         {children}
                     </ul>
                 </div>

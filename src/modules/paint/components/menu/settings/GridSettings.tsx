@@ -22,7 +22,7 @@ const GridSettings = ({ descriptionPrefix }: { descriptionPrefix: string }) => {
                 <option value="front">A frente do desenho</option>
                 <option value="none">Sem grid</option>
             </select>
-            <div className="ui-panel-muted-on-dark mt-1">
+            <div className="ui-panel-muted-on-dark max-w-55 mt-1">
                 {gridDisplayMode === 'behind' && `Grid aparece atras ${descriptionPrefix}`}
                 {gridDisplayMode === 'front' && `Grid aparece a frente ${descriptionPrefix}`}
                 {gridDisplayMode === 'none' && 'Grid nao e exibido'}

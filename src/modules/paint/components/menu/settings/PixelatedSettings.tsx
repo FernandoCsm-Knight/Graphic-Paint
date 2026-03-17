@@ -46,7 +46,7 @@ const PixelatedSettings = () => {
                         step="1"
                         value={pixelSize}
                         onChange={handlePixelSizeChange}
-                        className="slider flex-1 h-2 rounded-lg appearance-none cursor-pointer"
+                        className="slider flex-1 h-2 rounded-lg cursor-pointer"
                     />
                     <span className="ui-value-chip font-mono px-[var(--pm-btn-pad)] py-0.5 rounded min-w-[3rem] text-center">
                         {pixelSize}px
@@ -66,7 +66,7 @@ const PixelatedSettings = () => {
                     <option value="bresenham">Bresenham</option>
                     <option value="dda">DDA (Digital Differential Analyzer)</option>
                 </select>
-                <div className="ui-panel-muted-on-dark mt-1">
+                <div className="max-w-55 ui-panel-muted-on-dark mt-1">
                     {lineAlgorithm === 'bresenham' 
                         ? 'Algoritmo mais preciso e eficiente para rasterização'
                         : 'Algoritmo simples baseado em interpolação linear'
@@ -86,7 +86,7 @@ const PixelatedSettings = () => {
                     <option value="liang-barsky">Liang-Barsky (reta)</option>
                     <option value="sutherland-hodgman">Sutherland-Hodgman (polígono)</option>
                 </select>
-                <div className="ui-panel-muted-on-dark mt-1">
+                <div className="max-w-55 ui-panel-muted-on-dark mt-1">
                     {clipDescriptions[clipAlgorithm]}
                 </div>
             </li>
