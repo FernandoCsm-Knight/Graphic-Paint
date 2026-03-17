@@ -11,6 +11,7 @@ import GlassCard from '../../../components/GlassCard';
 import WorkspaceToolButton from '../../../components/WorkspaceToolButton';
 import { useGraphContext } from '../context/GraphContext';
 import type { AlgorithmId } from '../types/graph';
+import { useState } from 'react';
 
 const ALGORITHMS: { id: AlgorithmId; label: string }[] = [
     { id: 'none', label: 'Nenhum' },
@@ -21,6 +22,7 @@ const ALGORITHMS: { id: AlgorithmId; label: string }[] = [
 
 const GraphMenu = () => {
     const { state, dispatch, isPanModeActive, setPanModeActive } = useGraphContext();
+    const [showHelp, setShowHelp] = useState(false);
     const {
         directed,
         snapToGrid,
@@ -40,15 +42,13 @@ const GraphMenu = () => {
         if (algorithm === 'none') return;
         if (!startNodeId) {
             dispatch({ type: 'SET_SELECTING_FOR', target: 'startNode' });
-            return;
-        }
-        if (needsEnd && !endNodeId) {
+        } else if (needsEnd && !endNodeId) {
             dispatch({ type: 'SET_SELECTING_FOR', target: 'endNode' });
-            return;
+        } else {
+            // Placeholder: algorithms not yet implemented
+            // dispatch({ type: 'SET_ALGORITHM_STEPS', steps: runAlgorithm(...) });
+            alert('Algoritmos serão implementados em breve!');
         }
-        // Placeholder: algorithms not yet implemented
-        // dispatch({ type: 'SET_ALGORITHM_STEPS', steps: runAlgorithm(...) });
-        alert('Algoritmos serão implementados em breve!');
     };
 
     const handleExport = () => {
@@ -64,6 +64,8 @@ const GraphMenu = () => {
         a.click();
         URL.revokeObjectURL(url);
     };
+
+    const handleHelp = () => setShowHelp(!showHelp);
 
     return (
         <GlassCard initial={() => ({ x: 24, y: 24 })} className="workspace-menu-shell">
@@ -191,7 +193,10 @@ const GraphMenu = () => {
                     <WorkspaceToolButton
                         ariaLabel="Dica de uso"
                         title="Como usar"
-                        className="flex items-center justify-center gap-2 px-3 col-span-1"
+                        onClick={handleHelp}
+                        stayActive
+                        active={showHelp}
+                        className="flex items-center justify-center gap-2 px-3 col-span-2"
                     >
                         <LuCircleDot className="workspace-icon" />
                         <span className="text-xs font-semibold uppercase tracking-[0.18em] sm:text-sm">
@@ -291,7 +296,7 @@ const GraphMenu = () => {
                 </div>
 
                 {/* Usage hints */}
-                <div className="ui-menu-title-card rounded-xl px-[var(--pm-pad)] py-[var(--pm-btn-pad)]">
+                {showHelp ? <div className="ui-menu-title-card rounded-xl px-[var(--pm-pad)] py-[var(--pm-btn-pad)]">
                     <p className="ui-panel-muted text-xs leading-relaxed space-y-0.5">
                         <span className="block">🖱 Duplo-clique → criar vértice</span>
                         <span className="block">🖱 Clique → selecionar</span>
@@ -301,7 +306,7 @@ const GraphMenu = () => {
                         <span className="block">🖱 Duplo-clique no elem. → editar</span>
                         <span className="block">⌨ Delete → remover seleção</span>
                     </p>
-                </div>
+                </div>: null}
             </div>
         </GlassCard>
     );

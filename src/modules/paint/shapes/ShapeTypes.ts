@@ -10,6 +10,7 @@ export type ShapeOptions = {
     pixelated?: boolean;
     pixelSize?: number;
     lineAlgorithm?: LineAlgorithm;
+    lineDash?: number[];
 };
 
 export type BoundingBox = { x: number; y: number; width: number; height: number };
@@ -36,6 +37,7 @@ export abstract class Shape extends SceneItem {
     pixelated: boolean;
     pixelSize: number;
     lineAlgorithm: LineAlgorithm;
+    lineDash: number[];
     rotation: number = 0;
 
     constructor(opts: ShapeOptions) {
@@ -47,16 +49,20 @@ export abstract class Shape extends SceneItem {
         this.pixelated = opts.pixelated ?? false;
         this.pixelSize = opts.pixelSize ?? 20;
         this.lineAlgorithm = opts.lineAlgorithm ?? 'bresenham';
+        this.lineDash = opts.lineDash ?? [];
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        const needsRotation = this.rotation !== 0;
-        if (needsRotation) {
-            const { x: cx, y: cy } = this.getCenter();
+        const needsSave = this.rotation !== 0 || this.lineDash.length > 0;
+        if (needsSave) {
             ctx.save();
-            ctx.translate(cx, cy);
-            ctx.rotate(this.rotation);
-            ctx.translate(-cx, -cy);
+            if (this.lineDash.length > 0) ctx.setLineDash(this.lineDash);
+            if (this.rotation !== 0) {
+                const { x: cx, y: cy } = this.getCenter();
+                ctx.translate(cx, cy);
+                ctx.rotate(this.rotation);
+                ctx.translate(-cx, -cy);
+            }
         }
         if (this.pixelated) {
             ctx.fillStyle = this.strokeStyle;
@@ -64,7 +70,7 @@ export abstract class Shape extends SceneItem {
         } else {
             this.standardDraw(ctx);
         }
-        if (needsRotation) ctx.restore();
+        if (needsSave) ctx.restore();
     }
 
     /** Set the absolute rotation angle (radians) around getCenter(). */

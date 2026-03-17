@@ -2,7 +2,7 @@ import bresenham from "../algorithms/BresenhamLine";
 import dda from "../algorithms/DDA";
 import type { Point } from "../../../functions/geometry";
 import { SceneItem, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
-import type { LineAlgorithm } from "../context/SettingsContext";
+import type { BrushStyle, LineAlgorithm } from "../context/SettingsContext";
 
 export default class FreeForm extends SceneItem {
     kind = 'freeform' as const;
@@ -12,28 +12,41 @@ export default class FreeForm extends SceneItem {
     pixelated: boolean;
     pixelSize: number;
     lineAlgorithm: LineAlgorithm;
+    lineDash: number[];
+    brushStyle: BrushStyle;
     isEraser: boolean;
     filled: boolean;
 
     points: Point[];
     private boundingBox: { minX: number; maxX: number; minY: number; maxY: number } | null = null;
     private snapshot: ImageData | null = null;
+    /** Canvas state captured before the stroke begins — used to redraw the full
+     *  dashed path from scratch on each lineTo, keeping the dash phase consistent. */
+    private preStrokeSnapshot: ImageData | null = null;
 
-    constructor(points: Point[], opts: ShapeOptions & { isEraser: boolean }) {
+    constructor(points: Point[], opts: ShapeOptions & { isEraser: boolean; brushStyle?: BrushStyle }) {
         super();
         this.strokeStyle = opts.strokeStyle ?? '#000000';
         this.lineWidth = opts.lineWidth ?? 1;
         this.pixelated = opts.pixelated ?? false;
         this.pixelSize = opts.pixelSize ?? 20;
         this.lineAlgorithm = opts.lineAlgorithm ?? 'bresenham';
+        this.lineDash = opts.lineDash ?? [];
+        this.brushStyle = opts.brushStyle ?? 'smooth';
         this.isEraser = opts.isEraser;
         this.filled = opts.filled ?? false;
         this.points = points;
         this.updateBoundingBox();
     }
 
+    /** Call once before the first lineTo when lineDash is active. */
+    beginStroke(ctx: CanvasRenderingContext2D): void {
+        this.preStrokeSnapshot = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    }
+
     override captureSnapshot(ctx: CanvasRenderingContext2D): void {
         this.snapshot = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+        this.preStrokeSnapshot = null; // free memory — no longer needed
     }
 
     override isCheckpoint(): boolean { return this.snapshot !== null; }
@@ -91,16 +104,38 @@ export default class FreeForm extends SceneItem {
                 algorithm(lastPoint, p, this.drawPixel.bind(this), ctx);
                 this.addPoint(p);
             }
+        } else if(this.brushStyle === 'spray') {
+            if(distance > 1) {
+                const density = Math.max(8, this.lineWidth * 3);
+                const radius = this.lineWidth * 2.5;
+                ctx.fillStyle = this.strokeStyle;
+                for(let i = 0; i < density; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const r = Math.sqrt(Math.random()) * radius;
+                    ctx.fillRect(p.x + r * Math.cos(angle) - 0.5, p.y + r * Math.sin(angle) - 0.5, 1, 1);
+                }
+                this.addPoint(p);
+            }
         } else if(distance > 2) {
-            ctx.beginPath();
-            ctx.moveTo(lastPoint.x, lastPoint.y);
-            ctx.lineTo(p.x, p.y);
-            ctx.lineWidth = this.lineWidth;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.stroke();
-
             this.addPoint(p);
+            if(this.lineDash.length > 0 && this.preStrokeSnapshot) {
+                // Restore the canvas to its pre-stroke state and redraw the full
+                // path so the dash phase is computed from the start of the stroke.
+                ctx.putImageData(this.preStrokeSnapshot, 0, 0);
+                this.standardDraw(ctx);
+            } else {
+                const lineCap: CanvasLineCap = this.brushStyle === 'hard' ? 'butt' : 'round';
+                const lineJoin: CanvasLineJoin = this.brushStyle === 'hard' ? 'miter' : 'round';
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(lastPoint.x, lastPoint.y);
+                ctx.lineTo(p.x, p.y);
+                ctx.lineWidth = this.lineWidth;
+                ctx.lineCap = lineCap;
+                ctx.lineJoin = lineJoin;
+                ctx.stroke();
+                ctx.restore();
+            }
         }
 
         ctx.globalCompositeOperation = gco;
@@ -133,24 +168,36 @@ export default class FreeForm extends SceneItem {
         const gco = ctx.globalCompositeOperation;
         if(this.isEraser) ctx.globalCompositeOperation = 'destination-out';
 
-        if(this.points.length === 1) {
+        if(this.brushStyle === 'spray') {
+            // Spray: draw a filled dot at each recorded point (simplified replay)
+            ctx.fillStyle = this.strokeStyle;
+            const r = this.lineWidth / 2;
+            for(const pt of this.points) {
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        } else if(this.points.length === 1) {
             ctx.beginPath();
             ctx.arc(this.points[0].x, this.points[0].y, this.lineWidth / 2, 0, 2 * Math.PI);
             ctx.fillStyle = this.strokeStyle;
             ctx.fill();
         } else {
+            const lineCap: CanvasLineCap = this.brushStyle === 'hard' ? 'butt' : 'round';
+            const lineJoin: CanvasLineJoin = this.brushStyle === 'hard' ? 'miter' : 'round';
+            ctx.save();
+            if(this.lineDash.length > 0) ctx.setLineDash(this.lineDash);
             ctx.beginPath();
             ctx.moveTo(this.points[0].x, this.points[0].y);
-
             for(let i = 1; i < this.points.length; i++) {
                 ctx.lineTo(this.points[i].x, this.points[i].y);
             }
-
             ctx.strokeStyle = this.strokeStyle;
             ctx.lineWidth = this.lineWidth;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
+            ctx.lineCap = lineCap;
+            ctx.lineJoin = lineJoin;
             ctx.stroke();
+            ctx.restore();
         }
 
         ctx.globalCompositeOperation = gco;

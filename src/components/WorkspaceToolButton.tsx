@@ -40,7 +40,7 @@ const WorkspaceToolButton = forwardRef<HTMLButtonElement, WorkspaceToolButtonPro
             aria-label={ariaLabel}
             title={title}
             disabled={disabled}
-            className={`workspace-tool-button flex-shrink-0 rounded-md border-0 p-[var(--pm-btn-pad)] no-underline outline-none ${
+            className={`workspace-tool-button rounded-md border-0 p-[var(--pm-btn-pad)] no-underline outline-none ${
                 disabled ? 'opacity-35 cursor-not-allowed' : 'cursor-pointer'
             } ${isActive && stayActive ? 'workspace-tool-button-active' : ''} ${className}`.trim()}
         >

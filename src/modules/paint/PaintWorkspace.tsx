@@ -116,7 +116,7 @@ function PaintWorkspace() {
                 <FloatingInfoBadge>
                     {selectedShape === 'polygon'
                         ? 'Clique para adicionar vértices · Enter para finalizar · Esc para cancelar · Duplo clique para fechar'
-                        : `${viewportSize.width} x ${viewportSize.height}`}
+                        : `${viewportSize.width} x ${viewportSize.height} · ${Math.round(paintContext.zoom * 100)}%`}
                 </FloatingInfoBadge>
             </main>
         </>

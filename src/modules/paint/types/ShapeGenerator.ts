@@ -46,6 +46,7 @@ type ShapeGeneratorProps = {
     pixelated?: boolean;
     pixelSize?: number;
     lineAlgorithm?: LineAlgorithm;
+    lineDash?: number[];
 };
 
 /**
@@ -56,18 +57,19 @@ type ShapeGeneratorProps = {
  * @returns A new Shape instance
  * @throws Error if the shape kind is not registered
  */
-const generator = ({ 
-    start, 
-    end, 
-    color, 
-    thickness, 
-    kind, 
-    pixelated = false, 
-    pixelSize = 20, 
-    lineAlgorithm = 'bresenham' 
+const generator = ({
+    start,
+    end,
+    color,
+    thickness,
+    kind,
+    pixelated = false,
+    pixelSize = 20,
+    lineAlgorithm = 'bresenham',
+    lineDash = [],
 }: ShapeGeneratorProps): Shape => {
     const ShapeClass = SHAPE_REGISTRY[kind];
-    
+
     if (!ShapeClass) {
         throw new Error(`Unknown shape kind: ${kind}. Available shapes: ${Object.keys(SHAPE_REGISTRY).join(', ')}`);
     }
@@ -78,6 +80,7 @@ const generator = ({
         pixelated,
         pixelSize,
         lineAlgorithm,
+        lineDash,
     };
 
     return new ShapeClass(start, end, options);

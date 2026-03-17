@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useRef } from "react";
 import type { PointerEvent } from "react";
 import { PaintContext } from "../context/PaintContext";
-import { SettingsContext } from "../context/SettingsContext";
+import { DASH_ARRAYS, SettingsContext } from "../context/SettingsContext";
 import { Shape } from "../shapes/ShapeTypes"; // needed for enterPendingShape cast
 import generator from "../types/ShapeGenerator";
 import FreeForm from "../shapes/FreeForm";
@@ -58,7 +58,8 @@ const useDrawingHandlers = ({
         pendingShapeRef,
     } = useContext(PaintContext)!;
 
-    const { pixelSize, lineAlgorithm } = useContext(SettingsContext)!;
+    const { pixelSize, lineAlgorithm, lineDashPreset, brushStyle } = useContext(SettingsContext)!;
+    const lineDash = DASH_ARRAYS[lineDashPreset];;
 
     const {
         startSelection, updateSelection, stopSelection,
@@ -133,12 +134,13 @@ const useDrawingHandlers = ({
                 pixelated,
                 pixelSize,
                 lineAlgorithm,
+                lineDash,
             });
             currentShape.current = shape;
             shape.draw(ctx);
             renderViewport();
         });
-    }, [redrawFromScene, currentColor, thickness, selectedShape, pixelated, pixelSize, lineAlgorithm, renderViewport]);
+    }, [redrawFromScene, currentColor, thickness, selectedShape, pixelated, pixelSize, lineAlgorithm, lineDash, renderViewport]);
 
     const getCanvasPoint = useCallback((e: PointerEvent<HTMLCanvasElement>): Point | null => {
         const canvas = canvasRef.current;
@@ -203,7 +205,10 @@ const useDrawingHandlers = ({
                     pixelated,
                     pixelSize,
                     lineAlgorithm,
+                    lineDash,
+                    brushStyle,
                 });
+                if (lineDash.length > 0 && !pixelated) form.beginStroke(ctx);
                 form.draw(ctx);
                 currentShape.current = form;
                 renderViewport();
@@ -213,7 +218,7 @@ const useDrawingHandlers = ({
         panDown, canvasRef, contextRef, getCanvasPoint, pixelated, pixelSize,
         hasFloating, selectionDown,
         isSelectionActive, startSelection, isFillActive, currentColor, isEraserActive,
-        selectedShape, thickness, lineAlgorithm, renderViewport, polygon,
+        selectedShape, thickness, lineAlgorithm, lineDash, brushStyle, renderViewport, polygon,
         pendingShapeRef, pendingPointerDown,
     ]);
 

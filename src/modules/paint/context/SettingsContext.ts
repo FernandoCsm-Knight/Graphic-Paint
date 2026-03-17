@@ -9,6 +9,16 @@ export type GridDisplayMode = "behind" | "front" | "none";
  */
 export type ClipAlgorithm = "cohen-sutherland" | "liang-barsky" | "sutherland-hodgman";
 
+export type LineDashPreset = "solid" | "dashed" | "dotted";
+export type BrushStyle = "smooth" | "hard" | "spray";
+
+/** Maps each preset to the canvas dash array. */
+export const DASH_ARRAYS: Record<LineDashPreset, number[]> = {
+    solid: [],
+    dashed: [12, 6],
+    dotted: [2, 8]
+};
+
 export type SettingsContextType = {
     pixelSize: number;
     setPixelSize: (value: number) => void;
@@ -20,6 +30,10 @@ export type SettingsContextType = {
     setPageSizeEraser: (value: boolean) => void;
     clipAlgorithm: ClipAlgorithm;
     setClipAlgorithm: (value: ClipAlgorithm) => void;
+    lineDashPreset: LineDashPreset;
+    setLineDashPreset: (value: LineDashPreset) => void;
+    brushStyle: BrushStyle;
+    setBrushStyle: (value: BrushStyle) => void;
 }
 
 export const SettingsContext = createContext<SettingsContextType | undefined>(undefined);

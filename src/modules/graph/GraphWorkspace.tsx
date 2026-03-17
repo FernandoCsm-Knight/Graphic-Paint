@@ -156,7 +156,7 @@ const GraphWorkspace = () => {
             </div>
 
             <FloatingInfoBadge>
-                {`${viewportSize.width} x ${viewportSize.height} · zoom ${Math.round(zoom * 100)}%`}
+                {`${viewportSize.width} x ${viewportSize.height} · ${Math.round(zoom * 100)}%`}
             </FloatingInfoBadge>
         </main>
     );
