@@ -5,12 +5,14 @@ import WorkspaceToolButton from "../../../../../../components/WorkspaceToolButto
 
 
 const SelectionButton = () => {
-    const { isSelectionActive, setSelectionActive, setFill, setEraser, setPanModeActive, setSelectedShape } = useContext(PaintContext)!;
+    const { isSelectionActive, setSelectionActive, setFill, setEraser, setPanModeActive, setSelectedShape, canvasRef, toolCursor } = useContext(PaintContext)!;
 
     const handleClick = () => {
         const next = !isSelectionActive;
         setSelectionActive(next);
-        document.body.style.cursor = next ? 'crosshair' : 'default';
+        const cursor = next ? 'crosshair' : '';
+        toolCursor.current = cursor;
+        if (canvasRef.current) canvasRef.current.style.cursor = cursor;
         if (next) {
             setFill(false);
             setEraser(false);

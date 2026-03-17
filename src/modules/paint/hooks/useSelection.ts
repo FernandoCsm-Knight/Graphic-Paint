@@ -4,7 +4,6 @@ import { PaintContext } from "../context/PaintContext";
 import { ReplacementContext } from "../context/ReplacementContext";
 import { SettingsContext } from "../context/SettingsContext";
 import type { BoundingBox } from "../shapes/ShapeTypes";
-import SnapshotShape from "../shapes/SnapshotShape";
 import {
     getInclusivePixelBoundingBox,
     isPointInsideBoundingBoxInclusive,
@@ -24,7 +23,7 @@ type SelectionInput = {
     sceneRef: RefObject<SceneItem[]>;
     redrawFromScene: (ctx: CanvasRenderingContext2D) => void;
     pushShape: (shape: SceneItem) => void;
-    takeSnapshotShape: (ctx: CanvasRenderingContext2D) => SnapshotShape;
+    takeSnapshotShape: (ctx: CanvasRenderingContext2D) => SceneItem;
 };
 
 type SelectionPhase = 'idle' | 'drawing' | 'floating';
@@ -58,7 +57,7 @@ function replayItems(ctx: CanvasRenderingContext2D, items: SceneItem[]): void {
     let startIdx = 0;
     let found = false;
     for (let i = items.length - 1; i >= 0; i--) {
-        if (items[i] instanceof SnapshotShape) { startIdx = i; found = true; break; }
+        if (items[i].isCheckpoint()) { startIdx = i; found = true; break; }
     }
     if (!found) ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     for (let i = startIdx; i < items.length; i++) items[i].draw(ctx);

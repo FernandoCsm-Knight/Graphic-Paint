@@ -1,5 +1,4 @@
-import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
-import { type Geometric } from "../types/Graphics";
+import { SceneItem, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
 import type { Point } from "../../../functions/geometry";
 import FloodFill from "../algorithms/FloodFill";
 import ScanLineFill from "../algorithms/ScanLineFill";
@@ -11,17 +10,46 @@ export interface FillOptions extends ShapeOptions {
     point: Point;
 }
 
-export default class FillShape extends Shape {
-    kind: Geometric = "floodfill";
-    point: Point;
+export default class FillShape extends SceneItem {
+    kind = 'floodfill' as const;
+
+    strokeStyle: string;
+    pixelated: boolean;
+    pixelSize: number;
     isEraser: boolean;
     algorithm: FillAlgorithm;
+    point: Point;
+
+    private snapshot: ImageData | null = null;
 
     constructor(options: FillOptions) {
-        super(options);
-        this.point = options.point;
+        super();
+        this.strokeStyle = options.strokeStyle ?? '#000000';
+        this.pixelated = options.pixelated ?? false;
+        this.pixelSize = options.pixelSize ?? 20;
         this.isEraser = options.isEraser ?? false;
         this.algorithm = options.algorithm ?? "scanline";
+        this.point = options.point;
+    }
+
+    override captureSnapshot(ctx: CanvasRenderingContext2D): void {
+        this.snapshot = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    }
+
+    override isCheckpoint(): boolean { return this.snapshot !== null; }
+
+    override requiresSnapshot(): boolean { return true; }
+
+    override draw(ctx: CanvasRenderingContext2D): void {
+        if (this.snapshot !== null) {
+            ctx.putImageData(this.snapshot, 0, 0);
+            return;
+        }
+        if (this.algorithm === "scanline") {
+            ScanLineFill.fill(ctx, this.point, this.isEraser ? "#000000" : this.strokeStyle, this.pixelSize, this.isEraser, this.pixelated);
+        } else {
+            FloodFill.fill(ctx, this.point, this.isEraser ? "#000000" : this.strokeStyle, this.pixelSize, this.isEraser, this.pixelated);
+        }
     }
 
     getBoundingBox(): BoundingBox {
@@ -31,49 +59,5 @@ export default class FillShape extends Shape {
     moveBy(dx: number, dy: number): void {
         this.point.x += dx;
         this.point.y += dy;
-    }
-
-    pixelatedDraw(ctx: CanvasRenderingContext2D): void {
-        if(this.algorithm === "scanline") {
-            ScanLineFill.fill(
-                ctx,
-                this.point,
-                this.isEraser ? "#000000" : this.strokeStyle,
-                this.pixelSize,
-                this.isEraser,
-                true
-            );
-        } else {
-            FloodFill.fill(
-                ctx, 
-                this.point, 
-                this.isEraser ? "#000000" : this.strokeStyle, 
-                this.pixelSize, 
-                this.isEraser, 
-                true
-            );
-        }
-    }
-
-    standardDraw(ctx: CanvasRenderingContext2D): void {
-        if(this.algorithm === "scanline") {
-            ScanLineFill.fill(
-                ctx,
-                this.point,
-                this.isEraser ? "#000000" : this.strokeStyle,
-                this.pixelSize,
-                this.isEraser,
-                false
-            );
-        } else {
-            FloodFill.fill(
-                ctx, 
-                this.point, 
-                this.isEraser ? "#000000" : this.strokeStyle, 
-                this.pixelSize, 
-                this.isEraser, 
-                false
-            );
-        }
     }
 }

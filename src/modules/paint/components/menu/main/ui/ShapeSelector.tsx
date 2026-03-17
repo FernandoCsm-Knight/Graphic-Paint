@@ -12,13 +12,12 @@ import {
     LuStar,
     LuRectangleHorizontal,
     LuArrowUpRight,
-    LuSlash,
-    LuPenTool,
+    LuSlash
 } from "react-icons/lu";
 import { PaintContext } from "../../../../context/PaintContext";
 import type { Geometric } from "../../../../types/Graphics";
 import { BsHeptagon } from "react-icons/bs";
-import { TbOvalVertical } from "react-icons/tb";
+import { TbOvalVertical, TbPolygon } from "react-icons/tb";
 import GlassCard from "../../../../../../components/GlassCard";
 import type { Point } from "../../../../../../functions/geometry";
 
@@ -50,32 +49,35 @@ const ShapeSelector = () => {
 
     return (
         <GlassCard initial={getInitialPos}>
-            <div className="p-[var(--pm-pad)]">
+            <div className="p-[var(--pm-pad)] pb-0">
                 <div className="ui-floating-card-inner shadow-lg rounded-xl overflow-hidden p-[var(--pm-btn-pad)]">
-                    <div className="scrollbar overflow-y-auto grid grid-cols-3 gap-[var(--pm-gap)] p-[var(--pm-btn-pad)] max-h-[clamp(7rem,20vh,10.25rem)]">
-                        {[
-                            { key: 'circle', icon: <LuCircle className="ui-icon" /> },
-                            { key: 'square', icon: <LuSquare className="ui-icon" /> },
-                            { key: 'triangle', icon: <LuTriangle className="ui-icon" /> },
-                            { key: 'diamond', icon: <LuDiamond className="ui-icon" /> },
-                            { key: 'pentagon', icon: <LuPentagon className="ui-icon" /> },
-                            { key: 'hexagon', icon: <LuHexagon className="ui-icon" /> },
-                            { key: 'heptagon', icon: <BsHeptagon className="ui-icon"/>},
-                            { key: 'octagon', icon: <LuOctagon className="ui-icon" /> },
-                            { key: 'star', icon: <LuStar className="ui-icon" /> },
-                            { key: 'rect', icon: <LuRectangleHorizontal className="ui-icon" /> },
-                            { key: 'ellipse', icon: <TbOvalVertical className="ui-icon" />}
-                        ].map(({ key, icon }) => (
-                            <WorkspaceToolButton
-                                key={key}
-                                ariaLabel={`Selecionar forma ${key}`}
-                                onClick={() => onSelect(key as Geometric)}
-                                active={selectedShape === key}
-                                stayActive
-                            >
-                                {icon}
-                            </WorkspaceToolButton>
-                        ))}
+                    <div className="scrollbar overflow-y-auto">
+                        <div className="aspect-square h-full grid grid-cols-3 gap-[var(--pm-gap)] p-[var(--pm-btn-pad)]">
+                            {[
+                                { key: 'circle', icon: <LuCircle className="ui-icon" /> },
+                                { key: 'square', icon: <LuSquare className="ui-icon" /> },
+                                { key: 'triangle', icon: <LuTriangle className="ui-icon" /> },
+                                { key: 'diamond', icon: <LuDiamond className="ui-icon" /> },
+                                { key: 'pentagon', icon: <LuPentagon className="ui-icon" /> },
+                                { key: 'hexagon', icon: <LuHexagon className="ui-icon" /> },
+                                { key: 'heptagon', icon: <BsHeptagon className="ui-icon"/>},
+                                { key: 'octagon', icon: <LuOctagon className="ui-icon" /> },
+                                { key: 'star', icon: <LuStar className="ui-icon" /> },
+                                { key: 'rect', icon: <LuRectangleHorizontal className="ui-icon" /> },
+                                { key: 'ellipse', icon: <TbOvalVertical className="ui-icon" />}
+                            ].map(({ key, icon }) => (
+                                <WorkspaceToolButton
+                                    key={key}
+                                    className="aspect-square"
+                                    ariaLabel={`Selecionar forma ${key}`}
+                                    onClick={() => onSelect(key as Geometric)}
+                                    active={selectedShape === key}
+                                    stayActive
+                                >
+                                    {icon}
+                                </WorkspaceToolButton>
+                            ))}
+                        </div>
                     </div>
                 </div>
                 <div className="mt-[var(--pm-gap)] flex items-center justify-center gap-[var(--pm-gap)]">
@@ -101,7 +103,7 @@ const ShapeSelector = () => {
                         active={selectedShape === 'polygon'}
                         stayActive
                     >
-                        <LuPenTool className="ui-icon" />
+                        <TbPolygon className="ui-icon" />
                     </WorkspaceToolButton>
                 </div>
             </div>

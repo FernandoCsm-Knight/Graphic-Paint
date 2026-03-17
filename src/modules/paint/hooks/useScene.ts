@@ -1,38 +1,38 @@
 import { useCallback, useRef } from "react";
-import { Shape } from "../shapes/ShapeTypes";
-import SnapshotShape from "../shapes/SnapshotShape";
+import { SceneItem } from "../shapes/ShapeTypes";
+
+export type { SceneItem };
 
 /**
- * A scene item is either a lightweight vector shape (geometry + style data),
- * a SnapshotShape (a full raster checkpoint of the canvas bitmap),
- * or an ImageShape (a placed image with position and dimensions).
+ * Module-private raster checkpoint — a full canvas bitmap stored as ImageData.
+ * Used by takeSnapshotShape (selection cuts, explicit saves) as a restore point
+ * for redrawFromScene.
  *
- * Vector shapes are cheap to store (~100 bytes) and cheap to replay.
- * SnapshotShapes are expensive to store (~15 MB) but instantaneous to restore
- * via putImageData — used for freeform strokes and fill operations.
- * ImageShapes now extend Shape, so pasted images can reuse the same pending
- * placement, movement, and rotation flow as vector items.
+ * FreeForm and FillShape self-contain their own ImageData snapshot after draw,
+ * so they act as their own checkpoints (isCheckpoint() returns true once drawn).
  */
-export type SceneItem = Shape | SnapshotShape;
+class RasterCheckpoint extends SceneItem {
+    private data: ImageData;
+    constructor(data: ImageData) { super(); this.data = data; }
+    draw(ctx: CanvasRenderingContext2D): void { ctx.putImageData(this.data, 0, 0); }
+    override isCheckpoint(): boolean { return true; }
+}
 
 /**
  * Manages the ordered list of drawn items and the redo stack.
  *
- * Replay strategy — O(items since last snapshot):
- *   1. Scan backwards to find the most recent SnapshotShape checkpoint.
+ * Replay strategy — O(items since last checkpoint):
+ *   1. Scan backwards to find the most recent checkpoint (isCheckpoint() === true).
  *   2. putImageData (O(pixels), very fast) to restore that checkpoint.
  *   3. Draw only the vector shapes that follow it (typically 0–10 items).
- *
- * This makes undo of a vector shape nearly instantaneous even with a large
- * canvas, because we never replay freeform points or flood-fill algorithms.
  */
 const useScene = () => {
     const sceneRef = useRef<SceneItem[]>([]);
     const redoStackRef = useRef<SceneItem[]>([]);
 
     /**
-     * Replay the scene onto ctx, starting from the last SnapshotShape.
-     * Clears the canvas first only if no snapshot exists in the scene.
+     * Replay the scene onto ctx, starting from the last checkpoint.
+     * Clears the canvas first only if no checkpoint exists in the scene.
      */
     const redrawFromScene = useCallback((ctx: CanvasRenderingContext2D) => {
         const scene = sceneRef.current;
@@ -42,15 +42,13 @@ const useScene = () => {
             return;
         }
 
-        // Find the last snapshot — it is the most recent full-canvas checkpoint
         let startIdx = 0;
         let found: boolean = false;
         for (let i = scene.length - 1; i >= 0 && !found; i--) {
-            found = scene[i] instanceof SnapshotShape;
+            found = scene[i].isCheckpoint();
             if (found) startIdx = i;
         }
 
-        // Clear only when no snapshot is present (all items are vectors)
         if (!found) ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
         for (let i = startIdx; i < scene.length; i++) {
@@ -59,15 +57,15 @@ const useScene = () => {
     }, []);
 
     /**
-     * Capture the current canvas state as a SnapshotShape checkpoint.
-     * Called after freeform strokes, fill operations, and eraser strokes.
+     * Capture the current canvas state as a RasterCheckpoint.
+     * Called for selection cuts and explicit saves.
      */
-    const takeSnapshotShape = useCallback((ctx: CanvasRenderingContext2D): SnapshotShape => {
+    const takeSnapshotShape = useCallback((ctx: CanvasRenderingContext2D): SceneItem => {
         const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-        return new SnapshotShape(imageData);
+        return new RasterCheckpoint(imageData);
     }, []);
 
-    /** Add a shape or snapshot to the scene and clear the redo stack. */
+    /** Add an item to the scene and clear the redo stack. */
     const pushShape = useCallback((shape: SceneItem) => {
         sceneRef.current.push(shape);
         redoStackRef.current = [];
@@ -79,7 +77,7 @@ const useScene = () => {
      */
     const undoScene = useCallback((ctx: CanvasRenderingContext2D): boolean => {
         const response: boolean = sceneRef.current.length !== 0;
-        
+
         if (response) {
             const removed = sceneRef.current.pop()!;
             redoStackRef.current.push(removed);
@@ -91,15 +89,12 @@ const useScene = () => {
 
     /**
      * Redo: restore the last undone item and draw it on the current canvas.
-     * Drawing on top works because:
-     *   - SnapshotShape.draw() replaces the entire bitmap (always correct).
-     *   - Vector shapes draw on top of the state left by undoScene (correct
-     *     because undoScene replays the scene, leaving the canvas at the right
-     *     state for the next shape).
+     * Checkpoints replace the entire bitmap; vector shapes draw on top of the
+     * state left by undoScene.
      */
     const redoScene = useCallback((ctx: CanvasRenderingContext2D): boolean => {
         const response: boolean = redoStackRef.current.length !== 0;
-        
+
         if (response) {
             const shape = redoStackRef.current.pop()!;
             sceneRef.current.push(shape);

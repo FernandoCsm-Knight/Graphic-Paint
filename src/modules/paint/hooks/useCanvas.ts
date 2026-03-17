@@ -26,6 +26,8 @@ const useCanvas = () => {
         pixelated,
         setViewOffset,
         setRenderViewport,
+        pendingShapeRef,
+        redrawPendingOverlay,
     } = useContext(PaintContext)!;
 
     const { replacementCanvasRef, replacementContextRef } = useContext(ReplacementContext)!;
@@ -110,6 +112,11 @@ const useCanvas = () => {
                 dpr
             );
         }
+
+        // Redraw the pending-shape bounding box overlay if a shape is pending.
+        // Must run after the overlay is cleared so handles are never lost on
+        // resize, pan, or zoom.
+        redrawPendingOverlay.current?.();
     }, [
         canvasRef,
         getViewportSize,
@@ -140,7 +147,7 @@ const useCanvas = () => {
         handleWheel,
         enterPendingShape,
         confirmPendingShape,
-        hasPendingShape,
+        cancelPendingShape,
     } =
         useDrawingHandlers({
             renderViewport,
@@ -154,9 +161,13 @@ const useCanvas = () => {
         });
 
     const undo = useCallback(() => {
+        if (pendingShapeRef.current !== null) {
+            cancelPendingShape();
+            return;
+        }
         const ctx = contextRef.current;
         if (ctx && undoScene(ctx)) renderViewport();
-    }, [contextRef, undoScene, renderViewport]);
+    }, [contextRef, undoScene, renderViewport, pendingShapeRef, cancelPendingShape]);
 
     const redo = useCallback(() => {
         const ctx = contextRef.current;
@@ -189,7 +200,7 @@ const useCanvas = () => {
         const ctx = contextRef.current;
         if (!ctx) return;
         try {
-            if (hasPendingShape()) {
+            if (pendingShapeRef.current !== null) {
                 confirmPendingShape();
             }
             const img = await ClipboardImageLoader.loadImageFromClipboard();
@@ -200,7 +211,7 @@ const useCanvas = () => {
         } catch {
             alert('Falha ao colar imagem da área de transferência');
         }
-    }, [confirmPendingShape, contextRef, enterPendingShape, hasPendingShape, redrawFromScene]);
+    }, [confirmPendingShape, contextRef, enterPendingShape, pendingShapeRef, redrawFromScene]);
 
     useEffect(() => {
         const setupCanvas = () => {
@@ -236,6 +247,9 @@ const useCanvas = () => {
 
                 if (needsResize) {
                     redrawFromScene(ctx);
+                    // Pending shape is not in the scene yet — redraw it so it
+                    // survives the canvas clear that happens on resize.
+                    pendingShapeRef.current?.draw(ctx);
                 }
             }
 

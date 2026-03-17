@@ -1,4 +1,4 @@
-import { useCallback, useContext, useRef } from "react";
+import { useCallback, useContext, useEffect, useRef } from "react";
 import { PaintContext } from "../context/PaintContext";
 import { ReplacementContext } from "../context/ReplacementContext";
 import { Shape } from "../shapes/ShapeTypes";
@@ -178,10 +178,9 @@ const isInsideRotatedBBox = (
  * so drawBoundingBoxOverlay() must always be called AFTER renderViewport().
  */
 const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: PendingPlacementInput) => {
-    const { canvasRef, contextRef, viewOffset, zoom } = useContext(PaintContext)!;
+    const { canvasRef, contextRef, viewOffset, zoom, pendingShapeRef, redrawPendingOverlay, toolCursor } = useContext(PaintContext)!;
     const { replacementContextRef } = useContext(ReplacementContext)!;
 
-    const pendingShapeRef = useRef<Shape | null>(null);
     const pendingMode = useRef<PendingMode>(null);
     const dragStart = useRef<Point | null>(null);
     const resizeHandleRef = useRef<ResizeHandle | null>(null);
@@ -211,7 +210,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         resizeHandleRef.current = null;
         resizeAnchorRef.current = null;
         resizeBoundsRef.current = null;
-        setCanvasCursor("");
+        setCanvasCursor(toolCursor.current);
     }, [cancelScheduledPendingRender, setCanvasCursor]);
 
     const drawBoundingBoxOverlay = useCallback((shape: Shape) => {
@@ -273,6 +272,15 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
 
         overlay.restore();
     }, [replacementContextRef, zoom, viewOffset]);
+
+    // Keep redrawPendingOverlay.current up-to-date so renderViewport() can
+    // always redraw the bounding box after clearing the overlay (e.g. on resize).
+    useEffect(() => {
+        redrawPendingOverlay.current = () => {
+            const shape = pendingShapeRef.current;
+            if (shape) drawBoundingBoxOverlay(shape);
+        };
+    }, [drawBoundingBoxOverlay, pendingShapeRef, redrawPendingOverlay]);
 
     const renderPendingShapeNow = useCallback(() => {
         const shape = pendingShapeRef.current;
@@ -527,10 +535,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         return false;
     }, [flushPendingRender, setCanvasCursor]);
 
-    const hasPending = useCallback(() => pendingShapeRef.current !== null, []);
-
     return {
-        hasPending,
         enterPending,
         confirmPending,
         cancelPending,

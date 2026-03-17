@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { PaintContext, type PaintContextType } from "../PaintContext";
 import type { Geometric } from "../../types/Graphics";
+import type { Shape } from "../../shapes/ShapeTypes";
 
 const DEFAULT_CANVAS_SIZE = {
     width: 2400,
@@ -18,6 +19,9 @@ const PaintProvider = ({ children }: PaintProviderProps) => {
     const currentColor = useRef<string>('#000000');
     const thickness = useRef<number>(5);
     const renderViewportRef = useRef<() => void>(() => {});
+    const pendingShapeRef = useRef<Shape | null>(null);
+    const redrawPendingOverlay = useRef<(() => void) | null>(null);
+    const toolCursor = useRef<string>("");
 
     const [pixelated, setPixelated] = useState<boolean>(false);
     const [isEraserActive, setEraser] = useState<boolean>(false);
@@ -36,6 +40,9 @@ const PaintProvider = ({ children }: PaintProviderProps) => {
         contextRef,
         currentColor,
         thickness,
+        pendingShapeRef,
+        redrawPendingOverlay,
+        toolCursor,
 
         pixelated,
         setPixelated,

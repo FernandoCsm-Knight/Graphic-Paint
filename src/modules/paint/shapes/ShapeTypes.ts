@@ -14,7 +14,20 @@ export type ShapeOptions = {
 
 export type BoundingBox = { x: number; y: number; width: number; height: number };
 
-export abstract class Shape {
+export abstract class SceneItem {
+    abstract draw(ctx: CanvasRenderingContext2D): void;
+
+    /** True if this item is a full-canvas raster restore point. */
+    isCheckpoint(): boolean { return false; }
+
+    /** True if this item must captureSnapshot() before being committed to the scene. */
+    requiresSnapshot(): boolean { return false; }
+
+    /** Captures the current canvas state into this item after draw. No-op by default. */
+    captureSnapshot(ctx: CanvasRenderingContext2D): void { void ctx; }
+}
+
+export abstract class Shape extends SceneItem {
     abstract readonly kind: Geometric;
     strokeStyle: string;
     fillStyle: string;
@@ -26,6 +39,7 @@ export abstract class Shape {
     rotation: number = 0;
 
     constructor(opts: ShapeOptions) {
+        super();
         this.strokeStyle = opts.strokeStyle ?? '#000000';
         this.fillStyle = opts.fillStyle ?? '#FFFFFF';
         this.lineWidth = opts.lineWidth ?? 1;

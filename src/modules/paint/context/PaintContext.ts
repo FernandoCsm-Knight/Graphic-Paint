@@ -1,6 +1,7 @@
 import { createContext, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { Geometric } from "../types/Graphics";
 import type { Point } from "../../../functions/geometry";
+import type { Shape } from "../shapes/ShapeTypes";
 
 export type PaintContextType = {
     canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -8,6 +9,20 @@ export type PaintContextType = {
     contextRef: RefObject<CanvasRenderingContext2D | null>;
     currentColor: RefObject<string>;
     thickness: RefObject<number>;
+    /** The shape currently in pending-placement mode, or null if none. */
+    pendingShapeRef: RefObject<Shape | null>;
+    /**
+     * The CSS cursor string for the currently active tool (fill, selection, …).
+     * Empty string means no tool is active (default cursor).
+     * usePendingPlacement restores this cursor when pending mode exits.
+     */
+    toolCursor: RefObject<string>;
+    /**
+     * Callback registered by usePendingPlacement to redraw the bounding-box
+     * overlay for the current pending shape. renderViewport() calls this after
+     * clearing the overlay so the handles are never lost on resize/pan/zoom.
+     */
+    redrawPendingOverlay: RefObject<(() => void) | null>;
     
     pixelated: boolean;
     setPixelated: (value: boolean) => void;

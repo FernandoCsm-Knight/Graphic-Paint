@@ -2,11 +2,11 @@ import React, { useCallback, useContext, useRef } from "react";
 import type { PointerEvent } from "react";
 import { PaintContext } from "../context/PaintContext";
 import { SettingsContext } from "../context/SettingsContext";
-import { Shape } from "../shapes/ShapeTypes";
+import { Shape } from "../shapes/ShapeTypes"; // needed for enterPendingShape cast
 import generator from "../types/ShapeGenerator";
 import FreeForm from "../shapes/FreeForm";
 import FillShape from "../shapes/FillShape";
-import SnapshotShape from "../shapes/SnapshotShape";
+
 import { map } from "../types/Graphics";
 import useWorkspacePanZoom from "../../../hooks/useWorkspacePanZoom";
 import useSelection from "./useSelection";
@@ -23,7 +23,7 @@ type DrawingHandlersInput = {
     sceneRef: React.RefObject<SceneItem[]>;
     pushShape: (shape: SceneItem) => void;
     redrawFromScene: (ctx: CanvasRenderingContext2D) => void;
-    takeSnapshotShape: (ctx: CanvasRenderingContext2D) => SnapshotShape;
+    takeSnapshotShape: (ctx: CanvasRenderingContext2D) => SceneItem;
 };
 
 const useDrawingHandlers = ({
@@ -55,6 +55,7 @@ const useDrawingHandlers = ({
         setCanvasSize,
         setCanvasPanning,
         isPanModeActive,
+        pendingShapeRef,
     } = useContext(PaintContext)!;
 
     const { pixelSize, lineAlgorithm } = useContext(SettingsContext)!;
@@ -86,13 +87,15 @@ const useDrawingHandlers = ({
 
     const pending = usePendingPlacement({ renderViewport, redrawFromScene, pushShape });
     const {
-        hasPending: hasPendingShape,
         onPointerDown: pendingPointerDown,
         onPointerMove: pendingPointerMove,
         onPointerUp: pendingPointerUp,
         enterPending: enterPendingShape,
         confirmPending: confirmPendingShape,
+        cancelPending: cancelPendingShape,
     } = pending;
+
+    const hasPendingShape = () => pendingShapeRef.current !== null;
 
     const polygon = usePolygonDrawing({
         contextRef,
@@ -109,7 +112,7 @@ const useDrawingHandlers = ({
 
     const isDrawing = useRef(false);
     const start = useRef<Point>({ x: 0, y: 0 });
-    const currentShape = useRef<Shape | null>(null);
+    const currentShape = useRef<SceneItem | null>(null);
     const rafId = useRef<number | null>(null);
     const pendingPoint = useRef<Point | null>(null);
 
@@ -211,7 +214,7 @@ const useDrawingHandlers = ({
         hasFloating, selectionDown,
         isSelectionActive, startSelection, isFillActive, currentColor, isEraserActive,
         selectedShape, thickness, lineAlgorithm, renderViewport, polygon,
-        hasPendingShape, pendingPointerDown,
+        pendingShapeRef, pendingPointerDown,
     ]);
 
     const handlePointerMove = useCallback((e: PointerEvent<HTMLCanvasElement>) => {
@@ -253,7 +256,7 @@ const useDrawingHandlers = ({
         hasFloating, selectionMove,
         isSelectionActive, updateSelection, selectedShape,
         scheduleShapePreview, renderViewport, polygon,
-        hasPendingShape, pendingPointerMove,
+        pendingShapeRef, pendingPointerMove,
     ]);
 
     const handlePointerUp = useCallback((e?: PointerEvent<HTMLCanvasElement>) => {
@@ -280,13 +283,15 @@ const useDrawingHandlers = ({
             if (isSelectionActive) {
                 stopSelection();
             } else if (currentShape.current && ctx) {
-                if (currentShape.current instanceof FreeForm || currentShape.current instanceof FillShape) {
-                    // Expensive operations go straight to scene as a snapshot
-                    pushShape(takeSnapshotShape(ctx));
+                const shape = currentShape.current;
+                if (shape.requiresSnapshot()) {
+                    // FreeForm / FillShape: self-snapshot then commit directly to scene
+                    shape.captureSnapshot(ctx);
+                    pushShape(shape);
                     renderViewport();
                 } else {
-                    // Regular shapes enter pending placement for optional move/rotate
-                    enterPendingShape(currentShape.current);
+                    // Geometric shapes enter pending placement for optional move/rotate
+                    enterPendingShape(shape as Shape);
                 }
             }
 
@@ -309,7 +314,6 @@ const useDrawingHandlers = ({
         isSelectionActive,
         renderViewport,
         pushShape,
-        takeSnapshotShape,
         stopSelection,
         pendingPointerUp,
         enterPendingShape,
@@ -322,7 +326,7 @@ const useDrawingHandlers = ({
         handleWheel,
         enterPendingShape,
         confirmPendingShape,
-        hasPendingShape,
+        cancelPendingShape,
         cancelSelection,
         commitSelection,
     };
