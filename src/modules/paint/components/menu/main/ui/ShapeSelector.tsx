@@ -20,10 +20,12 @@ import { BsHeptagon } from "react-icons/bs";
 import { TbOvalVertical, TbPolygon } from "react-icons/tb";
 import GlassCard from "../../../../../../components/GlassCard";
 import type { Point } from "../../../../../../functions/geometry";
+import { useWorkspaceContext } from "../../../../../../context/WorkspaceContext";
 
 const ShapeSelector = () => {
     const { shapeButtonRef } = useContext(MenuContext)!;
-    const { selectedShape, setSelectedShape, setPanModeActive, setFill, setSelectionActive } = useContext(PaintContext)!;
+    const { selectedShape, setSelectedShape, setFill, setSelectionActive } = useContext(PaintContext)!;
+    const { setPanModeActive } = useWorkspaceContext();
 
     const getInitialPos = (): Point => {
         const btn = shapeButtonRef.current;

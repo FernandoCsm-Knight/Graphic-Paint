@@ -15,7 +15,6 @@ type PaintProviderProps = {
 
 const PaintProvider = ({ children }: PaintProviderProps) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
-    const containerRef = useRef<HTMLDivElement | null>(null);
     const contextRef = useRef<CanvasRenderingContext2D | null>(null);
     const currentColor = useRef<string>('#000000');
     const thickness = useRef<number>(5);
@@ -30,15 +29,10 @@ const PaintProvider = ({ children }: PaintProviderProps) => {
     const [isFillActive, setFill] = useState<boolean>(false);
     const [isSelectionActive, setSelectionActive] = useState<boolean>(false);
     const [selectedShape, setSelectedShape] = useState<Geometric>('freeform');
-    const [isPanModeActive, setPanModeActive] = useState<boolean>(false);
-    const [isCanvasPanning, setCanvasPanning] = useState<boolean>(false);
-    const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
-    const [zoom, setZoom] = useState<number>(1);
     const [canvasSize, setCanvasSize] = useState(DEFAULT_CANVAS_SIZE);
 
     const paintContext = useMemo((): PaintContextType => ({
         canvasRef,
-        containerRef,
         contextRef,
         currentColor,
         thickness,
@@ -57,14 +51,6 @@ const PaintProvider = ({ children }: PaintProviderProps) => {
         setSelectionActive,
         selectedShape,
         setSelectedShape,
-        isPanModeActive,
-        setPanModeActive,
-        isCanvasPanning,
-        setCanvasPanning,
-        viewOffset,
-        setViewOffset,
-        zoom,
-        setZoom,
         canvasSize,
         setCanvasSize,
         renderViewport: () => renderViewportRef.current(),
@@ -73,8 +59,7 @@ const PaintProvider = ({ children }: PaintProviderProps) => {
         },
     }), [
         pixelated, isEraserActive, isFillActive, isSelectionActive,
-        selectedShape, isPanModeActive, isCanvasPanning,
-        viewOffset, zoom, canvasSize
+        selectedShape, canvasSize
     ]);
 
     return (

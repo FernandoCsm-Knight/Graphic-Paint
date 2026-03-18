@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useRef } from "react";
 import type { RefObject } from "react";
 import { PaintContext } from "../context/PaintContext";
+import { useWorkspaceContext } from "../../../context/WorkspaceContext";
 import { ReplacementContext } from "../context/ReplacementContext";
 import { SettingsContext } from "../context/SettingsContext";
 import type { BoundingBox } from "../shapes/ShapeTypes";
@@ -94,7 +95,8 @@ function drawDashedRect(
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 const useSelection = ({ sceneRef, redrawFromScene, pushShape, takeSnapshotShape }: SelectionInput) => {
-    const { contextRef, pixelated, viewOffset, zoom, renderViewport, selectionItemRef } = useContext(PaintContext)!;
+    const { contextRef, pixelated, renderViewport, selectionItemRef } = useContext(PaintContext)!;
+    const { viewOffset, zoom } = useWorkspaceContext();
     const { pixelSize, clipAlgorithm } = useContext(SettingsContext)!;
     const { replacementContextRef } = useContext(ReplacementContext)!;
 

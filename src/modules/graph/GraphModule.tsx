@@ -1,11 +1,14 @@
+import WorkspaceProvider from '../../context/providers/WorkspaceProvider';
 import GraphProvider from './context/providers/GraphProvider';
 import GraphWorkspace from './GraphWorkspace';
 
 const GraphModule = () => {
     return (
-        <GraphProvider>
-            <GraphWorkspace />
-        </GraphProvider>
+        <WorkspaceProvider>
+            <GraphProvider>
+                <GraphWorkspace />
+            </GraphProvider>
+        </WorkspaceProvider>
     );
 };
 

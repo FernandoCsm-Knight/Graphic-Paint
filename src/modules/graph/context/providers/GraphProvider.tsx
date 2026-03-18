@@ -1,4 +1,4 @@
-import { useMemo, useReducer, useRef, useState } from 'react';
+import { useMemo, useReducer } from 'react';
 import type { ReactNode } from 'react';
 import { GraphContext } from '../GraphContext';
 import type { GraphState, GraphAction } from '../../types/graph';
@@ -194,35 +194,10 @@ function graphReducer(state: GraphState, action: GraphAction): GraphState {
     }
 }
 
-const DEFAULT_WORLD_SIZE = {
-    width: 2400,
-    height: 1600,
-};
-
 const GraphProvider = ({ children }: { children: ReactNode }) => {
     const [state, dispatch] = useReducer(graphReducer, initialState);
-    const containerRef = useRef<HTMLElement | null>(null);
-    const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
-    const [zoom, setZoom] = useState(1);
-    const [worldSize, setWorldSize] = useState(DEFAULT_WORLD_SIZE);
-    const [isPanModeActive, setPanModeActive] = useState(false);
-    const [isCanvasPanning, setCanvasPanning] = useState(false);
 
-    const value = useMemo(() => ({
-        state,
-        dispatch,
-        containerRef,
-        viewOffset,
-        setViewOffset,
-        zoom,
-        setZoom,
-        worldSize,
-        setWorldSize,
-        isPanModeActive,
-        setPanModeActive,
-        isCanvasPanning,
-        setCanvasPanning,
-    }), [isCanvasPanning, isPanModeActive, state, viewOffset, worldSize, zoom]);
+    const value = useMemo(() => ({ state, dispatch }), [state]);
 
     return <GraphContext.Provider value={value}>{children}</GraphContext.Provider>;
 };

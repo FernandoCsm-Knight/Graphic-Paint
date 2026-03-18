@@ -1,11 +1,13 @@
 import { useContext } from "react";
 import { LuCrop } from "react-icons/lu";
 import { PaintContext } from "../../../../context/PaintContext";
+import { useWorkspaceContext } from "../../../../../../context/WorkspaceContext";
 import WorkspaceToolButton from "../../../../../../components/WorkspaceToolButton";
 
 
 const SelectionButton = () => {
-    const { isSelectionActive, setSelectionActive, setFill, setEraser, setPanModeActive, setSelectedShape, canvasRef, toolCursor } = useContext(PaintContext)!;
+    const { isSelectionActive, setSelectionActive, setFill, setEraser, setSelectedShape, canvasRef, toolCursor } = useContext(PaintContext)!;
+    const { setPanModeActive } = useWorkspaceContext();
 
     const handleClick = () => {
         const next = !isSelectionActive;

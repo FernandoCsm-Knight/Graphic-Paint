@@ -1,6 +1,7 @@
 import { LuGripHorizontal } from "react-icons/lu";
 import { useContext, useState } from "react";
 import { PaintContext } from "../context/PaintContext";
+import { useWorkspaceContext } from "../../../context/WorkspaceContext";
 import type { Point } from "../../../functions/geometry";
 import { useDraggable } from "../../../hooks/useDraggable";
 
@@ -12,7 +13,8 @@ const getSafeAreaBottom = (): number => {
 };
 
 const PageSizeEraser = () => {
-    const { canvasRef, containerRef, contextRef, renderViewport, saveSnapshot, viewOffset, zoom } = useContext(PaintContext)!;
+    const { canvasRef, contextRef, renderViewport, saveSnapshot } = useContext(PaintContext)!;
+    const { containerRef, viewOffset, zoom } = useWorkspaceContext();
     const [isActive, setIsActive] = useState(false);
     const [previewHeight, setPreviewHeight] = useState(0);
 

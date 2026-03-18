@@ -1,24 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
-import FloatingInfoBadge from '../../components/FloatingInfoBadge';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import useWorkspacePanZoom from '../../hooks/useWorkspacePanZoom';
 import useWorkspaceViewport from '../../hooks/useWorkspaceViewport';
+import { useWorkspaceContext } from '../../context/WorkspaceContext';
 import { useGraphContext } from './context/GraphContext';
 import { useGraphD3 } from './hooks/useGraphD3';
 import { useAlgorithmPlayer } from './hooks/useAlgorithmPlayer';
 import GraphMenu from './components/GraphMenu';
 import GraphPlayerCard from './components/GraphPlayerCard';
 import LabelEditor from './components/LabelEditor';
-
-const MIN_WORLD_WIDTH = 2400;
-const MIN_WORLD_HEIGHT = 1600;
-const WORLD_SCALE_FACTOR = 2;
+import WorkspaceLayout from '../../components/WorkspaceLayout';
 
 const GraphWorkspace = () => {
     const svgRef = useRef<SVGSVGElement>(null);
+    const isPanModeActiveRef = useRef(false);
+    const isPanningRef = useRef(false);
     const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+
     const {
-        state,
-        dispatch,
         containerRef,
         viewOffset,
         setViewOffset,
@@ -27,17 +25,22 @@ const GraphWorkspace = () => {
         worldSize,
         setWorldSize,
         isPanModeActive,
-        isCanvasPanning,
         setCanvasPanning,
-    } = useGraphContext();
+    } = useWorkspaceContext();
+
+    isPanModeActiveRef.current = isPanModeActive;
+
+    const { state, dispatch } = useGraphContext();
+
     const gridCellSize = Math.max(1, state.gridSize * zoom);
     const gridOffsetX = ((viewOffset.x % gridCellSize) + gridCellSize) % gridCellSize;
     const gridOffsetY = ((viewOffset.y % gridCellSize) + gridCellSize) % gridCellSize;
 
+    const getWorldSize = useCallback(() => worldSize, [worldSize]);
     const { getViewportSize, clampViewOffset, getMinAllowedZoom } = useWorkspaceViewport({
         containerRef,
         zoom,
-        getWorldSize: () => worldSize,
+        getWorldSize,
     });
 
     const { onPointerDown, onPointerMove, onPointerUp, handleWheel } = useWorkspacePanZoom({
@@ -49,19 +52,23 @@ const GraphWorkspace = () => {
         setZoom,
         worldSize,
         setWorldSize,
-        setIsPanning: setCanvasPanning,
+        setIsPanning: (value) => { isPanningRef.current = value; setCanvasPanning(value); },
         isPanModeActive,
         getViewportSize,
         clampViewOffset,
         getMinAllowedZoom,
     });
 
-    useGraphD3(svgRef, state, dispatch, { viewOffset, zoom, viewportSize });
+    useGraphD3(svgRef, state, dispatch, { viewOffset, zoom, viewportSize }, { isPanModeActiveRef, isPanningRef });
     useAlgorithmPlayer(state, dispatch);
 
     useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
+
+        const MIN_WORLD_WIDTH = 2400;
+        const MIN_WORLD_HEIGHT = 1600;
+        const WORLD_SCALE_FACTOR = 2;
 
         const syncWorkspaceBounds = () => {
             const viewportWidth = Math.max(1, Math.floor(container.clientWidth));
@@ -102,16 +109,15 @@ const GraphWorkspace = () => {
         return () => observer.disconnect();
     }, [clampViewOffset, containerRef, setViewOffset, setWorldSize, worldSize.height, worldSize.width]);
 
+    const badge = `${viewportSize.width} x ${viewportSize.height} · ${Math.round(zoom * 100)}%`;
+
     return (
-        <main
-            ref={containerRef}
+        <WorkspaceLayout
             onWheel={(event) => {
                 if ((event.target as HTMLElement).closest('[data-graph-menu]')) return;
                 handleWheel(event);
             }}
-            className={`relative z-0 h-full min-h-0 w-full overflow-hidden ${
-                isCanvasPanning ? 'cursor-grabbing' : isPanModeActive ? 'cursor-grab' : 'cursor-default'
-            }`}
+            badge={badge}
         >
             <div data-graph-menu>
                 <GraphMenu />
@@ -154,11 +160,7 @@ const GraphWorkspace = () => {
                 />
                 <LabelEditor svgRef={svgRef} />
             </div>
-
-            <FloatingInfoBadge>
-                {`${viewportSize.width} x ${viewportSize.height} · ${Math.round(zoom * 100)}%`}
-            </FloatingInfoBadge>
-        </main>
+        </WorkspaceLayout>
     );
 };
 

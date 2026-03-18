@@ -77,12 +77,20 @@ function computeEdgeEndpoints(
 
 // ── Main hook ──────────────────────────────────────────────────────────────────
 
+interface GraphD3Options {
+    isPanModeActiveRef: RefObject<boolean>;
+    isPanningRef: RefObject<boolean>;
+}
+
 export function useGraphD3(
     svgRef: RefObject<SVGSVGElement | null>,
     state: GraphState,
     dispatch: React.Dispatch<GraphAction>,
     viewport: GraphViewportState,
+    options: GraphD3Options,
 ): void {
+    const { isPanModeActiveRef, isPanningRef } = options;
+
     // Always-fresh refs to avoid stale closures in D3 callbacks
     const stateRef = useRef(state);
     const dispatchRef = useRef(dispatch);
@@ -136,6 +144,7 @@ export function useGraphD3(
         // ── SVG-level pointer events ───────────────────────────────────────────
         svg.on('pointerup', (event: PointerEvent) => {
             if (event.button !== 0) return;
+            if (isPanningRef.current) return;
             if ((event.target as Element).closest('.node-group, .edge-group')) return;
             if (dragMovedRef.current) return;
             const s = stateRef.current;
@@ -253,7 +262,7 @@ export function useGraphD3(
         // ── Drag behaviour (created fresh each render so refs are captured) ────
         const drag = d3
             .drag()
-            .filter((event: PointerEvent) => event.button === 0)
+            .filter((event: PointerEvent) => event.button === 0 && !isPanModeActiveRef.current)
             .clickDistance(6)
             .subject((_: unknown, d: GraphNode) => ({ x: d.x, y: d.y }))
             .on('start', function (this: SVGGElement) {
@@ -471,11 +480,6 @@ export function useGraphD3(
             return parts.join('/');
         });
 
-        // Cursor based on mode
-        svg.style(
-            'cursor',
-            selectingFor !== 'none' ? 'crosshair' : edgeSourceId ? 'crosshair' : 'default'
-        );
 
         nodeGroups.exit().remove();
     }, [state, svgRef, dragMovedRef, viewport]);

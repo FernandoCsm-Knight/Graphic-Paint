@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { useGraphContext } from '../context/GraphContext';
+import { useWorkspaceContext } from '../../../context/WorkspaceContext';
 
 interface LabelEditorProps {
     svgRef: RefObject<SVGSVGElement | null>;
 }
 
 const LabelEditor = ({ svgRef }: LabelEditorProps) => {
-    const { state, dispatch, viewOffset, zoom } = useGraphContext();
+    const { state, dispatch } = useGraphContext();
+    const { viewOffset, zoom } = useWorkspaceContext();
     const inputRef = useRef<HTMLInputElement>(null);
     const [value, setValue] = useState('');
     const cancelledRef = useRef(false);

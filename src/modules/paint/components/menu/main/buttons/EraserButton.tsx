@@ -2,9 +2,11 @@ import { LuEraser } from "react-icons/lu";
 import { useContext } from "react";
 import WorkspaceToolButton from "../../../../../../components/WorkspaceToolButton";
 import { PaintContext } from "../../../../context/PaintContext";
+import { useWorkspaceContext } from "../../../../../../context/WorkspaceContext";
 
 const EraserButton = () => {
-    const { isEraserActive, setEraser, setFill, setSelectionActive, setPanModeActive, setSelectedShape } = useContext(PaintContext)!;
+    const { isEraserActive, setEraser, setFill, setSelectionActive, setSelectedShape } = useContext(PaintContext)!;
+    const { setPanModeActive } = useWorkspaceContext();
 
     const handleClick = () => {
         const next = !isEraserActive;

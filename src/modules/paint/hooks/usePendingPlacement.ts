@@ -1,5 +1,6 @@
 import { useCallback, useContext, useEffect, useRef } from "react";
 import { PaintContext } from "../context/PaintContext";
+import { useWorkspaceContext } from "../../../context/WorkspaceContext";
 import { ReplacementContext } from "../context/ReplacementContext";
 import { Shape } from "../shapes/ShapeTypes";
 import type { BoundingBox } from "../shapes/ShapeTypes";
@@ -178,7 +179,8 @@ const isInsideRotatedBBox = (
  * so drawBoundingBoxOverlay() must always be called AFTER renderViewport().
  */
 const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: PendingPlacementInput) => {
-    const { canvasRef, contextRef, viewOffset, zoom, pendingShapeRef, redrawPendingOverlay, toolCursor } = useContext(PaintContext)!;
+    const { canvasRef, contextRef, pendingShapeRef, redrawPendingOverlay, toolCursor } = useContext(PaintContext)!;
+    const { viewOffset, zoom } = useWorkspaceContext();
     const { replacementContextRef } = useContext(ReplacementContext)!;
 
     const pendingMode = useRef<PendingMode>(null);

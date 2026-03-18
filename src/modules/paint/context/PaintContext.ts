@@ -1,12 +1,10 @@
 import { createContext, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { Geometric } from "../types/Graphics";
-import type { Point } from "../../../functions/geometry";
 import type { Shape } from "../shapes/ShapeTypes";
 import type { SelectionOverlayItem } from "../selection/SelectionOverlayItem";
 
 export type PaintContextType = {
     canvasRef: RefObject<HTMLCanvasElement | null>;
-    containerRef: RefObject<HTMLDivElement | null>;
     contextRef: RefObject<CanvasRenderingContext2D | null>;
     currentColor: RefObject<string>;
     thickness: RefObject<number>;
@@ -29,7 +27,7 @@ export type PaintContextType = {
      * clearing the overlay so the selection UI is never lost on resize/pan/zoom.
      */
     selectionItemRef: RefObject<SelectionOverlayItem>;
-    
+
     pixelated: boolean;
     setPixelated: (value: boolean) => void;
     isEraserActive: boolean;
@@ -40,19 +38,12 @@ export type PaintContextType = {
     setSelectionActive: (value: boolean) => void;
     selectedShape: Geometric;
     setSelectedShape: (value: Geometric) => void;
-    isPanModeActive: boolean;
-    setPanModeActive: (value: boolean) => void;
-    isCanvasPanning: boolean;
-    setCanvasPanning: (value: boolean) => void;
-    viewOffset: Point;
-    setViewOffset: Dispatch<SetStateAction<Point>>;
-    zoom: number;
-    setZoom: (value: number) => void;
+    /** User-configured minimum document size (world never shrinks below this). */
     canvasSize: { width: number; height: number };
     setCanvasSize: Dispatch<SetStateAction<{ width: number; height: number }>>;
     renderViewport: () => void;
     setRenderViewport: (callback: () => void) => void;
-    
+
     saveSnapshot?: () => void;
 };
 

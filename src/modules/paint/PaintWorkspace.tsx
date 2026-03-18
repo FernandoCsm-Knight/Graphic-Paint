@@ -5,15 +5,17 @@ import MenuProvider from './context/providers/MenuProvider';
 import { PaintContext } from './context/PaintContext';
 import { ReplacementContext } from './context/ReplacementContext';
 import { SettingsContext } from './context/SettingsContext';
+import { useWorkspaceContext } from '../../context/WorkspaceContext';
 import PageSizeEraser from './components/PageSizeEraser';
 import ModeManager from './components/ModeManager';
-import FloatingInfoBadge from '../../components/FloatingInfoBadge';
+import WorkspaceLayout from '../../components/WorkspaceLayout';
 
 function PaintWorkspace() {
     const paintContext = useContext(PaintContext)!;
-    const { canvasRef, containerRef, isPanModeActive, isCanvasPanning, selectedShape } = paintContext;
+    const { canvasRef, selectedShape } = paintContext;
     const { replacementCanvasRef } = useContext(ReplacementContext)!;
     const { gridDisplayMode, pageSizeEraser } = useContext(SettingsContext)!;
+    const { containerRef, zoom } = useWorkspaceContext();
     const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
 
     const {
@@ -81,19 +83,23 @@ function PaintWorkspace() {
         return () => observer.disconnect();
     }, [containerRef]);
 
+    const badge = selectedShape === 'polygon'
+        ? 'Clique para adicionar vértices · Enter para finalizar · Esc para cancelar · Duplo clique para fechar'
+        : `${viewportSize.width} x ${viewportSize.height} · ${Math.round(zoom * 100)}%`;
+
     return (
         <>
             <ModeManager />
             <MenuProvider>
                 <Menu />
             </MenuProvider>
-            <main
-                ref={containerRef}
+            <WorkspaceLayout
                 onWheel={(e) => {
                     if ((e.target as HTMLElement).closest('[data-paint-menu]')) return;
                     handleWheel(e);
                 }}
-                className={`relative h-full min-h-0 w-full overflow-hidden ${isCanvasPanning ? 'cursor-grabbing' : isPanModeActive ? 'cursor-grab' : selectedShape === 'polygon' ? 'cursor-crosshair' : 'cursor-default'}`}
+                defaultCursor={selectedShape === 'polygon' ? 'crosshair' : 'default'}
+                badge={badge}
             >
                 <div className="absolute inset-0 overflow-hidden">
                     <canvas
@@ -112,13 +118,8 @@ function PaintWorkspace() {
                         onPointerCancel={handlePointerUp}
                     ></canvas>
                 </div>
-                {(pageSizeEraser) ? <PageSizeEraser/> : null}
-                <FloatingInfoBadge>
-                    {selectedShape === 'polygon'
-                        ? 'Clique para adicionar vértices · Enter para finalizar · Esc para cancelar · Duplo clique para fechar'
-                        : `${viewportSize.width} x ${viewportSize.height} · ${Math.round(paintContext.zoom * 100)}%`}
-                </FloatingInfoBadge>
-            </main>
+                {pageSizeEraser ? <PageSizeEraser /> : null}
+            </WorkspaceLayout>
         </>
     );
 };

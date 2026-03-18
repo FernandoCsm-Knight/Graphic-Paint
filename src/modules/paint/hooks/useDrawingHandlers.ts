@@ -1,6 +1,7 @@
 import React, { useCallback, useContext, useRef } from "react";
 import type { PointerEvent } from "react";
 import { PaintContext } from "../context/PaintContext";
+import { useWorkspaceContext } from "../../../context/WorkspaceContext";
 import { DASH_ARRAYS, SettingsContext } from "../context/SettingsContext";
 import { Shape } from "../shapes/ShapeTypes"; // needed for enterPendingShape cast
 import generator from "../types/ShapeGenerator";
@@ -38,7 +39,6 @@ const useDrawingHandlers = ({
 }: DrawingHandlersInput) => {
     const {
         canvasRef,
-        containerRef,
         contextRef,
         thickness,
         currentColor,
@@ -47,16 +47,20 @@ const useDrawingHandlers = ({
         isSelectionActive,
         pixelated,
         selectedShape,
+        pendingShapeRef,
+    } = useContext(PaintContext)!;
+
+    const {
+        containerRef,
         viewOffset,
         setViewOffset,
         zoom,
         setZoom,
-        canvasSize,
-        setCanvasSize,
+        worldSize,
+        setWorldSize,
         setCanvasPanning,
         isPanModeActive,
-        pendingShapeRef,
-    } = useContext(PaintContext)!;
+    } = useWorkspaceContext();
 
     const { pixelSize, lineAlgorithm, lineDashPreset, brushStyle } = useContext(SettingsContext)!;
     const lineDash = DASH_ARRAYS[lineDashPreset];;
@@ -77,8 +81,8 @@ const useDrawingHandlers = ({
         setViewOffset,
         zoom,
         setZoom,
-        worldSize: canvasSize,
-        setWorldSize: setCanvasSize,
+        worldSize,
+        setWorldSize,
         setIsPanning: setCanvasPanning,
         isPanModeActive,
         getViewportSize,

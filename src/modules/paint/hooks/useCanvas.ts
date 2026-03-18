@@ -2,6 +2,7 @@ import { useCallback, useContext, useEffect, useRef } from "react";
 import { PaintContext } from "../context/PaintContext";
 import { ReplacementContext } from "../context/ReplacementContext";
 import { SettingsContext } from "../context/SettingsContext";
+import { useWorkspaceContext } from "../../../context/WorkspaceContext";
 import useWorkspaceViewport from "../../../hooks/useWorkspaceViewport";
 import { drawGrid, getGridCellSize } from "../../../utils/workspaceGrid";
 import { ClipboardImageLoader } from "../utils/ClipboardImageLoader";
@@ -18,18 +19,23 @@ const useCanvas = () => {
 
     const {
         canvasRef,
-        containerRef,
         contextRef,
         canvasSize,
-        viewOffset,
-        zoom,
         pixelated,
-        setViewOffset,
         setRenderViewport,
         pendingShapeRef,
         redrawPendingOverlay,
         selectionItemRef,
     } = useContext(PaintContext)!;
+
+    const {
+        containerRef,
+        viewOffset,
+        zoom,
+        setViewOffset,
+        worldSize,
+        setWorldSize,
+    } = useWorkspaceContext();
 
     const { replacementCanvasRef, replacementContextRef } = useContext(ReplacementContext)!;
     const { pixelSize, gridDisplayMode } = useContext(SettingsContext)!;
@@ -39,13 +45,11 @@ const useCanvas = () => {
     const viewportCtxRef = useRef<CanvasRenderingContext2D | null>(null);
     const overlayViewportCtxRef = useRef<CanvasRenderingContext2D | null>(null);
 
+    const getWorldSize = useCallback(() => worldSize, [worldSize]);
     const { getViewportSize, clampViewOffset, getMinAllowedZoom } = useWorkspaceViewport({
         containerRef,
         zoom,
-        getWorldSize: () => ({
-            width: documentCanvasRef.current?.width ?? 0,
-            height: documentCanvasRef.current?.height ?? 0,
-        }),
+        getWorldSize,
     });
 
     const resizeViewportCanvas = useCallback((canvas: HTMLCanvasElement, width: number, height: number) => {
@@ -229,6 +233,12 @@ const useCanvas = () => {
             const worldWidth = Math.max(MIN_CANVAS_WIDTH, canvasSize.width, Math.ceil(viewportWidth * CANVAS_SCALE_FACTOR));
             const worldHeight = Math.max(MIN_CANVAS_HEIGHT, canvasSize.height, Math.ceil(viewportHeight * CANVAS_SCALE_FACTOR));
 
+            setWorldSize((prev) => {
+                const nextW = Math.max(prev.width, worldWidth);
+                const nextH = Math.max(prev.height, worldHeight);
+                return nextW === prev.width && nextH === prev.height ? prev : { width: nextW, height: nextH };
+            });
+
             if (!documentCanvasRef.current) {
                 documentCanvasRef.current = document.createElement('canvas');
             }
@@ -236,8 +246,14 @@ const useCanvas = () => {
 
             const needsResize = documentCanvas.width !== worldWidth || documentCanvas.height !== worldHeight;
             if (needsResize) {
+                // Preserve existing pixels when growing the canvas.
+                const tmp = document.createElement('canvas');
+                tmp.width = documentCanvas.width;
+                tmp.height = documentCanvas.height;
+                tmp.getContext('2d')!.drawImage(documentCanvas, 0, 0);
                 documentCanvas.width = worldWidth;
                 documentCanvas.height = worldHeight;
+                documentCanvas.getContext('2d')?.drawImage(tmp, 0, 0);
             }
 
             const ctx = documentCanvas.getContext("2d", { alpha: true, willReadFrequently: true });
@@ -249,9 +265,9 @@ const useCanvas = () => {
                 contextRef.current = ctx;
 
                 if (needsResize) {
+                    // Redraw from scene to restore any shapes that the canvas clear erased,
+                    // then re-draw the pending shape so it survives the resize.
                     redrawFromScene(ctx);
-                    // Pending shape is not in the scene yet — redraw it so it
-                    // survives the canvas clear that happens on resize.
                     pendingShapeRef.current?.draw(ctx);
                 }
             }
@@ -287,6 +303,7 @@ const useCanvas = () => {
         redrawFromScene,
         clampViewOffset,
         setViewOffset,
+        setWorldSize,
         canvasSize.width,
         canvasSize.height,
     ]);

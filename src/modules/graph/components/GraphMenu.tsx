@@ -10,6 +10,7 @@ import {
 import GlassCard from '../../../components/GlassCard';
 import WorkspaceToolButton from '../../../components/WorkspaceToolButton';
 import { useGraphContext } from '../context/GraphContext';
+import { useWorkspaceContext } from '../../../context/WorkspaceContext';
 import type { AlgorithmId } from '../types/graph';
 import { useState } from 'react';
 
@@ -21,7 +22,8 @@ const ALGORITHMS: { id: AlgorithmId; label: string }[] = [
 ];
 
 const GraphMenu = () => {
-    const { state, dispatch, isPanModeActive, setPanModeActive } = useGraphContext();
+    const { state, dispatch } = useGraphContext();
+    const { isPanModeActive, setPanModeActive } = useWorkspaceContext();
     const [showHelp, setShowHelp] = useState(false);
     const {
         directed,
