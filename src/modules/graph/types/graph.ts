@@ -15,7 +15,11 @@ export interface GraphEdge {
     weight: number;
 }
 
-export type AlgorithmId = 'bfs' | 'dfs' | 'dijkstra';
+export type AlgorithmId =
+    | 'bfs' | 'dfs' | 'dijkstra'
+    | 'prim' | 'kruskal'
+    | 'topo' | 'cpm'
+    | 'bridges' | 'tarjan' | 'kosaraju';
 
 export interface AlgorithmStep {
     visitedNodes: Set<NodeId>;

@@ -9,6 +9,13 @@ import { useAlgorithmPlayer } from './hooks/useAlgorithmPlayer';
 import { runBFS } from './algorithms/BFS';
 import { runDFS } from './algorithms/DFS';
 import { runDijkstra } from './algorithms/Dijkstra';
+import { runPrim } from './algorithms/Prim';
+import { runKruskal } from './algorithms/Kruskal';
+import { runTopologicalSort } from './algorithms/TopologicalSort';
+import { runCriticalPath } from './algorithms/CriticalPath';
+import { runBridges } from './algorithms/Bridges';
+import { runTarjanSCC } from './algorithms/TarjanSCC';
+import { runKosarajuBase } from './algorithms/KosarajuBase';
 import type { AlgorithmId } from './types/graph';
 import GraphMenu from './components/GraphMenu';
 import LabelEditor from './components/LabelEditor';
@@ -87,22 +94,46 @@ const GraphWorkspace = () => {
         .sort()
         .join('|');
 
+    // Algorithms that require a start node
+    const needsStart = algorithm === 'bfs' || algorithm === 'dfs' || algorithm === 'dijkstra' || algorithm === 'prim';
+    const needsEnd   = algorithm === 'dijkstra';
+
+    // ── Reset algorithm when graph type changes and selected algo no longer applies ──
+    useEffect(() => {
+        const directedOnly = algorithm === 'topo' || algorithm === 'cpm' || algorithm === 'tarjan' || algorithm === 'kosaraju';
+        const undirectedOnly = algorithm === 'prim' || algorithm === 'kruskal' || algorithm === 'bridges';
+        if (state.directed && undirectedOnly) dispatch({ type: 'SET_ALGORITHM', algorithm: 'dfs' });
+        if (!state.directed && directedOnly) dispatch({ type: 'SET_ALGORITHM', algorithm: 'dfs' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [state.directed]);
+
     // ── Auto-compute algorithm steps ──────────────────────────────────────────
     useEffect(() => {
-        if (!showSimulation || !startNodeId) {
+        if (!showSimulation) {
             dispatch({ type: 'SET_ALGORITHM_STEPS', steps: [] });
             return;
         }
-        if (algorithm === 'dijkstra' && !endNodeId) {
+        if (needsStart && !startNodeId) {
+            dispatch({ type: 'SET_ALGORITHM_STEPS', steps: [] });
+            return;
+        }
+        if (needsEnd && !endNodeId) {
             dispatch({ type: 'SET_ALGORITHM_STEPS', steps: [] });
             return;
         }
         const n = Object.values(state.nodes);
         const e = Object.values(state.edges);
         const steps =
-            algorithm === 'bfs' ? runBFS(n, e, startNodeId, state.directed) :
-            algorithm === 'dfs' ? runDFS(n, e, startNodeId, state.directed) :
-            runDijkstra(n, e, startNodeId, endNodeId!, state.directed);
+            algorithm === 'bfs'     ? runBFS(n, e, startNodeId!, state.directed) :
+            algorithm === 'dfs'     ? runDFS(n, e, startNodeId!, state.directed) :
+            algorithm === 'dijkstra'? runDijkstra(n, e, startNodeId!, endNodeId!, state.directed) :
+            algorithm === 'prim'    ? runPrim(n, e, startNodeId!) :
+            algorithm === 'kruskal' ? runKruskal(n, e) :
+            algorithm === 'topo'    ? runTopologicalSort(n, e) :
+            algorithm === 'cpm'     ? runCriticalPath(n, e) :
+            algorithm === 'bridges'  ? runBridges(n, e) :
+            algorithm === 'tarjan'   ? runTarjanSCC(n, e) :
+            runKosarajuBase(n, e);
         dispatch({ type: 'SET_ALGORITHM_STEPS', steps });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [nodesKey, edgesKey, startNodeId, endNodeId, algorithm, showSimulation, state.directed]);
@@ -200,54 +231,83 @@ const GraphWorkspace = () => {
                                     onKeyDown={(e) => e.stopPropagation()}
                                     className="ui-input rounded-lg px-2 py-1.5 text-sm w-full cursor-pointer"
                                 >
-                                    <option value="dfs">DFS — Busca em Profundidade</option>
-                                    <option value="bfs">BFS — Busca em Largura</option>
-                                    <option value="dijkstra">Dijkstra</option>
+                                    <optgroup label="Travessia">
+                                        <option value="dfs">DFS — Busca em Profundidade</option>
+                                        <option value="bfs">BFS — Busca em Largura</option>
+                                    </optgroup>
+                                    <optgroup label="Caminho Mínimo">
+                                        <option value="dijkstra">Dijkstra</option>
+                                    </optgroup>
+                                    {!state.directed && (
+                                        <optgroup label="Árvore Geradora Mínima">
+                                            <option value="prim">Prim</option>
+                                            <option value="kruskal">Kruskal (Union-Find)</option>
+                                        </optgroup>
+                                    )}
+                                    {state.directed && (
+                                        <optgroup label="DAG">
+                                            <option value="topo">Ordenação Topológica</option>
+                                            <option value="cpm">Caminho Crítico (CPM)</option>
+                                        </optgroup>
+                                    )}
+                                    {!state.directed && (
+                                        <optgroup label="Conectividade">
+                                            <option value="bridges">Pontes</option>
+                                        </optgroup>
+                                    )}
+                                    {state.directed && (
+                                        <optgroup label="Conectividade">
+                                            <option value="tarjan">Tarjan — SCCs</option>
+                                            <option value="kosaraju">Kosaraju — Base</option>
+                                        </optgroup>
+                                    )}
                                 </select>
                             </div>
 
-                            {/* Node selection buttons */}
-                            <div className={`grid gap-[var(--pm-gap)] ${algorithm === 'dijkstra' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                                <WorkspaceToolButton
-                                    ariaLabel="Selecionar vértice inicial"
-                                    title="Clique para selecionar vértice inicial"
-                                    stayActive
-                                    active={selectingFor === 'startNode'}
-                                    onClick={() =>
-                                        dispatch({
-                                            type: 'SET_SELECTING_FOR',
-                                            target: selectingFor === 'startNode' ? 'none' : 'startNode',
-                                        })
-                                    }
-                                    className="flex items-center justify-center gap-1.5 px-2"
-                                >
-                                    <LuSquareDashedMousePointer className="workspace-icon" />
-                                    <span className="text-xs font-semibold uppercase tracking-[0.14em]">
-                                        {startNodeId ? `S: ${nodes[startNodeId]?.label ?? '?'}` : 'Início'}
-                                    </span>
-                                </WorkspaceToolButton>
-
-                                {algorithm === 'dijkstra' && (
+                            {/* Node selection buttons — only for algorithms that need a start node */}
+                            {needsStart && (
+                                <div className={`grid gap-[var(--pm-gap)] ${needsEnd ? 'grid-cols-2' : 'grid-cols-1'}`}>
                                     <WorkspaceToolButton
-                                        ariaLabel="Selecionar vértice final"
-                                        title="Clique para selecionar vértice final"
+                                        ariaLabel="Selecionar vértice inicial"
+                                        title="Clique para selecionar vértice inicial"
                                         stayActive
-                                        active={selectingFor === 'endNode'}
+                                        active={selectingFor === 'startNode'}
                                         onClick={() =>
                                             dispatch({
                                                 type: 'SET_SELECTING_FOR',
-                                                target: selectingFor === 'endNode' ? 'none' : 'endNode',
+                                                target: selectingFor === 'startNode' ? 'none' : 'startNode',
                                             })
                                         }
                                         className="flex items-center justify-center gap-1.5 px-2"
                                     >
                                         <LuSquareDashedMousePointer className="workspace-icon" />
                                         <span className="text-xs font-semibold uppercase tracking-[0.14em]">
-                                            {endNodeId ? `E: ${nodes[endNodeId]?.label ?? '?'}` : 'Fim'}
+                                            {startNodeId ? `S: ${nodes[startNodeId]?.label ?? '?'}` : 'Início'}
                                         </span>
                                     </WorkspaceToolButton>
-                                )}
-                            </div>
+
+                                    {needsEnd && (
+                                        <WorkspaceToolButton
+                                            ariaLabel="Selecionar vértice final"
+                                            title="Clique para selecionar vértice final"
+                                            stayActive
+                                            active={selectingFor === 'endNode'}
+                                            onClick={() =>
+                                                dispatch({
+                                                    type: 'SET_SELECTING_FOR',
+                                                    target: selectingFor === 'endNode' ? 'none' : 'endNode',
+                                                })
+                                            }
+                                            className="flex items-center justify-center gap-1.5 px-2"
+                                        >
+                                            <LuSquareDashedMousePointer className="workspace-icon" />
+                                            <span className="text-xs font-semibold uppercase tracking-[0.14em]">
+                                                {endNodeId ? `E: ${nodes[endNodeId]?.label ?? '?'}` : 'Fim'}
+                                            </span>
+                                        </WorkspaceToolButton>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Interaction hint for node selection */}
                             {selectingFor !== 'none' && (
