@@ -15,7 +15,7 @@ export interface GraphEdge {
     weight: number;
 }
 
-export type AlgorithmId = 'none' | 'bfs' | 'dfs' | 'dijkstra';
+export type AlgorithmId = 'bfs' | 'dfs' | 'dijkstra';
 
 export interface AlgorithmStep {
     visitedNodes: Set<NodeId>;
@@ -38,6 +38,7 @@ export interface GraphState {
     directed: boolean;
     snapToGrid: boolean;
     gridSize: number;
+    showSimulation: boolean;
     algorithm: AlgorithmId;
     startNodeId: NodeId | null;
     endNodeId: NodeId | null;
@@ -73,4 +74,5 @@ export type GraphAction =
     | { type: 'STEP_BACKWARD' }
     | { type: 'SET_PLAYING'; value: boolean }
     | { type: 'SET_STEP_INTERVAL'; ms: number }
+    | { type: 'SET_SHOW_SIMULATION'; value: boolean }
     | { type: 'CLEAR_GRAPH' };

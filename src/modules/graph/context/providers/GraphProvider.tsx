@@ -15,7 +15,8 @@ const initialState: GraphState = {
     directed: true,
     snapToGrid: true,
     gridSize: STANDARD_GRID_SIZE,
-    algorithm: 'none',
+    showSimulation: false,
+    algorithm: 'dfs',
     startNodeId: null,
     endNodeId: null,
     selectingFor: 'none',
@@ -179,6 +180,9 @@ function graphReducer(state: GraphState, action: GraphAction): GraphState {
         case 'SET_STEP_INTERVAL':
             return { ...state, stepIntervalMs: action.ms };
 
+        case 'SET_SHOW_SIMULATION':
+            return { ...state, showSimulation: action.value, isPlaying: false };
+
         case 'CLEAR_GRAPH':
             return {
                 ...initialState,
@@ -187,6 +191,7 @@ function graphReducer(state: GraphState, action: GraphAction): GraphState {
                 gridSize: state.gridSize,
                 stepIntervalMs: state.stepIntervalMs,
                 algorithm: state.algorithm,
+                showSimulation: state.showSimulation,
             };
 
         default:
