@@ -1,7 +1,7 @@
 import { LuGripHorizontal } from "react-icons/lu"; 
 import ColorSelector from "./ColorSelector";
 import WidthSelector from "./WidthSelector";
-import MenuTitle from "./MenuTitle";
+import MenuTitleCard from "../../../../../../components/MenuTitleCard";
 import { useContext, useEffect } from "react";
 import ShapeSelector from "./ShapeSelector";
 import StrokeStyleSelector from "./StrokeStyleSelector";
@@ -19,7 +19,7 @@ import { useDraggable } from "../../../../../../hooks/useDraggable";
 
 const Menu = () => {
     const { shapeMenu, settingsMenu, strokeStyleMenu, setStrokeStyleMenu } = useContext(MenuContext)!;
-    const { pixelated } = useContext(PaintContext)!;
+    const { pixelated, setPixelated } = useContext(PaintContext)!;
 
     // Close the stroke style panel when switching to pixelated mode
     useEffect(() => {
@@ -37,7 +37,14 @@ const Menu = () => {
             >
                 <div className="relative min-w-fit flex flex-col sm:flex-row sm:items-center gap-[var(--pm-gap)] p-[var(--pm-pad)]">
                     {/* Row 1 (mobile) / first item (desktop): title card */}
-                    <MenuTitle/>
+                    <MenuTitleCard
+                        title="Paint"
+                        badge={pixelated ? 'Pixel' : 'Livre'}
+                        segments={[
+                            { label: 'Freehand', active: !pixelated, onClick: () => setPixelated(false) },
+                            { label: 'Pixelado', active: pixelated, onClick: () => setPixelated(true) },
+                        ]}
+                    />
 
                     {/* Row 2 (mobile) / rest of items (desktop): controls */}
                     <div className="flex items-center gap-[var(--pm-gap)] min-w-fit">

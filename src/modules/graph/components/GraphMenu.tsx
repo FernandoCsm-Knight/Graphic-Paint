@@ -9,6 +9,7 @@ import {
 } from 'react-icons/lu';
 import GlassCard from '../../../components/GlassCard';
 import WorkspaceToolButton from '../../../components/WorkspaceToolButton';
+import MenuTitleCard from '../../../components/MenuTitleCard';
 import { useGraphContext } from '../context/GraphContext';
 import { useWorkspaceContext } from '../../../context/WorkspaceContext';
 import type { AlgorithmId } from '../types/graph';
@@ -74,45 +75,15 @@ const GraphMenu = () => {
             <div className="relative min-w-52 md:min-w-72 flex flex-col gap-[var(--pm-gap)] p-[var(--pm-pad)]">
 
                 {/* Header */}
-                <div className="ui-menu-title-card flex min-w-0 flex-col gap-[var(--pm-gap)] rounded-xl px-[var(--pm-pad)] py-[var(--pm-btn-pad)] shadow-sm">
-                    <div className="flex items-center justify-between gap-[var(--pm-gap)]">
-                        <div>
-                            <h1 className="text-sm sm:text-base md:text-lg ui-menu-title-heading font-bold uppercase tracking-[0.24em]">
-                                Graph
-                            </h1>
-                            <p className="ui-panel-muted mt-0.5 text-xs">
-                                {nodeCount} {nodeCount === 1 ? 'vértice' : 'vértices'} ·{' '}
-                                {Object.keys(state.edges).length}{' '}
-                                {Object.keys(state.edges).length === 1 ? 'aresta' : 'arestas'}
-                            </p>
-                        </div>
-                        <span className="ui-menu-title-badge rounded-full px-[var(--pm-btn-pad)] py-0.5 text-xs font-semibold uppercase tracking-[0.18em]">
-                            {directed ? 'Digrafo' : 'Grafo'}
-                        </span>
-                    </div>
-
-                    {/* Directed / Undirected segmented control */}
-                    <div className="ui-menu-segmented flex items-center gap-1 rounded-lg p-1">
-                        <button
-                            type="button"
-                            onClick={() => dispatch({ type: 'SET_DIRECTED', value: false })}
-                            className={`text-xs ui-menu-segment flex-1 cursor-pointer rounded-md px-[var(--pm-btn-pad)] py-1.5 font-semibold transition duration-200 ${
-                                !directed ? 'ui-menu-segment-active shadow-sm' : ''
-                            }`}
-                        >
-                            Grafo
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => dispatch({ type: 'SET_DIRECTED', value: true })}
-                            className={`text-xs ui-menu-segment flex-1 cursor-pointer rounded-md px-[var(--pm-btn-pad)] py-1.5 font-semibold transition duration-200 ${
-                                directed ? 'ui-menu-segment-active shadow-sm' : ''
-                            }`}
-                        >
-                            Digrafo
-                        </button>
-                    </div>
-                </div>
+                <MenuTitleCard
+                    title="Graph"
+                    subtitle={`${nodeCount} ${nodeCount === 1 ? 'vértice' : 'vértices'} · ${Object.keys(state.edges).length} ${Object.keys(state.edges).length === 1 ? 'aresta' : 'arestas'}`}
+                    badge={directed ? 'Digrafo' : 'Grafo'}
+                    segments={[
+                        { label: 'Grafo', active: !directed, onClick: () => dispatch({ type: 'SET_DIRECTED', value: false }) },
+                        { label: 'Digrafo', active: directed, onClick: () => dispatch({ type: 'SET_DIRECTED', value: true }) },
+                    ]}
+                />
 
                 {/* Interaction hint */}
                 {edgeSourceId && (

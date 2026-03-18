@@ -11,6 +11,7 @@ import {
 } from 'react-icons/lu';
 import GlassCard from '../../../components/GlassCard';
 import WorkspaceToolButton from '../../../components/WorkspaceToolButton';
+import MenuTitleCard from '../../../components/MenuTitleCard';
 import { useAutomatonContext } from '../context/AutomatonContext';
 import { useWorkspaceContext } from '../../../context/WorkspaceContext';
 
@@ -55,39 +56,15 @@ const AutomatonMenu = () => {
             <div className="relative min-w-52 md:min-w-72 flex flex-col gap-[var(--pm-gap)] p-[var(--pm-pad)]">
 
                 {/* Header */}
-                <div className="ui-menu-title-card flex min-w-0 flex-col gap-[var(--pm-gap)] rounded-xl px-[var(--pm-pad)] py-[var(--pm-btn-pad)] shadow-sm">
-                    <div className="flex items-center justify-between gap-[var(--pm-gap)]">
-                        <div>
-                            <h1 className="text-sm sm:text-base md:text-lg ui-menu-title-heading font-bold uppercase tracking-[0.24em]">
-                                Automaton
-                            </h1>
-                            <p className="ui-panel-muted mt-0.5 text-xs">
-                                {stateCount} {stateCount === 1 ? 'estado' : 'estados'} ·{' '}
-                                {transitionCount}{' '}
-                                {transitionCount === 1 ? 'transição' : 'transições'}
-                            </p>
-                        </div>
-                        <span className="ui-menu-title-badge rounded-full px-[var(--pm-btn-pad)] py-0.5 text-xs font-semibold uppercase tracking-[0.18em]">
-                            {automatonType === 'PUSHDOWN' ? 'Pilha' : 'AFN-λ'}
-                        </span>
-                    </div>
-                    <div className="ui-menu-segmented flex items-center gap-1 rounded-lg p-1">
-                        <button
-                            type="button"
-                            onClick={() => dispatch({ type: 'SET_AUTOMATON_TYPE', value: 'AFN_LAMBDA' })}
-                            className={`text-xs ui-menu-segment flex-1 cursor-pointer rounded-md px-[var(--pm-btn-pad)] py-1.5 font-semibold transition duration-200 ${automatonType === 'AFN_LAMBDA' ? 'ui-menu-segment-active shadow-sm' : ''}`}
-                        >
-                            AFN-λ
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => dispatch({ type: 'SET_AUTOMATON_TYPE', value: 'PUSHDOWN' })}
-                            className={`text-xs ui-menu-segment flex-1 cursor-pointer rounded-md px-[var(--pm-btn-pad)] py-1.5 font-semibold transition duration-200 ${automatonType === 'PUSHDOWN' ? 'ui-menu-segment-active shadow-sm' : ''}`}
-                        >
-                            Pilha
-                        </button>
-                    </div>
-                </div>
+                <MenuTitleCard
+                    title="Automaton"
+                    subtitle={`${stateCount} ${stateCount === 1 ? 'estado' : 'estados'} · ${transitionCount} ${transitionCount === 1 ? 'transição' : 'transições'}`}
+                    badge={automatonType === 'PUSHDOWN' ? 'Pilha' : 'AFN-λ'}
+                    segments={[
+                        { label: 'AFN-λ', active: automatonType === 'AFN_LAMBDA', onClick: () => dispatch({ type: 'SET_AUTOMATON_TYPE', value: 'AFN_LAMBDA' }) },
+                        { label: 'Pilha', active: automatonType === 'PUSHDOWN', onClick: () => dispatch({ type: 'SET_AUTOMATON_TYPE', value: 'PUSHDOWN' }) },
+                    ]}
+                />
 
 
                 {/* Interaction hints */}
