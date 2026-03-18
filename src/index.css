@@ -636,3 +636,131 @@ body {
   user-select: none;
   letter-spacing: 0.05em;
 }
+
+/* ════════════════════════════════════════════════════════════
+   Automaton module — D3-managed SVG elements
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Transitions (edges) ─────────────────────────────────── */
+
+.transition-hit-area {
+  stroke: transparent;
+  stroke-width: 14;
+  fill: none;
+}
+
+.transition-line {
+  stroke: var(--graph-edge);
+  stroke-width: 2;
+  fill: none;
+  transition: stroke 180ms ease, stroke-width 180ms ease;
+}
+
+.transition-line.transition-selected {
+  stroke: var(--graph-edge-selected);
+  stroke-width: 2.5;
+}
+
+.transition-line.transition-lambda {
+  stroke-dasharray: 6 3;
+}
+
+.transition-label {
+  fill: var(--graph-edge-label);
+  font-size: 12px;
+  font-family: 'Segoe UI', sans-serif;
+  font-weight: 700;
+  pointer-events: none;
+  user-select: none;
+}
+
+.transition-preview {
+  stroke: var(--graph-edge-preview);
+  stroke-width: 1.5;
+  stroke-dasharray: 7 4;
+  fill: none;
+  pointer-events: none;
+}
+
+/* ── States (nodes) ──────────────────────────────────────── */
+
+.state-circle {
+  fill: var(--graph-node-fill);
+  stroke: var(--graph-node-stroke);
+  stroke-width: 2;
+  transition: fill 180ms ease, stroke 180ms ease, stroke-width 180ms ease, filter 180ms ease;
+}
+
+.state-circle.state-selected {
+  stroke: var(--graph-edge-selected);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--graph-edge-selected) 45%, transparent));
+}
+
+.state-circle.state-transition-source {
+  stroke: var(--app-accent-border-strong);
+  stroke-width: 3;
+  stroke-dasharray: 5 3;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--app-accent-border-strong) 40%, transparent));
+}
+
+.state-outer-ring {
+  fill: none;
+  stroke: var(--graph-node-stroke);
+  stroke-width: 2;
+  transition: stroke 180ms ease;
+}
+
+.state-initial-arrow {
+  stroke: var(--graph-node-stroke);
+  stroke-width: 2;
+  fill: none;
+}
+
+.state-label {
+  fill: var(--graph-node-text);
+  font-size: 12px;
+  font-family: 'Segoe UI', sans-serif;
+  font-weight: 700;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Simulation highlighting ─────────────────────────────────────────────── */
+.state-circle.state-sim-active {
+  stroke: var(--graph-edge-selected);
+  stroke-width: 3;
+  fill: color-mix(in srgb, var(--graph-edge-selected) 18%, var(--graph-node-fill));
+}
+
+.state-circle.state-sim-accepted {
+  stroke: var(--graph-edge-selected);
+  stroke-width: 3;
+  fill: color-mix(in srgb, var(--graph-edge-selected) 30%, var(--graph-node-fill));
+}
+
+.transition-line.transition-sim-active {
+  stroke: var(--graph-edge-selected);
+  stroke-width: 2.5;
+}
+
+/* ── Stack display ───────────────────────────────────────────────────────────── */
+.stack-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ui-menu-border);
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 8px;
+  min-width: 32px;
+  color: var(--graph-node-text);
+}
+
+.stack-cell-top {
+  background: color-mix(in srgb, var(--graph-edge-selected) 18%, var(--graph-node-fill));
+  border-color: var(--graph-edge-selected);
+  color: var(--graph-edge-selected);
+}

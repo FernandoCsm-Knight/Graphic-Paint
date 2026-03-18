@@ -29,8 +29,8 @@ export const graphicsModules: GraphicsModule[] = [
     {
         id: 'automaton',
         name: 'Automaton',
-        description: 'Reserved workspace for finite automata, state diagrams, and formal-language tooling.',
-        status: 'planned',
+        description: 'AFN-λ editor with states, lambda transitions, initial/final state marking, and pan/zoom canvas.',
+        status: 'available',
         surface: AutomatonModule,
     },
 ];
