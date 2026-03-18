@@ -1,4 +1,4 @@
-import type { AutomatonState, AutomatonTransition, SimulationStep, StateId } from '../types/automaton';
+import type { AutomatonState, AutomatonTransition, SimulationStep, StateId, TransitionId } from '../types/automaton';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
