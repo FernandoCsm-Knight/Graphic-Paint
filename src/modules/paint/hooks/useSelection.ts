@@ -1,4 +1,4 @@
-import { useCallback, useContext, useRef } from "react";
+import { useCallback, useContext, useEffect, useRef } from "react";
 import type { RefObject } from "react";
 import { PaintContext } from "../context/PaintContext";
 import { ReplacementContext } from "../context/ReplacementContext";
@@ -94,7 +94,7 @@ function drawDashedRect(
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 const useSelection = ({ sceneRef, redrawFromScene, pushShape, takeSnapshotShape }: SelectionInput) => {
-    const { contextRef, pixelated, viewOffset, zoom, renderViewport } = useContext(PaintContext)!;
+    const { contextRef, pixelated, viewOffset, zoom, renderViewport, selectionItemRef } = useContext(PaintContext)!;
     const { pixelSize, clipAlgorithm } = useContext(SettingsContext)!;
     const { replacementContextRef } = useContext(ReplacementContext)!;
 
@@ -148,6 +148,43 @@ const useSelection = ({ sceneRef, redrawFromScene, pushShape, takeSnapshotShape 
         drawSelectionOverlay(rect.x, rect.y, rect.width, rect.height);
     }, [drawSelectionOverlay, pixelSize]);
 
+    // ── Keep SelectionOverlayItem in sync when zoom/viewOffset change ──────────
+    // The draw callbacks above capture zoom/viewOffset in their closures and are
+    // recreated whenever those values change. This effect re-registers the redraw
+    // function so renderViewport() always uses the latest transforms on resize.
+    useEffect(() => {
+        const item = selectionItemRef.current;
+        const p = phase.current;
+        if (p === 'idle') return;
+
+        if (p === 'drawing') {
+            const s = selStart.current;
+            const e = selEnd.current;
+            if (!s || !e) return;
+            if (pixelated) {
+                const bounds = createPixelBoundsFromDocPoints(s, e, pixelSize);
+                const rect = getInclusivePixelBoundingBox(bounds, pixelSize);
+                item.update(() => drawSelectionOverlay(rect.x, rect.y, rect.width, rect.height));
+            } else {
+                const sx = Math.min(s.x, e.x);
+                const sy = Math.min(s.y, e.y);
+                const w  = Math.abs(e.x - s.x);
+                const h  = Math.abs(e.y - s.y);
+                item.update(() => drawSelectionOverlay(sx, sy, w, h));
+            }
+            return;
+        }
+
+        // floating
+        const fs = floatState.current;
+        if (!fs) return;
+        if (fs.kind === 'standard') {
+            item.update(() => drawStandardFloatOverlay(fs));
+        } else {
+            item.update(() => drawPixelFloatOverlay(fs.bounds));
+        }
+    }, [selectionItemRef, pixelated, pixelSize, drawSelectionOverlay, drawStandardFloatOverlay, drawPixelFloatOverlay]);
+
     // ── Enter floating for STANDARD mode ──────────────────────────────────────
 
     const enterStandardFloat = useCallback((
@@ -162,9 +199,9 @@ const useSelection = ({ sceneRef, redrawFromScene, pushShape, takeSnapshotShape 
         phase.current      = 'floating';
 
         pushShape(takeSnapshotShape(ctx)); // "hole" checkpoint for undo
+        selectionItemRef.current.update(() => drawStandardFloatOverlay(fs));
         renderViewport();
-        drawStandardFloatOverlay(fs);
-    }, [pushShape, takeSnapshotShape, renderViewport, drawStandardFloatOverlay]);
+    }, [pushShape, takeSnapshotShape, renderViewport, drawStandardFloatOverlay, selectionItemRef]);
 
     // ── Enter floating for PIXELATED mode ─────────────────────────────────────
 
@@ -180,8 +217,9 @@ const useSelection = ({ sceneRef, redrawFromScene, pushShape, takeSnapshotShape 
 
         if (floatingShapes.length === 0 || !floatingBounds) {
             // Nothing to float — just clear selection overlay
-            renderViewport();
             phase.current = 'idle';
+            selectionItemRef.current.update(null);
+            renderViewport();
             return;
         }
 
@@ -200,9 +238,9 @@ const useSelection = ({ sceneRef, redrawFromScene, pushShape, takeSnapshotShape 
 
         // Draw floating shapes at their initial position
         for (const s of floatingShapes) s.draw(ctx);
+        selectionItemRef.current.update(() => drawPixelFloatOverlay(floatingBounds));
         renderViewport();
-        drawPixelFloatOverlay(floatingBounds);
-    }, [sceneRef, clipAlgorithm, pushShape, takeSnapshotShape, renderViewport, drawPixelFloatOverlay]);
+    }, [sceneRef, clipAlgorithm, pushShape, takeSnapshotShape, renderViewport, drawPixelFloatOverlay, selectionItemRef]);
 
     // ── commitFloating ─────────────────────────────────────────────────────────
 
@@ -222,12 +260,12 @@ const useSelection = ({ sceneRef, redrawFromScene, pushShape, takeSnapshotShape 
         }
 
         pushShape(takeSnapshotShape(ctx));
-        renderViewport();
-
         floatState.current = null;
         dragStart.current  = null;
         phase.current      = 'idle';
-    }, [contextRef, redrawFromScene, sceneRef, pushShape, takeSnapshotShape, renderViewport]);
+        selectionItemRef.current.update(null);
+        renderViewport();
+    }, [contextRef, redrawFromScene, sceneRef, pushShape, takeSnapshotShape, renderViewport, selectionItemRef]);
 
     // ── cancelFloating ────────────────────────────────────────────────────────
 
@@ -238,12 +276,12 @@ const useSelection = ({ sceneRef, redrawFromScene, pushShape, takeSnapshotShape 
         // Restore scene and canvas to the state before the cut
         sceneRef.current = [...savedScene.current];
         redrawFromScene(ctx);
-        renderViewport();
-
         floatState.current = null;
         dragStart.current  = null;
         phase.current      = 'idle';
-    }, [contextRef, sceneRef, redrawFromScene, renderViewport]);
+        selectionItemRef.current.update(null);
+        renderViewport();
+    }, [contextRef, sceneRef, redrawFromScene, renderViewport, selectionItemRef]);
 
     // ── Public drawing phase API ───────────────────────────────────────────────
 
@@ -252,43 +290,42 @@ const useSelection = ({ sceneRef, redrawFromScene, pushShape, takeSnapshotShape 
         selStart.current = p;
         selEnd.current   = p;
         phase.current    = 'drawing';
-        renderViewport();
 
         if (pixelated) {
             const bounds = createPixelBoundsFromDocPoints(p, p, pixelSize);
             const rect = getInclusivePixelBoundingBox(bounds, pixelSize);
-            drawSelectionOverlay(rect.x, rect.y, rect.width, rect.height);
-            return;
+            selectionItemRef.current.update(() => drawSelectionOverlay(rect.x, rect.y, rect.width, rect.height));
+        } else {
+            selectionItemRef.current.update(() => drawSelectionOverlay(p.x, p.y, 0, 0));
         }
-
-        drawSelectionOverlay(p.x, p.y, 0, 0);
-    }, [snap, renderViewport, drawSelectionOverlay, pixelated, pixelSize]);
+        renderViewport();
+    }, [snap, renderViewport, drawSelectionOverlay, pixelated, pixelSize, selectionItemRef]);
 
     const updateSelection = useCallback((point: Point) => {
         if (!selStart.current) return;
         const nx = snap(point.x);
         const ny = snap(point.y);
         selEnd.current = { x: nx, y: ny };
-        renderViewport();
 
         if (pixelated) {
             const bounds = createPixelBoundsFromDocPoints(selStart.current, selEnd.current, pixelSize);
             const rect = getInclusivePixelBoundingBox(bounds, pixelSize);
-            drawSelectionOverlay(rect.x, rect.y, rect.width, rect.height);
-            return;
+            selectionItemRef.current.update(() => drawSelectionOverlay(rect.x, rect.y, rect.width, rect.height));
+        } else {
+            const sx = Math.min(selStart.current.x, nx);
+            const sy = Math.min(selStart.current.y, ny);
+            const w  = Math.abs(nx - selStart.current.x);
+            const h  = Math.abs(ny - selStart.current.y);
+            selectionItemRef.current.update(() => drawSelectionOverlay(sx, sy, w, h));
         }
-
-        const sx = Math.min(selStart.current.x, nx);
-        const sy = Math.min(selStart.current.y, ny);
-        const w  = Math.abs(nx - selStart.current.x);
-        const h  = Math.abs(ny - selStart.current.y);
-        drawSelectionOverlay(sx, sy, w, h);
-    }, [snap, renderViewport, drawSelectionOverlay, pixelated, pixelSize]);
+        renderViewport();
+    }, [snap, renderViewport, drawSelectionOverlay, pixelated, pixelSize, selectionItemRef]);
 
     const stopSelection = useCallback(() => {
         const ctx = contextRef.current;
         if (!ctx || !selStart.current || !selEnd.current) {
             phase.current = 'idle';
+            selectionItemRef.current.update(null);
             renderViewport();
             return;
         }
@@ -306,6 +343,7 @@ const useSelection = ({ sceneRef, redrawFromScene, pushShape, takeSnapshotShape 
             const selectionBounds = createPixelBoundsFromDocPoints(startPoint, endPoint, pixelSize);
             if (selectionBounds.width === 0 && selectionBounds.height === 0) {
                 phase.current = 'idle';
+                selectionItemRef.current.update(null);
                 renderViewport();
                 return;
             }
@@ -319,6 +357,7 @@ const useSelection = ({ sceneRef, redrawFromScene, pushShape, takeSnapshotShape 
 
             if (sw < 2 || sh < 2) {
                 phase.current = 'idle';
+                selectionItemRef.current.update(null);
                 renderViewport();
                 return;
             }
@@ -365,8 +404,8 @@ const useSelection = ({ sceneRef, redrawFromScene, pushShape, takeSnapshotShape 
             fs.y += dy;
             dragStart.current = docPoint;
             redrawFromScene(ctx); // restore hole
+            selectionItemRef.current.update(() => drawStandardFloatOverlay(fs));
             renderViewport();
-            drawStandardFloatOverlay(fs);
         } else {
             // Pixelated: docPoint is already in grid units (mapped by caller)
             const dx = docPoint.x - dragStart.current.x;
@@ -376,12 +415,12 @@ const useSelection = ({ sceneRef, redrawFromScene, pushShape, takeSnapshotShape 
             fs.bounds = moveBoundingBox(fs.bounds, dx, dy);
             replayItems(ctx, fs.keepInScene);
             for (const s of fs.shapes) s.draw(ctx);
+            selectionItemRef.current.update(() => drawPixelFloatOverlay(fs.bounds));
             renderViewport();
-            drawPixelFloatOverlay(fs.bounds);
         }
 
         return true;
-    }, [contextRef, redrawFromScene, renderViewport, drawStandardFloatOverlay, drawPixelFloatOverlay]);
+    }, [contextRef, redrawFromScene, renderViewport, drawStandardFloatOverlay, drawPixelFloatOverlay, selectionItemRef]);
 
     const onPointerUp = useCallback((): boolean => {
         if (phase.current !== 'floating') return false;

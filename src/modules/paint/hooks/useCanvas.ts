@@ -28,6 +28,7 @@ const useCanvas = () => {
         setRenderViewport,
         pendingShapeRef,
         redrawPendingOverlay,
+        selectionItemRef,
     } = useContext(PaintContext)!;
 
     const { replacementCanvasRef, replacementContextRef } = useContext(ReplacementContext)!;
@@ -117,6 +118,8 @@ const useCanvas = () => {
         // Must run after the overlay is cleared so handles are never lost on
         // resize, pan, or zoom.
         redrawPendingOverlay.current?.();
+        // Redraw selection UI (dashed rect or floating image) for the same reason.
+        selectionItemRef.current.redrawOverlay();
     }, [
         canvasRef,
         getViewportSize,

@@ -2,6 +2,7 @@ import { createContext, type Dispatch, type RefObject, type SetStateAction } fro
 import type { Geometric } from "../types/Graphics";
 import type { Point } from "../../../functions/geometry";
 import type { Shape } from "../shapes/ShapeTypes";
+import type { SelectionOverlayItem } from "../selection/SelectionOverlayItem";
 
 export type PaintContextType = {
     canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -23,6 +24,11 @@ export type PaintContextType = {
      * clearing the overlay so the handles are never lost on resize/pan/zoom.
      */
     redrawPendingOverlay: RefObject<(() => void) | null>;
+    /**
+     * Owned by useSelection. renderViewport() calls redrawOverlay() after
+     * clearing the overlay so the selection UI is never lost on resize/pan/zoom.
+     */
+    selectionItemRef: RefObject<SelectionOverlayItem>;
     
     pixelated: boolean;
     setPixelated: (value: boolean) => void;

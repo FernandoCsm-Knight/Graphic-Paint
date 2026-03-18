@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { PaintContext, type PaintContextType } from "../PaintContext";
 import type { Geometric } from "../../types/Graphics";
 import type { Shape } from "../../shapes/ShapeTypes";
+import { SelectionOverlayItem } from "../../selection/SelectionOverlayItem";
 
 const DEFAULT_CANVAS_SIZE = {
     width: 2400,
@@ -21,6 +22,7 @@ const PaintProvider = ({ children }: PaintProviderProps) => {
     const renderViewportRef = useRef<() => void>(() => {});
     const pendingShapeRef = useRef<Shape | null>(null);
     const redrawPendingOverlay = useRef<(() => void) | null>(null);
+    const selectionItemRef = useRef<SelectionOverlayItem>(new SelectionOverlayItem());
     const toolCursor = useRef<string>("");
 
     const [pixelated, setPixelated] = useState<boolean>(false);
@@ -42,6 +44,7 @@ const PaintProvider = ({ children }: PaintProviderProps) => {
         thickness,
         pendingShapeRef,
         redrawPendingOverlay,
+        selectionItemRef,
         toolCursor,
 
         pixelated,
