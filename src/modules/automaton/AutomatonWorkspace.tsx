@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useWorkspacePanZoom from '../../hooks/useWorkspacePanZoom';
 import useWorkspaceViewport from '../../hooks/useWorkspaceViewport';
 import { useWorkspaceContext } from '../../context/WorkspaceContext';
@@ -18,6 +18,7 @@ const AutomatonWorkspace = () => {
     const isPanModeActiveRef = useRef(false);
     const isPanningRef = useRef(false);
     const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+    const [selectedInputIndex, setSelectedInputIndex] = useState(0);
 
     const {
         containerRef,
@@ -85,17 +86,46 @@ const AutomatonWorkspace = () => {
         .sort()
         .join('|');
 
+    // ── Parse comma-separated inputs ─────────────────────────────────────────
+    const inputs = useMemo(() => {
+        const parts = state.simulationInput.split(',').map((s) => s.trim());
+        return parts.length > 0 ? parts : [''];
+    }, [state.simulationInput]);
+
+    const activeIndex = Math.min(selectedInputIndex, inputs.length - 1);
+    const activeInput = inputs[activeIndex];
+
+    // Reset selected index when the input list changes
+    useEffect(() => {
+        setSelectedInputIndex(0);
+    }, [state.simulationInput]);
+
+    // ── Recompute simulation steps for the active input ───────────────────────
     useEffect(() => {
         if (!state.showSimulation) return;
         const statesArr = Object.values(state.states);
         const transitionsArr = Object.values(state.transitions);
         const steps = state.automatonType === 'PUSHDOWN'
-            ? simulatePDA(statesArr, transitionsArr, state.simulationInput)
-            : simulateAFNLambda(statesArr, transitionsArr, state.simulationInput);
+            ? simulatePDA(statesArr, transitionsArr, activeInput)
+            : simulateAFNLambda(statesArr, transitionsArr, activeInput);
         dispatch({ type: 'SET_SIMULATION_STEPS', steps });
-    // statesKey and transitionsKey are derived stable strings — safe as deps
+    // statesKey, transitionsKey and activeInput are stable strings — safe as deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [statesKey, transitionsKey, state.simulationInput, state.showSimulation, state.automatonType]);
+    }, [statesKey, transitionsKey, activeInput, state.showSimulation, state.automatonType]);
+
+    // ── Batch verdicts for all comma-separated inputs ─────────────────────────
+    const batchVerdicts = useMemo(() => {
+        if (!state.showSimulation || inputs.length <= 1) return [];
+        const statesArr = Object.values(state.states);
+        const transitionsArr = Object.values(state.transitions);
+        return inputs.map((inp) => {
+            const steps = state.automatonType === 'PUSHDOWN'
+                ? simulatePDA(statesArr, transitionsArr, inp)
+                : simulateAFNLambda(statesArr, transitionsArr, inp);
+            return { input: inp, accepted: steps[steps.length - 1]?.isAccepted ?? false };
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [statesKey, transitionsKey, state.showSimulation, state.automatonType, state.simulationInput]);
 
     useEffect(() => {
         const container = containerRef.current;
@@ -192,10 +222,29 @@ const AutomatonWorkspace = () => {
                                     dispatch({ type: 'SET_SIMULATION_INPUT', value: e.target.value })
                                 }
                                 onKeyDown={(e) => e.stopPropagation()}
-                                placeholder="ex: aab, 01λ, …"
+                                placeholder="ex: aab, 01λ, ab&#44;ba, …"
                                 className="ui-input rounded-lg px-2 py-1.5 text-sm w-full font-mono"
                                 aria-label="String de entrada para o autômato"
                             />
+                            {batchVerdicts.length > 1 && (
+                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                    {batchVerdicts.map((v, i) => (
+                                        <button
+                                            key={i}
+                                            type="button"
+                                            onClick={() => setSelectedInputIndex(i)}
+                                            className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-mono cursor-pointer transition-all ${
+                                                i === activeIndex ? 'ui-menu-title-badge ring-1' : 'ui-panel-muted'
+                                            }`}
+                                        >
+                                            <span>{v.input || 'λ'}</span>
+                                            <span className={v.accepted ? 'text-green-500' : 'text-red-500'}>
+                                                {v.accepted ? '✓' : '✗'}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </SimulationPlayer>
                 </div>
