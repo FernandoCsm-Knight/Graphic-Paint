@@ -1,7 +1,9 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import AutomatonModule from './automaton/AutomatonModule';
 import GraphModule from './graph/GraphModule';
 import PaintModule from './paint/PaintModule';
+import { FaPaintbrush, FaPuzzlePiece } from 'react-icons/fa6';
+import { PiGraphBold } from 'react-icons/pi';
 
 export type GraphicsModule = {
     id: string;
@@ -9,6 +11,12 @@ export type GraphicsModule = {
     description: string;
     status: 'available' | 'planned';
     surface: ComponentType;
+};
+
+export const moduleIcons: Record<string, ReactNode> = {
+    paint: <FaPaintbrush className='ui-icon' />,
+    graph: <PiGraphBold className='ui-icon' />,
+    automaton: <FaPuzzlePiece className='ui-icon' />,
 };
 
 export const graphicsModules: GraphicsModule[] = [

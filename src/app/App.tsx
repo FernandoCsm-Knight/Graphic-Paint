@@ -5,7 +5,7 @@ import MobileTopbar from '../components/MobileTopbar';
 
 const App = () => {
     const [activeModuleId, setActiveModuleId] = useState('paint');
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
     const activeModule = graphicsModules.find((module) => module.id === activeModuleId) ?? graphicsModules[0];

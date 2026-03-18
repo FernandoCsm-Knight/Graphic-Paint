@@ -1172,4 +1172,4 @@ export const allPalettes: AppPalette[] = [
     ...highContrastPalettes,
 ];
 
-export const defaultAppPalette = emberSlatePalette;
+export const defaultAppPalette = pearlSkyPalette;

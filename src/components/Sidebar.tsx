@@ -1,7 +1,7 @@
 import { LuChevronLeft, LuChevronRight, LuPanelsTopLeft } from 'react-icons/lu';
 import RippleButton from './RippleButton';
 import ThemePicker from './ThemePicker';
-import type { GraphicsModule } from '../modules/modules';
+import { moduleIcons, type GraphicsModule } from '../modules/modules';
 
 type SidebarProps = {
     modules: GraphicsModule[];
@@ -137,9 +137,9 @@ const Sidebar = ({
                                 <RippleButton
                                     key={module.id}
                                     controlId={`module-${module.id}`}
-                                    className={`module-card module-card-button w-full rounded-3xl text-left transition duration-200 ${
+                                    className={`module-card module-card-button w-full  rounded-3xl text-left transition duration-200 ${
                                         isCollapsed
-                                            ? 'lg:flex lg:min-h-16 lg:items-center lg:justify-center lg:px-0 lg:py-4'
+                                            ? 'lg:flex lg:items-center lg:justify-center aspect-square'
                                             : 'px-4 py-4'
                                     } ${
                                         isActive
@@ -154,17 +154,7 @@ const Sidebar = ({
                                     title={isCollapsed ? module.name : undefined}
                                     onClick={() => onSelectModule(module.id)}
                                 >
-                                    {isCollapsed ? (
-                                        <span
-                                            className={`text-sm font-semibold uppercase tracking-[0.28em] ${
-                                                isActive
-                                                    ? 'theme-module-accent-text'
-                                                    : 'theme-sidebar-copy-muted'
-                                            }`}
-                                        >
-                                            {module.name.slice(0, 2)}
-                                        </span>
-                                    ) : (
+                                    {isCollapsed ? (moduleIcons[module.id] || '?') : (
                                         <>
                                             <div className="mb-2 flex items-center justify-between gap-3">
                                                 <span className="theme-sidebar-title text-lg font-medium">

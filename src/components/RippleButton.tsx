@@ -75,7 +75,7 @@ const RippleButton = ({
         <button
             type="button"
             onClick={handleClick}
-            className={`${className} ${pressed ? 'sidebar-toggle-pressed module-card-pressed' : ''}`}
+            className={`${className} hover:cursor-pointer ${pressed ? 'sidebar-toggle-pressed module-card-pressed' : ''}`}
             aria-label={ariaLabel}
             title={title}
             data-control-id={controlId}

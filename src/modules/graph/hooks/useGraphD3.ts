@@ -25,13 +25,10 @@ function snap(value: number, gridSize: number): number {
 
 // ── Edge geometry helpers ──────────────────────────────────────────────────────
 
-interface EdgeEndpoints {
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
-    midX: number;
-    midY: number;
+const CURVE_OFFSET = 36; // perpendicular offset for bidirectional edges
+
+interface EdgePathResult {
+    d: string;
     labelX: number;
     labelY: number;
 }
@@ -48,31 +45,66 @@ type DragPointerEvent = {
     y: number;
 };
 
-function computeEdgeEndpoints(
+function computeEdgePath(
     sx: number,
     sy: number,
     tx: number,
     ty: number,
     directed: boolean,
-): EdgeEndpoints | null {
+    curved: boolean,
+): EdgePathResult | null {
     const dx = tx - sx;
     const dy = ty - sy;
     const len = Math.sqrt(dx * dx + dy * dy);
     if (len < NODE_RADIUS * 2) return null;
     const ux = dx / len;
     const uy = dy / len;
-    const x1 = sx + NODE_RADIUS * ux;
-    const y1 = sy + NODE_RADIUS * uy;
-    // For directed graphs leave room for the arrowhead before the target circle
+    // Perpendicular unit vector (left of direction)
+    const px = -uy;
+    const py = ux;
     const endOffset = directed ? NODE_RADIUS + ARROW_LENGTH : NODE_RADIUS;
-    const x2 = tx - endOffset * ux;
-    const y2 = ty - endOffset * uy;
-    const midX = (sx + tx) / 2;
-    const midY = (sy + ty) / 2;
-    // Offset label perpendicular to the edge
-    const labelX = midX - uy * 14;
-    const labelY = midY + ux * 14;
-    return { x1, y1, x2, y2, midX, midY, labelX, labelY };
+
+    if (!curved) {
+        const x1 = sx + NODE_RADIUS * ux;
+        const y1 = sy + NODE_RADIUS * uy;
+        const x2 = tx - endOffset * ux;
+        const y2 = ty - endOffset * uy;
+        const midX = (sx + tx) / 2;
+        const midY = (sy + ty) / 2;
+        return {
+            d: `M ${x1},${y1} L ${x2},${y2}`,
+            labelX: midX - uy * 14,
+            labelY: midY + ux * 14,
+        };
+    }
+
+    // Quadratic Bézier — control point offset perpendicular to midpoint
+    const cx = (sx + tx) / 2 + px * CURVE_OFFSET;
+    const cy = (sy + ty) / 2 + py * CURVE_OFFSET;
+
+    // Start: on source circle along S→C tangent
+    const scDx = cx - sx;
+    const scDy = cy - sy;
+    const scLen = Math.sqrt(scDx * scDx + scDy * scDy);
+    const x1 = sx + NODE_RADIUS * scDx / scLen;
+    const y1 = sy + NODE_RADIUS * scDy / scLen;
+
+    // End: on target circle along C→T tangent
+    const ctDx = tx - cx;
+    const ctDy = ty - cy;
+    const ctLen = Math.sqrt(ctDx * ctDx + ctDy * ctDy);
+    const x2 = tx - endOffset * ctDx / ctLen;
+    const y2 = ty - endOffset * ctDy / ctLen;
+
+    // Label: at Bézier midpoint (t=0.5), nudged further outward
+    const curveMidX = 0.25 * x1 + 0.5 * cx + 0.25 * x2;
+    const curveMidY = 0.25 * y1 + 0.5 * cy + 0.25 * y2;
+
+    return {
+        d: `M ${x1},${y1} Q ${cx},${cy} ${x2},${y2}`,
+        labelX: curveMidX + px * 14,
+        labelY: curveMidY + py * 14,
+    };
 }
 
 // ── Main hook ──────────────────────────────────────────────────────────────────
@@ -282,6 +314,12 @@ export function useGraphD3(
 
                 d3.select(this).attr('transform', `translate(${nx},${ny})`);
 
+                // Build twin-pair set from current state for curve detection
+                const allEdges = Object.values(s.edges);
+                const pairKeys = new Set(allEdges.map((e) => `${e.source}>${e.target}`));
+                const isCurvedDrag = (e: GraphEdge) =>
+                    s.directed && pairKeys.has(`${e.target}>${e.source}`);
+
                 // Live-update connected edges without touching React state
                 svg.selectAll('g.edge-group').each(function (this: SVGGElement, ed: GraphEdge) {
                     if (ed.source !== d.id && ed.target !== d.id) return;
@@ -289,17 +327,12 @@ export function useGraphD3(
                     const sy2 = ed.source === d.id ? ny : (s.nodes[ed.source]?.y ?? 0);
                     const tx2 = ed.target === d.id ? nx : (s.nodes[ed.target]?.x ?? 0);
                     const ty2 = ed.target === d.id ? ny : (s.nodes[ed.target]?.y ?? 0);
-                    const ep = computeEdgeEndpoints(sx2, sy2, tx2, ty2, s.directed);
+                    const ep = computeEdgePath(sx2, sy2, tx2, ty2, s.directed, isCurvedDrag(ed));
                     if (!ep) return;
                     const g = d3.select(this);
-                    g.select('.edge-hit-area')
-                        .attr('x1', ep.x1).attr('y1', ep.y1)
-                        .attr('x2', ep.x2).attr('y2', ep.y2);
-                    g.select('.edge-line')
-                        .attr('x1', ep.x1).attr('y1', ep.y1)
-                        .attr('x2', ep.x2).attr('y2', ep.y2);
-                    g.select('.edge-label')
-                        .attr('x', ep.labelX).attr('y', ep.labelY);
+                    g.select('.edge-hit-area').attr('d', ep.d);
+                    g.select('.edge-line').attr('d', ep.d);
+                    g.select('.edge-label').attr('x', ep.labelX).attr('y', ep.labelY);
                 });
             })
             .on('end', function (this: SVGGElement, event: DragPointerEvent, d: GraphNode) {
@@ -316,6 +349,12 @@ export function useGraphD3(
             });
 
         // ── Edges ──────────────────────────────────────────────────────────────
+
+        // Detect bidirectional pairs — both directions curve away from the center line
+        const pairKeys = new Set(edgesArray.map((e) => `${e.source}>${e.target}`));
+        const isCurved = (e: GraphEdge) =>
+            directed && pairKeys.has(`${e.target}>${e.source}`);
+
         const edgesLayer = svg.select('.edges-layer');
         const edgeGroups = edgesLayer
             .selectAll('g.edge-group')
@@ -326,8 +365,8 @@ export function useGraphD3(
             .append('g')
             .attr('class', 'edge-group');
 
-        edgeEnter.append('line').attr('class', 'edge-hit-area');
-        edgeEnter.append('line').attr('class', 'edge-line');
+        edgeEnter.append('path').attr('class', 'edge-hit-area');
+        edgeEnter.append('path').attr('class', 'edge-line');
         edgeEnter.append('text')
             .attr('class', 'edge-label')
             .attr('text-anchor', 'middle')
@@ -351,15 +390,11 @@ export function useGraphD3(
             const src = getNodePosition(d.source);
             const tgt = getNodePosition(d.target);
             if (!src || !tgt) return;
-            const ep = computeEdgeEndpoints(src.x, src.y, tgt.x, tgt.y, directed);
+            const ep = computeEdgePath(src.x, src.y, tgt.x, tgt.y, directed, isCurved(d));
             if (!ep) return;
             const g = d3.select(this);
-            g.select('.edge-hit-area')
-                .attr('x1', ep.x1).attr('y1', ep.y1)
-                .attr('x2', ep.x2).attr('y2', ep.y2);
-            g.select('.edge-line')
-                .attr('x1', ep.x1).attr('y1', ep.y1)
-                .attr('x2', ep.x2).attr('y2', ep.y2);
+            g.select('.edge-hit-area').attr('d', ep.d);
+            g.select('.edge-line').attr('d', ep.d);
             g.select('.edge-label')
                 .attr('x', ep.labelX)
                 .attr('y', ep.labelY)
