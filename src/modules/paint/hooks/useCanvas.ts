@@ -244,8 +244,11 @@ const useCanvas = () => {
             }
             const documentCanvas = documentCanvasRef.current;
 
+            // Acquire the context first so willReadFrequently is set on the very first getContext call.
+            const ctx = documentCanvas.getContext("2d", { alpha: true, willReadFrequently: true });
+
             const needsResize = documentCanvas.width !== worldWidth || documentCanvas.height !== worldHeight;
-            if (needsResize) {
+            if (needsResize && ctx) {
                 // Preserve existing pixels when growing the canvas.
                 const tmp = document.createElement('canvas');
                 tmp.width = documentCanvas.width;
@@ -253,10 +256,8 @@ const useCanvas = () => {
                 tmp.getContext('2d')!.drawImage(documentCanvas, 0, 0);
                 documentCanvas.width = worldWidth;
                 documentCanvas.height = worldHeight;
-                documentCanvas.getContext('2d')?.drawImage(tmp, 0, 0);
+                ctx.drawImage(tmp, 0, 0);
             }
-
-            const ctx = documentCanvas.getContext("2d", { alpha: true, willReadFrequently: true });
             if (ctx) {
                 ctx.imageSmoothingEnabled = false;
                 ctx.globalAlpha = 1;
