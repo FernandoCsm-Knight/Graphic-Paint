@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+:root {
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 html, body {
   @apply m-0 h-full;
   overflow: hidden;

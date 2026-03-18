@@ -6,6 +6,11 @@ import { useDraggable } from "../../../hooks/useDraggable";
 
 const HANDLE_HEIGHT = 40;
 
+const getSafeAreaBottom = (): number => {
+    const val = getComputedStyle(document.documentElement).getPropertyValue('--safe-area-bottom').trim();
+    return parseFloat(val) || 0;
+};
+
 const PageSizeEraser = () => {
     const { canvasRef, containerRef, contextRef, renderViewport, saveSnapshot, viewOffset, zoom } = useContext(PaintContext)!;
     const [isActive, setIsActive] = useState(false);
@@ -22,7 +27,7 @@ const PageSizeEraser = () => {
 
     const getInitialPosition = (): Point => ({
         x: 0,
-        y: Math.max(0, getContainerMetrics().height - HANDLE_HEIGHT),
+        y: Math.max(0, getContainerMetrics().height - HANDLE_HEIGHT - getSafeAreaBottom()),
     });
 
     const eraseFromBottom = (point: Point) => {
@@ -62,7 +67,7 @@ const PageSizeEraser = () => {
     const handleDrag = (point: Point) => {
         const { height } = getContainerMetrics();
         const minY = 0;
-        const maxY = Math.max(0, height - HANDLE_HEIGHT);
+        const maxY = Math.max(0, height - HANDLE_HEIGHT - getSafeAreaBottom());
         const clampedY = Math.min(Math.max(minY, point.y), maxY);
 
         if(clampedY !== point.y) setPosition((prev) => ({ x: prev.x, y: clampedY }));
