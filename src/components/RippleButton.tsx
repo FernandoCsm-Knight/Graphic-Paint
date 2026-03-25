@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 type Ripple = {

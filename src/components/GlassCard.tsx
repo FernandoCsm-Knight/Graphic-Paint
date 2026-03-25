@@ -1,7 +1,9 @@
+'use client';
+
 import type { ReactNode } from 'react';
 import { LuGripHorizontal } from 'react-icons/lu';
 import { useDraggable, type DraggableOptions } from '../hooks/useDraggable';
-import type { Point } from '../functions/geometry';
+import type { Point } from '../types/geometry';
 
 type GlassCardProps = {
     initial: () => Point;
@@ -12,17 +14,17 @@ type GlassCardProps = {
 };
 
 const GlassCard = ({ initial, children, className = '', referenceFrame = 'offsetParent', showHandle = true }: GlassCardProps) => {
-    const draggable = useDraggable({ initial, clamp: true, referenceFrame });
+    const { elementRef, dragStyle, handlePointerDown } = useDraggable({ initial, clamp: true, referenceFrame });
 
     return (
         <section
-            ref={draggable.ref}
-            className={`ui-floating-card absolute min-w-fit z-15 overflow-hidden rounded-xl backdrop-blur-sm ${className}`.trim()}
-            style={draggable.style}
+            ref={elementRef}
+            className={`ui-floating-card absolute min-w-fit z-30 overflow-hidden rounded-xl backdrop-blur-xs ${className}`.trim()}
+            style={dragStyle}
         >
             {!showHandle && (
                 <div
-                    onPointerDown={draggable.onPointerDown}
+                    onPointerDown={handlePointerDown}
                     className="absolute top-0 left-0 right-0 h-5 cursor-grab active:cursor-grabbing touch-none select-none z-10"
                 />
             )}
@@ -32,7 +34,7 @@ const GlassCard = ({ initial, children, className = '', referenceFrame = 'offset
                     <div className="ui-drag-line mx-4 grow rounded-xl border" />
                     <button
                         type="button"
-                        onPointerDown={draggable.onPointerDown}
+                        onPointerDown={handlePointerDown}
                         className="block cursor-grab select-none pr-2 pb-2 touch-none active:cursor-grabbing"
                         aria-label="Mover card"
                     >

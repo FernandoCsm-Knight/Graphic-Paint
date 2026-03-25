@@ -1,3 +1,5 @@
+'use client';
+
 import GlassCard from './GlassCard';
 
 export interface StackDisplayProps {

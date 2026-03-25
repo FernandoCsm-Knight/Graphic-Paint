@@ -1,3 +1,5 @@
+'use client';
+
 import { useContext } from 'react';
 import { LuPalette } from 'react-icons/lu';
 import { ThemeContext } from '../theme/ThemeContext';

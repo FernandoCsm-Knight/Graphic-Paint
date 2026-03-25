@@ -1,3 +1,5 @@
+'use client';
+
 import type { ReactNode } from 'react';
 import { LuChevronLeft, LuChevronRight, LuPause, LuPlay, LuX } from 'react-icons/lu';
 import GlassCard from './GlassCard';

@@ -1,6 +1,6 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { Dispatch, PointerEvent, RefObject, SetStateAction, WheelEvent } from "react";
-import type { Point } from "../functions/geometry";
+import type { Point } from "../types/geometry";
 import { MAX_ZOOM, ZOOM_STEP } from "./useWorkspaceViewport";
 
 const DEFAULT_WORLD_GROWTH_STEP = 1200;
@@ -56,7 +56,6 @@ const useWorkspacePanZoom = ({
     getMinAllowedZoom,
 }: WorkspacePanZoomInput) => {
     const worldSizeRef = useRef(worldSize);
-    worldSizeRef.current = worldSize;
     const panSession = useRef<{
         pointerId: number;
         mode: "middle" | "tool";
@@ -64,6 +63,10 @@ const useWorkspacePanZoom = ({
         startClientY: number;
         originOffset: Point;
     } | null>(null);
+
+    useEffect(() => {
+        worldSizeRef.current = worldSize;
+    }, [worldSize]);
 
     const maybeGrowWorld = useCallback((candidateOffset: Point) => {
         const { width: viewportWidth, height: viewportHeight } = getViewportSize();

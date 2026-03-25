@@ -1,3 +1,5 @@
+'use client';
+
 import { LuMenu } from 'react-icons/lu';
 import RippleButton from './RippleButton';
 

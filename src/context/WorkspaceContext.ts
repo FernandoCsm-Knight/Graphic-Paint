@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
-import type { Point } from '../functions/geometry';
+import type { Point } from '../types/geometry';
 
 type WorldSize = { width: number; height: number };
 

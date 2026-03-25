@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import type { RefObject } from "react";
-import type { Point } from "../functions/geometry";
+import type { Point } from "../types/geometry";
 
 export const MIN_ZOOM = 0.35;
 export const MAX_ZOOM = 3;

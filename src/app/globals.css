@@ -1,0 +1,756 @@
+@import "tailwindcss";
+
+:root {
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+body {
+  font-family: "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at top left, var(--app-body-accent-primary), transparent 32%),
+    radial-gradient(circle at top right, var(--app-body-accent-secondary), transparent 28%),
+    linear-gradient(135deg, #020617 0%, #0f172a 45%, #111827 100%);
+}
+
+.app-theme {
+  color: var(--app-shell-text);
+}
+
+.theme-sidebar-overlay {
+  background: var(--app-sidebar-overlay);
+}
+
+.theme-sidebar-shell {
+  border-right-color: var(--app-sidebar-border);
+  background: var(--app-sidebar-surface);
+}
+
+.theme-sidebar-kicker {
+  color: var(--app-accent-text);
+}
+
+.theme-sidebar-title {
+  color: var(--app-sidebar-title);
+}
+
+.theme-sidebar-copy {
+  color: var(--app-sidebar-text);
+}
+
+.theme-sidebar-copy-muted {
+  color: var(--app-sidebar-text-muted);
+}
+
+.theme-sidebar-brand-mark {
+  border: 1px solid var(--app-accent-border);
+  background: var(--app-accent-soft);
+  color: var(--app-accent-text-strong);
+  box-shadow: 0 12px 30px var(--app-accent-shadow);
+}
+
+.theme-module-card-active {
+  border-color: var(--app-accent-border-strong);
+  background: var(--app-module-active-surface);
+  box-shadow: 0 20px 60px rgba(2, 6, 23, 0.35), 0 0 0 1px color-mix(in srgb, var(--app-accent-border) 80%, transparent);
+}
+
+.theme-module-card-idle:hover {
+  border-color: var(--app-accent-border);
+  background: var(--app-module-hover-surface);
+}
+
+.theme-module-accent-text {
+  color: var(--app-accent-text-strong);
+}
+
+.theme-status-available {
+  background: var(--app-status-available-bg);
+  color: var(--app-status-available-text);
+}
+
+.theme-status-soon {
+  background: var(--app-status-soon-bg);
+  color: var(--app-status-soon-text);
+}
+
+.theme-current-module-card {
+  background: var(--app-current-module-surface);
+}
+
+.theme-mobile-pill {
+  border-color: var(--app-mobile-pill-border);
+  background: var(--app-mobile-pill-surface);
+  color: var(--app-sidebar-text-muted);
+}
+
+.theme-workspace-gradient {
+  background: var(--app-workspace-gradient);
+}
+
+.app-sidebar-shell {
+  overflow-x: hidden;
+  transition:
+    width 460ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 460ms cubic-bezier(0.22, 1, 0.36, 1),
+    translate 460ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: width, transform, translate;
+}
+
+.sidebar-panel-copy {
+  overflow: hidden;
+  transition:
+    opacity 320ms ease,
+    transform 320ms ease,
+    max-height 460ms ease;
+}
+
+.module-card {
+  border: 1px solid var(--app-module-border);
+  background: var(--app-module-surface);
+  box-shadow: 0 20px 60px rgba(2, 6, 23, 0.35);
+  backdrop-filter: blur(20px);
+}
+
+.workspace-overlay-badge {
+  border: 1px solid var(--ui-menu-border);
+  background: color-mix(in srgb, var(--ui-menu-surface) 82%, transparent);
+  color: var(--app-shell-text);
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.18);
+  backdrop-filter: blur(16px);
+}
+
+.module-card-button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 220ms ease,
+    background-color 220ms ease;
+}
+
+.module-card-button::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.16) 0%, rgba(251, 191, 36, 0) 70%);
+  opacity: 0;
+  transform: scale(0.72);
+  transition: opacity 220ms ease, transform 220ms ease;
+  pointer-events: none;
+}
+
+.module-card-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 26px 70px rgba(2, 6, 23, 0.42);
+}
+
+.module-card-button:hover::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.module-card-pressed {
+  animation: module-card-press 240ms ease;
+}
+
+.sidebar-toggle {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid var(--app-toggle-border);
+  background: var(--app-toggle-surface);
+  color: var(--app-toggle-text);
+  box-shadow: 0 16px 38px var(--app-toggle-shadow);
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 220ms ease;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.sidebar-toggle:hover {
+  transform: translateY(-1px);
+  border-color: var(--app-accent-border);
+  background: var(--app-toggle-hover-surface);
+  box-shadow: 0 20px 42px rgba(2, 6, 23, 0.34);
+}
+
+.sidebar-toggle-pressed {
+  animation: sidebar-toggle-press 260ms ease;
+}
+
+.click-ripple {
+  position: absolute;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 9999px;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  background:
+    radial-gradient(circle, rgba(255, 244, 214, 0.95) 0%, rgba(251, 191, 36, 0.55) 28%, rgba(251, 191, 36, 0.18) 52%, rgba(251, 191, 36, 0) 74%);
+  mix-blend-mode: screen;
+  filter: blur(2px);
+  animation: click-ripple 620ms ease-out forwards;
+  z-index: 0;
+}
+
+.module-card-button > *:not(.click-ripple),
+.sidebar-toggle > *:not(.click-ripple) {
+  position: relative;
+  z-index: 1;
+}
+
+.scrollbar::-webkit-scrollbar {
+  width: 6px;
+  background-color: transparent;
+}
+
+@media only screen and (max-width: 1024px) {
+  .scrollbar::-webkit-scrollbar {
+    width: 3px;
+  }
+}
+
+.scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 5px;
+}
+.scrollbar::-webkit-scrollbar-thumb {
+  background-color: #6a7282;
+  border-radius: 5px;
+}
+.scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #4b5563;
+}
+.scrollbar::-webkit-scrollbar-thumb:active {
+  background-color: #333333;
+}
+
+.workspace-menu-shell,
+.workspace-floating-card,
+.ui-menu-shell,
+.ui-floating-card {
+  background: var(--ui-menu-surface);
+  border: 1px solid var(--ui-menu-border);
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.28);
+
+  /* Fluid scale — all menu children consume these vars */
+  --pm-icon:       clamp(0.875rem, 1.5vw, 1.25rem);
+  --pm-gap:        clamp(0.375rem, 0.9vw, 0.75rem);
+  --pm-pad:        clamp(0.5rem,   1.2vw, 1rem);
+  --pm-btn-pad:    clamp(0.375rem, 0.7vw, 0.625rem);
+  --pm-color-size: clamp(1.75rem,  3vw,   2.5rem);
+  --pm-slider-w:   clamp(5rem,     9vw,   8rem);
+}
+
+/* Single fluid icon class — replaces all w-4 h-4 sm:w-5 sm:h-5 patterns */
+.workspace-icon,
+.ui-icon {
+  width: var(--pm-icon);
+  height: var(--pm-icon);
+  flex-shrink: 0;
+}
+
+.ui-floating-card-inner {
+  background: var(--ui-menu-card-surface);
+}
+
+.ui-menu-title-card {
+  background: var(--ui-menu-card-surface);
+  color: var(--ui-menu-text);
+}
+
+.ui-menu-title-heading {
+  color: var(--ui-menu-text-strong);
+}
+
+.ui-menu-title-badge {
+  background: var(--ui-menu-segment-surface);
+  color: var(--ui-menu-text-muted);
+}
+
+.ui-menu-segmented {
+  background: var(--ui-menu-segment-surface);
+}
+
+.ui-menu-segment {
+  color: var(--ui-menu-segment-text);
+}
+
+.ui-menu-segment:hover {
+  background: var(--ui-menu-segment-hover-surface);
+  color: var(--ui-menu-text-strong);
+}
+
+.ui-menu-segment-active {
+  background: var(--ui-menu-segment-active-surface);
+  color: var(--ui-menu-segment-text-active);
+  box-shadow: 0 10px 25px rgba(249, 115, 22, 0.20);
+}
+
+.ui-menu-segment-active:hover {
+  background: var(--ui-menu-segment-active-surface);
+  color: var(--ui-menu-segment-text-active);
+  box-shadow: 0 10px 25px rgba(249, 115, 22, 0.20);
+}
+
+.workspace-tool-button,
+.ui-button {
+  color: var(--ui-menu-control-text);
+  background: var(--ui-menu-control-surface);
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    transform 160ms ease,
+    box-shadow 180ms ease;
+}
+
+.workspace-tool-button:hover,
+.ui-button:hover {
+  background: var(--ui-menu-control-hover-surface);
+}
+
+.workspace-tool-button-active,
+.ui-button-active {
+  background: var(--ui-menu-control-active-surface);
+  color: var(--ui-menu-control-text-active);
+  box-shadow: 0 0 0 2px var(--ui-menu-control-ring);
+}
+
+.workspace-tool-button-active:hover,
+.ui-button-active:hover {
+  background: var(--ui-menu-control-active-surface);
+}
+
+.workspace-drag-handle,
+.workspace-menu-handle,
+.ui-menu-handle,
+.ui-drag-handle {
+  color: var(--ui-menu-handle);
+}
+
+.workspace-drag-line,
+.ui-drag-line {
+  border-color: var(--ui-menu-border-strong);
+}
+
+.ui-panel-title {
+  color: var(--ui-menu-text-strong);
+}
+
+.ui-panel-text {
+  color: var(--ui-menu-text);
+}
+
+.ui-panel-muted {
+  color: var(--ui-menu-text-muted);
+}
+
+.ui-panel-title-on-dark {
+  color: var(--app-sidebar-title);
+}
+
+.ui-panel-text-on-dark {
+  color: var(--app-sidebar-text);
+}
+
+.ui-panel-muted-on-dark {
+  color: var(--app-sidebar-text-muted);
+}
+
+.ui-input {
+  border: 1px solid var(--ui-input-border);
+  background: var(--ui-input-surface);
+  color: var(--ui-input-text);
+}
+
+.ui-input:focus {
+  outline: none;
+  border-color: var(--ui-menu-control-active-surface);
+  box-shadow: 0 0 0 2px var(--ui-focus-ring);
+}
+
+.ui-value-chip {
+  background: var(--ui-input-surface-muted);
+  color: var(--ui-menu-text);
+}
+
+/* Estilos para o slider */
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ui-slider-thumb);
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.slider::-webkit-slider-thumb:hover {
+  background: var(--ui-slider-thumb-hover);
+}
+
+.slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ui-slider-thumb);
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.slider::-moz-range-thumb:hover {
+  background: var(--ui-slider-thumb-hover);
+}
+
+.settings-gear {
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+              color 0.3s ease-in-out;
+  transform-origin: center;
+}
+
+.settings-gear-active {
+  transform: rotate(180deg);
+  color: var(--ui-menu-control-text-active);
+  animation: gear-pulse 2s ease-in-out infinite;
+}
+
+.settings-button {
+  transition: background-color 0.3s ease-in-out,
+              transform 0.1s ease-in-out,
+              box-shadow 0.2s ease-in-out;
+}
+
+.settings-button:hover {
+  background-color: var(--ui-menu-control-hover-surface);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.settings-button:active {
+  transform: scale(0.95);
+}
+
+.settings-button-active {
+  background-color: var(--ui-menu-control-active-surface);
+  box-shadow: 0 0 0 2px var(--ui-menu-control-ring);
+  color: var(--ui-menu-control-text-active);
+}
+
+.scale-110 {
+  transform: scale(1.1);
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes gear-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes gear-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes module-card-press {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(0.98);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes sidebar-toggle-press {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes click-ripple {
+  0% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(0);
+  }
+  55% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   Graph module — D3-managed SVG elements
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Edges ──────────────────────────────────────────────── */
+
+.edge-hit-area {
+  stroke: transparent;
+  stroke-width: 14;
+  fill: none;
+}
+
+.edge-line {
+  stroke: var(--graph-edge);
+  stroke-width: 2;
+  fill: none;
+  transition: stroke 180ms ease, stroke-width 180ms ease;
+}
+
+.edge-line.edge-selected {
+  stroke: var(--graph-edge-selected);
+  stroke-width: 2.5;
+}
+
+.edge-line.edge-visited {
+  stroke: var(--graph-edge-visited);
+}
+
+.edge-line.edge-active {
+  stroke: var(--graph-edge-selected);
+  stroke-width: 3;
+}
+
+.edge-preview {
+  stroke: var(--graph-edge-preview);
+  stroke-width: 1.5;
+  stroke-dasharray: 7 4;
+  fill: none;
+  pointer-events: none;
+}
+
+.edge-label {
+  fill: var(--graph-edge-label);
+  font-size: 11px;
+  font-family: 'Segoe UI', sans-serif;
+  font-weight: 600;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Nodes ──────────────────────────────────────────────── */
+
+.node-circle {
+  fill: var(--graph-node-fill);
+  stroke: var(--graph-node-stroke);
+  stroke-width: 2;
+  transition: fill 180ms ease, stroke 180ms ease, stroke-width 180ms ease, filter 180ms ease;
+}
+
+.node-circle.node-selected {
+  stroke: var(--graph-edge-selected);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--graph-edge-selected) 45%, transparent));
+}
+
+.node-circle.node-start {
+  fill: color-mix(in srgb, var(--app-status-available-bg) 68%, var(--graph-node-fill));
+  stroke: var(--app-status-available-text);
+  stroke-width: 2.5;
+}
+
+.node-circle.node-end {
+  fill: color-mix(in srgb, var(--app-status-soon-bg) 68%, var(--graph-node-fill));
+  stroke: var(--app-status-soon-text);
+  stroke-width: 2.5;
+}
+
+.node-circle.node-edge-source {
+  stroke: var(--app-accent-border-strong);
+  stroke-width: 3;
+  stroke-dasharray: 5 3;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--app-accent-border-strong) 40%, transparent));
+}
+
+.node-circle.node-active {
+  fill: color-mix(in srgb, var(--graph-edge-selected) 30%, var(--graph-node-fill));
+  stroke: var(--graph-edge-selected);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--graph-edge-selected) 60%, transparent));
+}
+
+.node-circle.node-visited {
+  fill: color-mix(in srgb, var(--app-accent-soft-strong) 55%, var(--graph-node-fill));
+  stroke: var(--graph-edge-visited);
+  stroke-width: 2;
+}
+
+.node-circle.node-selectable {
+  stroke-dasharray: 5 3;
+}
+
+.node-label {
+  fill: var(--graph-node-text);
+  font-size: 12px;
+  font-family: 'Segoe UI', sans-serif;
+  font-weight: 700;
+  pointer-events: none;
+  user-select: none;
+}
+
+.node-badge {
+  fill: var(--graph-node-badge);
+  font-size: 10px;
+  font-family: 'Segoe UI', sans-serif;
+  font-weight: 600;
+  pointer-events: none;
+  user-select: none;
+  letter-spacing: 0.05em;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Automaton module — D3-managed SVG elements
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Transitions (edges) ─────────────────────────────────── */
+
+.transition-hit-area {
+  stroke: transparent;
+  stroke-width: 14;
+  fill: none;
+}
+
+.transition-line {
+  stroke: var(--graph-edge);
+  stroke-width: 2;
+  fill: none;
+  transition: stroke 180ms ease, stroke-width 180ms ease;
+}
+
+.transition-line.transition-selected {
+  stroke: var(--graph-edge-selected);
+  stroke-width: 2.5;
+}
+
+.transition-line.transition-lambda {
+  stroke-dasharray: 6 3;
+}
+
+.transition-label {
+  fill: var(--graph-edge-label);
+  font-size: 12px;
+  font-family: 'Segoe UI', sans-serif;
+  font-weight: 700;
+  pointer-events: none;
+  user-select: none;
+}
+
+.transition-preview {
+  stroke: var(--graph-edge-preview);
+  stroke-width: 1.5;
+  stroke-dasharray: 7 4;
+  fill: none;
+  pointer-events: none;
+}
+
+/* ── States (nodes) ──────────────────────────────────────── */
+
+.state-circle {
+  fill: var(--graph-node-fill);
+  stroke: var(--graph-node-stroke);
+  stroke-width: 2;
+  transition: fill 180ms ease, stroke 180ms ease, stroke-width 180ms ease, filter 180ms ease;
+}
+
+.state-circle.state-selected {
+  stroke: var(--graph-edge-selected);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--graph-edge-selected) 45%, transparent));
+}
+
+.state-circle.state-transition-source {
+  stroke: var(--app-accent-border-strong);
+  stroke-width: 3;
+  stroke-dasharray: 5 3;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--app-accent-border-strong) 40%, transparent));
+}
+
+.state-outer-ring {
+  fill: none;
+  stroke: var(--graph-node-stroke);
+  stroke-width: 2;
+  transition: stroke 180ms ease;
+}
+
+.state-initial-arrow {
+  stroke: var(--graph-node-stroke);
+  stroke-width: 2;
+  fill: none;
+}
+
+.state-label {
+  fill: var(--graph-node-text);
+  font-size: 12px;
+  font-family: 'Segoe UI', sans-serif;
+  font-weight: 700;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Simulation highlighting ─────────────────────────────────────────────── */
+.state-circle.state-sim-active {
+  stroke: var(--graph-edge-selected);
+  stroke-width: 3;
+  fill: color-mix(in srgb, var(--graph-edge-selected) 18%, var(--graph-node-fill));
+}
+
+.state-circle.state-sim-accepted {
+  stroke: var(--graph-edge-selected);
+  stroke-width: 3;
+  fill: color-mix(in srgb, var(--graph-edge-selected) 30%, var(--graph-node-fill));
+}
+
+.transition-line.transition-sim-active {
+  stroke: var(--graph-edge-selected);
+  stroke-width: 2.5;
+}
+
+/* ── Stack display ───────────────────────────────────────────────────────────── */
+.stack-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ui-menu-border);
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 8px;
+  min-width: 32px;
+  color: var(--graph-node-text);
+}
+
+.stack-cell-top {
+  background: color-mix(in srgb, var(--graph-edge-selected) 18%, var(--graph-node-fill));
+  border-color: var(--graph-edge-selected);
+  color: var(--graph-edge-selected);
+}

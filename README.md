@@ -1,35 +1,36 @@
-# Graphic-Paint
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Graphic-Paint is a reorganized version of the original paint prototype. The current app ships with one fully working module, `paint`, which contains the two existing drawing modes:
+## Getting Started
 
-- smooth painting
-- pixelated painting
+First, run the development server:
 
-The project is now structured so new graphics tools can be added as independent modules without mixing their code into the paint implementation.
-
-## Structure
-
-```text
-src/
-  app/                 # top-level shell and module registry
-  modules/
-    paint/             # current drawing feature and canvas engine
-    graph/             # placeholder for future graph tooling
-    automaton/         # placeholder for future automaton tooling
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-## Extension model
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-To add a new tool in the future:
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-1. Create a folder in `src/modules/<tool-name>/`.
-2. Export a module surface component from that folder.
-3. Register it in `src/app/modules.tsx`.
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-This keeps each graphics tool isolated while the main shell handles navigation and presentation.
+## Learn More
 
-## Scripts
+To learn more about Next.js, take a look at the following resources:
 
-- `npm run dev`
-- `npm run build`
-- `npm run lint`
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

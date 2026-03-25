@@ -469,7 +469,7 @@ export const pearlSkyPalette: AppPalette = {
         workspaceGradient: "linear-gradient(135deg, rgba(255,255,255,0.99), rgba(219,234,254,0.95))",
     },
     ui: {
-        menuSurface: "rgba(255, 255, 255, 0.90)",
+        menuSurface: "rgba(255, 255, 255, 0.30)",
         menuCardSurface: "rgba(255, 255, 255, 0.97)",
         menuBorder: "rgba(148, 163, 184, 0.32)",
         menuBorderStrong: "rgba(100, 116, 139, 0.52)",

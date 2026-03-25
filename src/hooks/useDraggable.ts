@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type Dispatch, type PointerEvent as ReactPointerEvent, type RefObject, type SetStateAction } from 'react';
-import type { Point } from '../functions/geometry';
+import type { Point } from '../types/geometry';
 
 type DraggableHandle = (event: ReactPointerEvent<HTMLElement>) => void;
 
@@ -16,11 +16,11 @@ export type DraggableOptions = {
 };
 
 export type UseDraggableReturn = {
-    ref: RefObject<HTMLDivElement>;
+    elementRef: RefObject<HTMLDivElement>;
     position: Point;
     setPosition: Dispatch<SetStateAction<Point>>;
-    onPointerDown: DraggableHandle;
-    style: CSSProperties;
+    handlePointerDown: DraggableHandle;
+    dragStyle: CSSProperties;
 };
 
 export const useDraggable = (options: DraggableOptions = {}): UseDraggableReturn => {
@@ -36,14 +36,9 @@ export const useDraggable = (options: DraggableOptions = {}): UseDraggableReturn
         onScroll
     } = options;
 
-    const initialPositionRef = useRef<Point | null>(null);
-    if (initialPositionRef.current === null) {
-        initialPositionRef.current = initial ? initial() : { x: 0, y: 20 };
-    }
-
     const hasInitialPosition = !!initial;
-    const [position, setPosition] = useState<Point>(initialPositionRef.current);
-    const positionRef = useRef<Point>(initialPositionRef.current);
+    const [position, setPosition] = useState<Point>(() => initial ? initial() : { x: 0, y: 20 });
+    const positionRef = useRef<Point>(position);
     const targetRef = useRef<HTMLDivElement | null>(null);
     const dragOffsetRef = useRef({ dx: 0, dy: 0 });
 
@@ -198,10 +193,10 @@ export const useDraggable = (options: DraggableOptions = {}): UseDraggableReturn
     }, [axis, clampToBounds, getBoundsRect, onDrag, onDragEnd, onDragStart, referenceFrame]);
 
     return {
-        ref: targetRef as RefObject<HTMLDivElement>,
+        elementRef: targetRef as RefObject<HTMLDivElement>,
         position,
         setPosition,
-        onPointerDown,
-        style: { left: position.x, top: position.y },
+        handlePointerDown: onPointerDown,
+        dragStyle: { left: position.x, top: position.y },
     };
 };

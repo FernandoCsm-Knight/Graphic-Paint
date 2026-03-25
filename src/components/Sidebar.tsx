@@ -1,11 +1,16 @@
-import { LuChevronLeft, LuChevronRight, LuPanelsTopLeft } from 'react-icons/lu';
+'use client';
+
+import Link from 'next/link';
+import { LuChevronLeft, LuChevronRight, LuLayoutDashboard, LuPanelsTopLeft } from 'react-icons/lu';
 import RippleButton from './RippleButton';
 import ThemePicker from './ThemePicker';
-import { moduleIcons, type GraphicsModule } from '../modules/modules';
+import { GraphicsModule } from '@/types/modules';
+import ModuleCardBody, { moduleIcons } from './ModuleCard';
 
 type SidebarProps = {
     modules: GraphicsModule[];
     activeModule: GraphicsModule;
+    isAuthenticated: boolean;
     isCollapsed: boolean;
     isMobileOpen: boolean;
     onCloseMobile: () => void;
@@ -17,6 +22,7 @@ type SidebarProps = {
 const Sidebar = ({
     modules,
     activeModule,
+    isAuthenticated,
     isCollapsed,
     isMobileOpen,
     onCloseMobile,
@@ -36,7 +42,7 @@ const Sidebar = ({
             />
 
             <aside
-                className={`app-sidebar-shell theme-sidebar-shell fixed inset-y-0 left-0 z-40 flex h-dvh min-h-0 w-[min(86vw,340px)] flex-col overflow-hidden border-r backdrop-blur-xl transition-transform duration-300 lg:relative lg:z-[120] lg:h-full lg:translate-x-0 ${
+                className={`app-sidebar-shell theme-sidebar-shell fixed inset-y-0 left-0 z-40 flex h-dvh min-h-0 w-[min(86vw,340px)] flex-col overflow-hidden border-r backdrop-blur-xl transition-transform duration-300 lg:relative lg:z-120 lg:h-full lg:translate-x-0 ${
                     isMobileOpen ? 'translate-x-0' : '-translate-x-full'
                 } ${isCollapsed ? 'lg:w-24' : 'lg:w-80'}`}
             >
@@ -51,12 +57,12 @@ const Sidebar = ({
                         }`}
                     >
                         <div>
-                            <a
+                            <Link
                                 href="/"
                                 className="theme-sidebar-kicker text-xs font-semibold uppercase tracking-[0.35em] hover:underline"
                             >
                                 Graphic-Paint
-                            </a>
+                            </Link>
 
                             <h1 className="theme-sidebar-title mt-2 text-2xl font-semibold">
                                 Graphics workspace
@@ -99,12 +105,12 @@ const Sidebar = ({
                                 : 'hidden'
                         }`}
                     >
-                        <a
+                        <Link
                             href="/"
                             className="theme-sidebar-brand-mark flex h-15 w-15 items-center justify-center rounded-2xl text-center text-lg font-bold uppercase"
                         >
                             G
-                        </a>
+                        </Link>
 
                         <RippleButton
                             controlId="sidebar-expand"
@@ -119,6 +125,69 @@ const Sidebar = ({
 
                 <div className="scrollbar min-h-0 grow overflow-y-auto overflow-x-hidden px-4 py-5 lg:px-5">
                     <div className="space-y-3">
+                        {isAuthenticated ? (
+                            <Link
+                                href="/dashboard"
+                                className={`module-card module-card-button flex w-full items-center gap-3 rounded-3xl transition duration-200 ${
+                                    isCollapsed ? 'lg:justify-center lg:px-0 lg:py-4' : 'px-4 py-3.5'
+                                } theme-module-card-idle`}
+                                title={isCollapsed ? 'Voltar ao dashboard' : undefined}
+                            >
+                                <span className="flex  shrink-0 items-center justify-center rounded-2xl">
+                                    <LuLayoutDashboard className="h-5 w-5" />
+                                </span>
+                                {!isCollapsed && (
+                                    <div className="min-w-0">
+                                        <p className="theme-sidebar-title text-sm font-semibold">
+                                            Dashboard
+                                        </p>
+                                        <p className="theme-sidebar-copy-muted text-xs leading-5">
+                                            Voltar para as pastas e projetos
+                                        </p>
+                                    </div>
+                                )}
+                            </Link>
+                        ) : (
+                            !isCollapsed && (
+                                <div
+                                    className="module-card rounded-3xl px-4 py-3.5"
+                                    style={{
+                                        border: '1px solid color-mix(in srgb, var(--app-accent-border) 58%, transparent)',
+                                        background: 'color-mix(in srgb, var(--app-accent-soft) 32%, transparent)',
+                                    }}
+                                >
+                                    <p className="theme-sidebar-title text-sm font-semibold">
+                                        Modo convidado
+                                    </p>
+                                    <p className="theme-sidebar-copy mt-1 text-xs leading-5">
+                                        Sem dashboard e sem salvamento online. Entre para sincronizar projetos.
+                                    </p>
+                                    <div className="mt-3 flex gap-2">
+                                        <Link
+                                            href="/login"
+                                            className="rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em]"
+                                            style={{
+                                                border: '1px solid var(--app-accent-border)',
+                                                color: 'var(--app-accent-text)',
+                                            }}
+                                        >
+                                            Entrar
+                                        </Link>
+                                        <Link
+                                            href="/register"
+                                            className="rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em]"
+                                            style={{
+                                                background: 'var(--app-accent-text)',
+                                                color: 'var(--ui-menu-card-surface)',
+                                            }}
+                                        >
+                                            Criar conta
+                                        </Link>
+                                    </div>
+                                </div>
+                            )
+                        )}
+
                         <div
                             className={`sidebar-panel-copy theme-sidebar-copy-muted flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] ${
                                 isCollapsed
@@ -155,27 +224,7 @@ const Sidebar = ({
                                     onClick={() => onSelectModule(module.id)}
                                 >
                                     {isCollapsed ? (moduleIcons[module.id] || '?') : (
-                                        <>
-                                            <div className="mb-2 flex items-center justify-between gap-3">
-                                                <span className="theme-sidebar-title text-lg font-medium">
-                                                    {module.name}
-                                                </span>
-
-                                                <span
-                                                    className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] ${
-                                                        module.status === 'available'
-                                                            ? 'theme-status-available'
-                                                            : 'theme-status-soon'
-                                                    }`}
-                                                >
-                                                    {module.status}
-                                                </span>
-                                            </div>
-
-                                            <p className="theme-sidebar-copy text-sm leading-6">
-                                                {module.description}
-                                            </p>
-                                        </>
+                                        <ModuleCardBody module={module} />
                                     )}
                                 </RippleButton>
                             );

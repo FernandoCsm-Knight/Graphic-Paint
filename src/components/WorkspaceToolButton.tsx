@@ -1,3 +1,5 @@
+'use client';
+
 import { forwardRef, useState, type MouseEvent, type ReactNode } from 'react';
 
 type WorkspaceToolButtonProps = {

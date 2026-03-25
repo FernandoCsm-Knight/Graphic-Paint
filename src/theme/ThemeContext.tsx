@@ -1,3 +1,5 @@
+'use client';
+
 import { createContext, type CSSProperties, type ReactNode, useMemo, useState } from "react";
 import { defaultAppPalette, type AppPalette } from "./palettes";
 
@@ -6,7 +8,6 @@ export type ThemeContextType = {
     setActivePalette: React.Dispatch<React.SetStateAction<AppPalette>>;
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 type ThemeProviderProps = {
