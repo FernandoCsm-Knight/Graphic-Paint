@@ -9,22 +9,15 @@ import WorkspaceProvider from '@/context/providers/WorkspaceProvider';
 import WorkspaceShellProvider from '@/context/providers/WorkspaceShellProvider';
 import { type WorkspaceShellOptions } from '@/context/WorkspaceShellContext';
 
-type WorkspaceRouteLayoutProps = {
+type WorkspaceShellProps = {
     children: ReactNode;
+};
+
+type WorkspaceRouteLayoutProps = WorkspaceShellProps & {
     isAuthenticated: boolean;
 };
 
-export default function WorkspaceRouteShell({ children, isAuthenticated }: WorkspaceRouteLayoutProps) {
-    return (
-        <ClientShell isAuthenticated={isAuthenticated}>
-            <WorkspaceProvider>
-                <WorkspaceShell>{children}</WorkspaceShell>
-            </WorkspaceProvider>
-        </ClientShell>
-    );
-}
-
-function WorkspaceShell({ children }: WorkspaceRouteLayoutProps) {
+function WorkspaceShell({ children }: WorkspaceShellProps) {
     const { containerRef, isCanvasPanning, isPanModeActive } = useWorkspaceContext();
     const [shellOptions, setShellOptions] = useState<WorkspaceShellOptions>({
         defaultCursor: 'default',
@@ -56,5 +49,15 @@ function WorkspaceShell({ children }: WorkspaceRouteLayoutProps) {
                 {shellOptions.badge != null && <FloatingInfoBadge>{shellOptions.badge}</FloatingInfoBadge>}
             </main>
         </WorkspaceShellProvider>
+    );
+}
+
+export default function WorkspaceRouteShell({ children, isAuthenticated }: WorkspaceRouteLayoutProps) {
+    return (
+        <ClientShell isAuthenticated={isAuthenticated}>
+            <WorkspaceProvider>
+                <WorkspaceShell>{children}</WorkspaceShell>
+            </WorkspaceProvider>
+        </ClientShell>
     );
 }
