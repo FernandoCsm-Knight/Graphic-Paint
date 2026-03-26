@@ -1,85 +1,68 @@
 import type { Point } from "@/types/geometry";
-import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
+import { Shape, type BoundingBox, type ResizeOptions, type ShapeOptions } from "./ShapeTypes";
+import { rasterizePixelatedPolygon } from "../_algorithms/PolygonRasterization";
 
 export default class Square extends Shape {
     kind = 'square' as const;
 
-    topLeft: Point;
-    bottomRight: Point;
+    points: Point[];
 
     constructor(topLeft: Point, bottomRight: Point, opts: ShapeOptions) {
         super(opts);
-        this.topLeft = topLeft;
-        this.bottomRight = bottomRight;
+        // Enforce square aspect: take the larger dimension and align from topLeft.
+        const dx = bottomRight.x - topLeft.x;
+        const dy = bottomRight.y - topLeft.y;
+        const side = Math.max(Math.abs(dx), Math.abs(dy));
+        const signX = dx >= 0 ? 1 : -1;
+        const signY = dy >= 0 ? 1 : -1;
+        const br: Point = { x: topLeft.x + signX * side, y: topLeft.y + signY * side };
+        // Store the 4 corners in order: TL, TR, BR, BL
+        this.points = [
+            { ...topLeft },
+            { x: br.x, y: topLeft.y },
+            { ...br },
+            { x: topLeft.x, y: br.y },
+        ];
     }
 
     pixelatedDraw(ctx: CanvasRenderingContext2D): void {
         ctx.fillStyle = this.strokeStyle;
-        const dx = this.bottomRight.x - this.topLeft.x;
-        const dy = this.bottomRight.y - this.topLeft.y;
-        const side = Math.max(Math.abs(dx), Math.abs(dy));
-
-        let x = this.topLeft.x;
-        let y = this.topLeft.y;
-        this.drawPixel({ x, y }, ctx);
-
-        const incrX = dx > 0 ? 1 : -1;
-        const incrY = dy > 0 ? 1 : -1;
-
-        for(let i = 0; i < side; i++) {
-            x += incrX;
-            this.drawPixel({ x: x, y }, ctx);
-            this.drawPixel({ x: x, y: y + (incrY > 0 ? side : -side) }, ctx);
-        }
-
-        for(let i = 0; i < side; i++) {
-            y += incrY;
-            this.drawPixel({ x, y: y }, ctx);
-            this.drawPixel({ x: x - (incrX > 0 ? side : -side), y: y }, ctx);
-        }
+        rasterizePixelatedPolygon(this.points, this.drawPixel.bind(this), ctx);
     }
 
     standardDraw(ctx: CanvasRenderingContext2D): void {
-        const dx = this.bottomRight.x - this.topLeft.x;
-        const dy = this.bottomRight.y - this.topLeft.y;
-        const side = Math.max(Math.abs(dx), Math.abs(dy));
-
         ctx.beginPath();
-
-        if(dx > 0 && dy > 0) {
-            ctx.rect(this.topLeft.x, this.topLeft.y, side, side);
-        } else if(dx > 0 && dy < 0) {
-            ctx.rect(this.topLeft.x, this.topLeft.y,  side, -side);
-        } else if(dx < 0 && dy > 0) {
-            ctx.rect(this.topLeft.x, this.topLeft.y,  -side, side);
-        } else {
-            ctx.rect(this.topLeft.x, this.topLeft.y,  -side, -side);
+        ctx.moveTo(this.points[0].x, this.points[0].y);
+        for (let i = 1; i < this.points.length; i++) {
+            ctx.lineTo(this.points[i].x, this.points[i].y);
         }
-
+        ctx.closePath();
         ctx.strokeStyle = this.strokeStyle;
         ctx.lineWidth = this.lineWidth;
         ctx.stroke();
     }
 
     getBoundingBox(): BoundingBox {
-        const dx = this.bottomRight.x - this.topLeft.x;
-        const dy = this.bottomRight.y - this.topLeft.y;
-        const side = Math.max(Math.abs(dx), Math.abs(dy));
-        const x = dx >= 0 ? this.topLeft.x : this.topLeft.x - side;
-        const y = dy >= 0 ? this.topLeft.y : this.topLeft.y - side;
-        return { x, y, width: side, height: side };
+        const xs = this.points.map(p => p.x), ys = this.points.map(p => p.y);
+        const x = Math.min(...xs), y = Math.min(...ys);
+        return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
     }
 
     moveBy(dx: number, dy: number): void {
-        this.topLeft.x += dx;
-        this.topLeft.y += dy;
-        this.bottomRight.x += dx;
-        this.bottomRight.y += dy;
+        for (const p of this.points) {
+            p.x += dx;
+            p.y += dy;
+        }
     }
 
-    resizeToBoundingBox(bounds: BoundingBox): boolean {
-        this.topLeft = { x: bounds.x, y: bounds.y };
-        this.bottomRight = { x: bounds.x + bounds.width, y: bounds.y + bounds.height };
-        return true;
+    rotateBy(angle: number, pivot: Point): void {
+        this.rotatePoints(this.points, this._rotateOriginalPoints, angle, pivot);
+    }
+
+    resizeToBoundingBox(bounds: BoundingBox, options: ResizeOptions = {}): boolean {
+        // Enforce square constraint: use the larger side.
+        const side = Math.max(bounds.width, bounds.height);
+        const squareBounds: BoundingBox = { x: bounds.x, y: bounds.y, width: side, height: side };
+        return this.resizePointCollection(this.points, squareBounds, options);
     }
 };

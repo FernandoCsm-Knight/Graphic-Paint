@@ -201,28 +201,12 @@ const useSelection = ({
             // (pixelated: true) to match the pending placement coordinate system.
             const shapeGroup = new ShapeGroup(floatingShapes, { pixelated: true, pixelSize });
 
-            // On confirm, bake the group rotation into each individual shape and
-            // push them back to the scene as independent vector shapes so they
-            // can be re-selected and re-clipped in future operations.
+            // On confirm, push each shape individually back to the scene.
+            // Rotation has already been baked into the shapes' data by rotateBy(),
+            // so no additional transform is needed here.
             enterPendingShape(shapeGroup, {
                 onConfirm: () => {
-                    const groupCenter  = shapeGroup.getCenter();
-                    const groupRotation = shapeGroup.rotation;
-                    const cos = Math.cos(groupRotation);
-                    const sin = Math.sin(groupRotation);
-                    for (const s of floatingShapes) {
-                        if (groupRotation !== 0) {
-                            const sc   = s.getCenter();
-                            const relX = sc.x - groupCenter.x;
-                            const relY = sc.y - groupCenter.y;
-                            s.moveBy(
-                                (relX * cos - relY * sin) - relX,
-                                (relX * sin + relY * cos) - relY,
-                            );
-                            s.rotateTo(s.rotation + groupRotation);
-                        }
-                        pushShape(s);
-                    }
+                    for (const s of floatingShapes) pushShape(s);
                 },
             });
         } else {

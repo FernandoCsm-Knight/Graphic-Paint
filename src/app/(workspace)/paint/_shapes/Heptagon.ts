@@ -1,4 +1,4 @@
-import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
+import { Shape, type BoundingBox, type ResizeOptions, type ShapeOptions } from "./ShapeTypes";
 import { rasterizePixelatedPolygon, rasterizePolygon } from "../_algorithms/PolygonRasterization";
 import { createPolygon } from "../_types/Graphics";
 import type { Point } from "@/types/geometry";
@@ -35,7 +35,11 @@ export default class Heptagon extends Shape {
         }
     }
 
-    resizeToBoundingBox(bounds: BoundingBox): boolean {
-        return this.resizePointCollection(this.points, bounds);
+    rotateBy(angle: number, pivot: Point): void {
+        this.rotatePoints(this.points, this._rotateOriginalPoints, angle, pivot);
+    }
+
+    resizeToBoundingBox(bounds: BoundingBox, options: ResizeOptions = {}): boolean {
+        return this.resizePointCollection(this.points, bounds, options);
     }
 };

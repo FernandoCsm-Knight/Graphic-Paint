@@ -188,25 +188,9 @@ const useMultiSelect = ({
             ? selected[0] as ShapeGroup
             : new ShapeGroup(selected, { pixelated, pixelSize });
 
-        /** Bake group rotation into each child and push individually. */
+        /** Push children individually. Rotation is already baked into each shape by rotateBy(). */
         const pushUngrouped = (children: Shape[]) => {
-            const groupCenter   = shapeGroup.getCenter();
-            const groupRotation = shapeGroup.rotation;
-            const cos = Math.cos(groupRotation);
-            const sin = Math.sin(groupRotation);
-            for (const s of children) {
-                if (groupRotation !== 0) {
-                    const sc   = s.getCenter();
-                    const relX = sc.x - groupCenter.x;
-                    const relY = sc.y - groupCenter.y;
-                    s.moveBy(
-                        (relX * cos - relY * sin) - relX,
-                        (relX * sin + relY * cos) - relY,
-                    );
-                    s.rotateTo(s.rotation + groupRotation);
-                }
-                pushShape(s);
-            }
+            for (const s of children) pushShape(s);
         };
 
         enterPendingShape(shapeGroup, {

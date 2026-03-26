@@ -61,7 +61,6 @@ function getCommonShapeData(shape: Shape) {
         pixelSize: shape.pixelSize,
         lineAlgorithm: shape.lineAlgorithm,
         lineDash: getLineDashPreset(shape.lineDash),
-        rotation: shape.rotation,
     };
 }
 
@@ -103,7 +102,10 @@ function applyCommonShapeData(shape: Shape, data: Record<string, unknown>) {
     shape.pixelSize = typeof data.pixelSize === 'number' ? data.pixelSize : shape.pixelSize;
     shape.lineAlgorithm = (typeof data.lineAlgorithm === 'string' ? data.lineAlgorithm : shape.lineAlgorithm) as LineAlgorithm;
     shape.lineDash = DASH_ARRAYS[(typeof data.lineDash === 'string' ? data.lineDash : 'solid') as LineDashPreset] ?? [];
-    shape.rotateTo(typeof data.rotation === 'number' ? data.rotation : 0);
+    // Backward compat: old saves stored a `rotation` angle; bake it into the shape's data.
+    if (typeof data.rotation === 'number' && data.rotation !== 0) {
+        shape.rotateBy(data.rotation, shape.getCenter());
+    }
 }
 
 function isPoint(value: unknown): value is Point {
@@ -214,8 +216,7 @@ async function serializeSceneItem(item: SceneItem): Promise<SerializedSceneItem 
             kind: item.kind,
             data: {
                 ...getCommonShapeData(item),
-                topLeft: clonePoint(item.topLeft),
-                bottomRight: clonePoint(item.bottomRight),
+                points: item.points.map(clonePoint),
             },
         };
     }
@@ -239,6 +240,7 @@ async function serializeSceneItem(item: SceneItem): Promise<SerializedSceneItem 
                 center: clonePoint(item.center),
                 radiusX: item.radiusX,
                 radiusY: item.radiusY,
+                ellipseAngle: item.ellipseAngle,
             },
         };
     }
@@ -322,15 +324,25 @@ async function deserializeSceneItem(item: SerializedSceneItem): Promise<SceneIte
         }
         case 'rect': {
             const shape = new Rectangle(ZERO_POINT, ZERO_POINT, getShapeOptions(data));
-            shape.topLeft = readPoint(data.topLeft);
-            shape.bottomRight = readPoint(data.bottomRight);
+            if (Array.isArray(data.points) && data.points.length === 4) {
+                shape.points = readPoints(data.points);
+            } else if (isPoint(data.topLeft) && isPoint(data.bottomRight)) {
+                // Backward compat: old saves used topLeft/bottomRight.
+                const tl = readPoint(data.topLeft), br = readPoint(data.bottomRight);
+                shape.points = [tl, { x: br.x, y: tl.y }, br, { x: tl.x, y: br.y }];
+            }
             applyCommonShapeData(shape, data);
             return shape;
         }
         case 'square': {
             const shape = new Square(ZERO_POINT, ZERO_POINT, getShapeOptions(data));
-            shape.topLeft = readPoint(data.topLeft);
-            shape.bottomRight = readPoint(data.bottomRight);
+            if (Array.isArray(data.points) && data.points.length === 4) {
+                shape.points = readPoints(data.points);
+            } else if (isPoint(data.topLeft) && isPoint(data.bottomRight)) {
+                // Backward compat: old saves used topLeft/bottomRight.
+                const tl = readPoint(data.topLeft), br = readPoint(data.bottomRight);
+                shape.points = [tl, { x: br.x, y: tl.y }, br, { x: tl.x, y: br.y }];
+            }
             applyCommonShapeData(shape, data);
             return shape;
         }
@@ -346,6 +358,7 @@ async function deserializeSceneItem(item: SerializedSceneItem): Promise<SceneIte
             shape.center = readPoint(data.center);
             shape.radiusX = typeof data.radiusX === 'number' ? data.radiusX : 0;
             shape.radiusY = typeof data.radiusY === 'number' ? data.radiusY : 0;
+            shape.ellipseAngle = typeof data.ellipseAngle === 'number' ? data.ellipseAngle : 0;
             applyCommonShapeData(shape, data);
             return shape;
         }

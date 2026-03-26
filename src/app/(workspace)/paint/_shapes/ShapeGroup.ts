@@ -1,14 +1,14 @@
-import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
-import { toPixels } from "../_types/Graphics";
+import { Shape, type BoundingBox, type ResizeOptions, type ShapeOptions } from "./ShapeTypes";
+import type { Point } from "@/types/geometry";
 
 /**
  * A temporary container used during pending placement for pixelated selections.
  *
- * The group applies a single rotation around its center (as a canvas transform)
- * while leaving each contained shape at its own position. On commit the caller
- * "bakes" the group rotation into each individual shape before pushing them to
- * the scene, so the result is a set of independent vector shapes that can be
- * re-selected and re-clipped.
+ * When rotated, `rotateBy` is cascaded to every child shape with the group's
+ * center as the pivot, so all children rotate around a common point rather
+ * than their own centres. Rotation is baked directly into each child's data
+ * (same as all other shapes), so no canvas-transform rotation is applied here
+ * and no "baking" step is needed on commit.
  */
 export default class ShapeGroup extends Shape {
     readonly kind = 'group' as const;
@@ -44,15 +44,42 @@ export default class ShapeGroup extends Shape {
         for (const s of this.shapes) s.moveBy(dx, dy);
     }
 
-    override beginResize(): void {
-        this._groupOriginalBounds = this.getBoundingBox();
+    override beginRotate(): void {
+        for (const s of this.shapes) s.beginRotate();
+    }
+
+    override endRotate(): void {
+        for (const s of this.shapes) s.endRotate();
+    }
+
+    /**
+     * Rotate all child shapes around the given pivot (typically the group
+     * center). Each child delegates to its own `rotateBy`, which bakes the
+     * rotation into that child's data points.
+     */
+    rotateBy(angle: number, pivot: Point): void {
+        for (const s of this.shapes) s.rotateBy(angle, pivot);
+    }
+
+    override beginResize(
+        bounds: BoundingBox = this.getBoundingBox(),
+        rotation: number = 0,
+        center: Point = this.getCenter(),
+    ): void {
+        this._groupOriginalBounds = bounds;
         this._childOriginalBounds = this.shapes.map(s => s.getBoundingBox());
+        this._resizeOriginalBounds = bounds;
+        this._resizeRotation = rotation;
+        this._resizeCenter = { ...center };
         for (const s of this.shapes) s.beginResize();
     }
 
     override endResize(): void {
         this._groupOriginalBounds = null;
         this._childOriginalBounds = null;
+        this._resizeOriginalBounds = null;
+        this._resizeRotation = 0;
+        this._resizeCenter = null;
         for (const s of this.shapes) s.endResize();
     }
 
@@ -61,7 +88,7 @@ export default class ShapeGroup extends Shape {
      * Always scales from the geometry frozen by beginResize() to avoid accumulated
      * rounding drift in pixelated mode.
      */
-    resizeToBoundingBox(bounds: BoundingBox): boolean {
+    resizeToBoundingBox(bounds: BoundingBox, options: ResizeOptions = {}): boolean {
         const old      = this._groupOriginalBounds ?? this.getBoundingBox();
         const originals = this._childOriginalBounds ?? this.shapes.map(s => s.getBoundingBox());
         if (old.width === 0 || old.height === 0) return false;
@@ -73,33 +100,21 @@ export default class ShapeGroup extends Shape {
         for (let i = 0; i < this.shapes.length; i++) {
             const sb = originals[i];
             this.shapes[i].resizeToBoundingBox({
-                x:      bounds.x + (sb.x - old.x) * scaleX,
-                y:      bounds.y + (sb.y - old.y) * scaleY,
+                x: options.flipX
+                    ? bounds.x + (old.x + old.width - (sb.x + sb.width)) * scaleX
+                    : bounds.x + (sb.x - old.x) * scaleX,
+                y: options.flipY
+                    ? bounds.y + (old.y + old.height - (sb.y + sb.height)) * scaleY
+                    : bounds.y + (sb.y - old.y) * scaleY,
                 width:  sb.width  * scaleX,
                 height: sb.height * scaleY,
-            });
+            }, options);
         }
         return true;
     }
 
-    /**
-     * Override draw to apply the group rotation as a canvas transform so that
-     * each contained shape can still use its own coordinate system.
-     * The rotation is NOT baked into the shapes here — that happens on commit.
-     */
     override draw(ctx: CanvasRenderingContext2D): void {
-        if (this.rotation !== 0) {
-            const center = this.getCenter();
-            const c = this.pixelated ? toPixels(center, this.pixelSize) : center;
-            ctx.save();
-            ctx.translate(c.x, c.y);
-            ctx.rotate(this.rotation);
-            ctx.translate(-c.x, -c.y);
-            for (const s of this.shapes) s.draw(ctx);
-            ctx.restore();
-        } else {
-            for (const s of this.shapes) s.draw(ctx);
-        }
+        for (const s of this.shapes) s.draw(ctx);
     }
 
     // Required abstract implementations — never called because draw() is overridden.

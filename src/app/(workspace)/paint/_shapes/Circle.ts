@@ -1,5 +1,5 @@
 import type { Point } from "@/types/geometry";
-import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
+import { Shape, type BoundingBox, type ResizeOptions, type ShapeOptions } from "./ShapeTypes";
 
 export default class Circle extends Shape {
     kind = 'circle' as const;
@@ -71,7 +71,18 @@ export default class Circle extends Shape {
         this.center.y += dy;
     }
 
-    resizeToBoundingBox(bounds: BoundingBox): boolean {
+    override beginRotate(): void {
+        this._rotateOriginalPoints = [{ ...this.center }];
+    }
+
+    rotateBy(angle: number, pivot: Point): void {
+        const cos = Math.cos(angle), sin = Math.sin(angle);
+        const src = this._rotateOriginalPoints?.[0] ?? this.center;
+        this.center = this.rotateOnePoint(src, pivot, cos, sin);
+    }
+
+    resizeToBoundingBox(bounds: BoundingBox, options: ResizeOptions = {}): boolean {
+        void options;
         const center = {
             x: bounds.x + bounds.width / 2,
             y: bounds.y + bounds.height / 2,

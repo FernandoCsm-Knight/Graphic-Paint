@@ -1,4 +1,4 @@
-import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
+import { Shape, type BoundingBox, type ResizeOptions, type ShapeOptions } from "./ShapeTypes";
 import bresenham from "../_algorithms/BresenhamLine";
 import type { Point } from "@/types/geometry";
 
@@ -69,17 +69,36 @@ export default class Arrow extends Shape {
         this.end.y += dy;
     }
 
-    override beginResize(): void {
-        this._resizeOriginalPoints = [{ ...this.start }, { ...this.end }];
-        this._resizeOriginalBounds = this.getBoundingBox();
+    override beginRotate(): void {
+        this._rotateOriginalPoints = [{ ...this.start }, { ...this.end }];
     }
 
-    resizeToBoundingBox(bounds: BoundingBox): boolean {
+    rotateBy(angle: number, pivot: Point): void {
+        const cos = Math.cos(angle), sin = Math.sin(angle);
+        const frozen = this._rotateOriginalPoints;
+        const srcStart = frozen?.[0] ?? this.start;
+        const srcEnd   = frozen?.[1] ?? this.end;
+        this.start = this.rotateOnePoint(srcStart, pivot, cos, sin);
+        this.end   = this.rotateOnePoint(srcEnd,   pivot, cos, sin);
+    }
+
+    override beginResize(
+        bounds: BoundingBox = this.getBoundingBox(),
+        rotation: number = 0,
+        center: Point = this.getCenter(),
+    ): void {
+        this._resizeOriginalPoints = [{ ...this.start }, { ...this.end }];
+        this._resizeOriginalBounds = bounds;
+        this._resizeRotation = rotation;
+        this._resizeCenter = { ...center };
+    }
+
+    resizeToBoundingBox(bounds: BoundingBox, options: ResizeOptions = {}): boolean {
         const srcStart  = this._resizeOriginalPoints?.[0] ?? this.start;
         const srcEnd    = this._resizeOriginalPoints?.[1] ?? this.end;
         const srcBounds = this._resizeOriginalBounds ?? this.getBoundingBox();
-        this.start = this.mapPointToBoundingBox(srcStart, srcBounds, bounds);
-        this.end   = this.mapPointToBoundingBox(srcEnd,   srcBounds, bounds);
+        this.start = this.mapPointToBoundingBox(srcStart, srcBounds, bounds, options);
+        this.end   = this.mapPointToBoundingBox(srcEnd,   srcBounds, bounds, options);
         return true;
     }
 };

@@ -1,7 +1,7 @@
 import bresenham from "../_algorithms/BresenhamLine";
 import dda from "../_algorithms/DDA";
 import type { Point } from "@/types/geometry";
-import { Shape, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
+import { Shape, type BoundingBox, type ResizeOptions, type ShapeOptions } from "./ShapeTypes";
 
 export default class FreePolygon extends Shape {
     kind = 'polygon' as const;
@@ -53,7 +53,11 @@ export default class FreePolygon extends Shape {
         }
     }
 
-    resizeToBoundingBox(bounds: BoundingBox): boolean {
-        return this.resizePointCollection(this.points, bounds);
+    rotateBy(angle: number, pivot: Point): void {
+        this.rotatePoints(this.points, this._rotateOriginalPoints, angle, pivot);
+    }
+
+    resizeToBoundingBox(bounds: BoundingBox, options: ResizeOptions = {}): boolean {
+        return this.resizePointCollection(this.points, bounds, options);
     }
 }

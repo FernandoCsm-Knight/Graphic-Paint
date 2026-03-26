@@ -3,6 +3,7 @@ import { toPixels } from "../_types/Graphics";
 import type { Point } from "@/types/geometry";
 import type { LineAlgorithm } from "../_context/SettingsContext";
 
+
 export type ShapeOptions = {
     strokeStyle?: string;
     fillStyle?: string;
@@ -15,6 +16,7 @@ export type ShapeOptions = {
 };
 
 export type BoundingBox = { x: number; y: number; width: number; height: number };
+export type ResizeOptions = { flipX?: boolean; flipY?: boolean };
 
 export abstract class SceneItem {
     abstract draw(ctx: CanvasRenderingContext2D): void;
@@ -39,7 +41,6 @@ export abstract class Shape extends SceneItem {
     pixelSize: number;
     lineAlgorithm: LineAlgorithm;
     lineDash: number[];
-    rotation: number = 0;
 
     // ── Resize-origin cache ───────────────────────────────────────────────────
     // Populated by beginResize() so that every resizeToBoundingBox() call during
@@ -48,6 +49,15 @@ export abstract class Shape extends SceneItem {
     // pixelated mode.
     protected _resizeOriginalPoints: Point[] | null = null;
     protected _resizeOriginalBounds: BoundingBox | null = null;
+    protected _resizeRotation: number = 0;
+    protected _resizeCenter: Point | null = null;
+
+    // ── Rotate-origin cache ───────────────────────────────────────────────────
+    // Populated by beginRotate() so that every rotateBy() call during a drag
+    // always rotates from the ORIGINAL (pre-drag) geometry instead of the
+    // already-rounded current state, preventing accumulated rounding drift in
+    // pixelated mode.
+    protected _rotateOriginalPoints: Point[] | null = null;
 
     constructor(opts: ShapeOptions) {
         super();
@@ -62,19 +72,10 @@ export abstract class Shape extends SceneItem {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        const needsSave = this.rotation !== 0 || this.lineDash.length > 0;
+        const needsSave = this.lineDash.length > 0;
         if (needsSave) {
             ctx.save();
-            if (this.lineDash.length > 0) ctx.setLineDash(this.lineDash);
-            if (this.rotation !== 0) {
-                const center = this.getCenter();
-                // getCenter() returns grid-unit coords for pixelated shapes; the canvas
-                // always works in doc pixels, so we must scale before translating.
-                const c = this.pixelated ? toPixels(center, this.pixelSize) : center;
-                ctx.translate(c.x, c.y);
-                ctx.rotate(this.rotation);
-                ctx.translate(-c.x, -c.y);
-            }
+            ctx.setLineDash(this.lineDash);
         }
         if (this.pixelated) {
             ctx.fillStyle = this.strokeStyle;
@@ -85,22 +86,47 @@ export abstract class Shape extends SceneItem {
         if (needsSave) ctx.restore();
     }
 
-    /** Set the absolute rotation angle (radians) around getCenter(). */
-    rotateTo(angle: number): void {
-        this.rotation = angle;
+    /**
+     * Rotate the shape's geometry by `angle` radians around `pivot`.
+     * The rotation is baked directly into the shape's data points, so no
+     * `rotation` attribute is needed. For pixelated shapes, each resulting
+     * coordinate is rounded to the nearest integer grid cell.
+     *
+     * To avoid accumulated rounding drift during a drag, call `beginRotate()`
+     * once at drag-start (to freeze the original geometry) and `endRotate()`
+     * at drag-end (to clear the frozen state). Every `rotateBy` call while
+     * frozen always rotates from the original geometry by the total delta,
+     * rounding only once.
+     */
+    abstract rotateBy(angle: number, pivot: Point): void;
+
+    /**
+     * Called at the start of a rotation drag to freeze the current geometry.
+     * Default: snapshots `this.points` if the shape stores polygon vertices
+     * in a `points: Point[]` field (all polygon shapes).
+     */
+    beginRotate(): void {
+        const self = this as this & { points?: Point[] };
+        if (Array.isArray(self.points)) {
+            this._rotateOriginalPoints = self.points.map(p => ({ ...p }));
+        }
+    }
+
+    /** Called when the rotation drag ends. Clears the frozen origin. */
+    endRotate(): void {
+        this._rotateOriginalPoints = null;
     }
 
     /**
-     * Returns the axis-aligned bounding box of the shape geometry in document
-     * coordinates, BEFORE any rotation is applied. Used for overlay drawing and
-     * hit-testing in pending-placement mode.
+     * Returns the axis-aligned bounding box of the shape's current geometry in
+     * document coordinates. Used for overlay drawing and hit-testing.
      */
     abstract getBoundingBox(): BoundingBox;
 
     /**
-     * Returns the geometric center of the shape, used as the rotation pivot.
-     * Derived from getBoundingBox() — override only if a shape has a natural
-     * center that differs from its bbox center (e.g. Circle).
+     * Returns the geometric center of the shape, used as the default rotation
+     * pivot when none is specified. Derived from getBoundingBox() — override
+     * only if a shape has a natural center that differs from its bbox center.
      */
     getCenter(): Point {
         const bb = this.getBoundingBox();
@@ -114,8 +140,9 @@ export abstract class Shape extends SceneItem {
      * any rotation is applied. Shapes that do not support resizing can keep the
      * default no-op implementation.
      */
-    resizeToBoundingBox(bounds: BoundingBox): boolean {
+    resizeToBoundingBox(bounds: BoundingBox, options: ResizeOptions = {}): boolean {
         void bounds;
+        void options;
         return false;
     }
 
@@ -128,41 +155,111 @@ export abstract class Shape extends SceneItem {
      * The default implementation handles any shape that stores its geometry in
      * a `points: Point[]` field (all polygon shapes).
      */
-    beginResize(): void {
+    beginResize(
+        bounds: BoundingBox = this.getBoundingBox(),
+        rotation: number = 0,
+        center: Point = this.getCenter(),
+    ): void {
         const self = this as this & { points?: Point[] };
         if (Array.isArray(self.points)) {
             this._resizeOriginalPoints = self.points.map(p => ({ ...p }));
-            this._resizeOriginalBounds = this.getBoundingBox();
         }
+        this._resizeOriginalBounds = bounds;
+        this._resizeRotation = rotation;
+        this._resizeCenter = { ...center };
     }
 
     /** Called when the resize drag ends. Clears the cached origin. */
     endResize(): void {
         this._resizeOriginalPoints = null;
         this._resizeOriginalBounds = null;
+        this._resizeRotation = 0;
+        this._resizeCenter = null;
     }
 
-    protected mapPointToBoundingBox(point: Point, from: BoundingBox, to: BoundingBox): Point {
-        const ratioX = from.width === 0 ? 0.5 : (point.x - from.x) / from.width;
-        const ratioY = from.height === 0 ? 0.5 : (point.y - from.y) / from.height;
-        const nextPoint = {
-            x: to.x + ratioX * to.width,
-            y: to.y + ratioY * to.height,
+    /**
+     * Rotates every point in `current` around `pivot` by `angle` radians,
+     * always mapping from the `frozen` snapshot (when present) so that a
+     * single drag never accumulates rounding error across frames.
+     * For pixelated shapes the result is rounded to integer grid coordinates.
+     */
+    protected rotatePoints(
+        current: Point[],
+        frozen: Point[] | null,
+        angle: number,
+        pivot: Point,
+    ): void {
+        const src = frozen ?? current;
+        const cos = Math.cos(angle), sin = Math.sin(angle);
+        for (let i = 0; i < current.length; i++) {
+            const dx = src[i].x - pivot.x, dy = src[i].y - pivot.y;
+            let x = pivot.x + dx * cos - dy * sin;
+            let y = pivot.y + dx * sin + dy * cos;
+            if (this.pixelated) { x = Math.round(x); y = Math.round(y); }
+            current[i].x = x;
+            current[i].y = y;
+        }
+    }
+
+    /**
+     * Rotates a single point around `pivot` by the pre-computed cosine/sine.
+     * For pixelated shapes the result is rounded to integer grid coordinates.
+     */
+    protected rotateOnePoint(
+        src: Point,
+        pivot: Point,
+        cos: number,
+        sin: number,
+        roundToGrid: boolean = this.pixelated,
+    ): Point {
+        const dx = src.x - pivot.x, dy = src.y - pivot.y;
+        let x = pivot.x + dx * cos - dy * sin;
+        let y = pivot.y + dx * sin + dy * cos;
+        if (roundToGrid) { x = Math.round(x); y = Math.round(y); }
+        return { x, y };
+    }
+
+    protected mapPointToBoundingBox(
+        point: Point,
+        from: BoundingBox,
+        to: BoundingBox,
+        options: ResizeOptions = {},
+    ): Point {
+        const resizeCenter = this._resizeCenter;
+        const hasResizeRotation = this._resizeRotation !== 0 && resizeCenter !== null;
+        const sourcePoint = hasResizeRotation
+            ? this.rotateOnePoint(point, resizeCenter!, Math.cos(-this._resizeRotation), Math.sin(-this._resizeRotation), false)
+            : point;
+        const ratioX = from.width === 0 ? 0.5 : (sourcePoint.x - from.x) / from.width;
+        const ratioY = from.height === 0 ? 0.5 : (sourcePoint.y - from.y) / from.height;
+        const nextRatioX = options.flipX ? 1 - ratioX : ratioX;
+        const nextRatioY = options.flipY ? 1 - ratioY : ratioY;
+        const localPoint = {
+            x: to.x + nextRatioX * to.width,
+            y: to.y + nextRatioY * to.height,
         };
+
+        const nextPoint = hasResizeRotation
+            ? this.rotateOnePoint(localPoint, resizeCenter!, Math.cos(this._resizeRotation), Math.sin(this._resizeRotation))
+            : localPoint;
 
         return this.pixelated
             ? { x: Math.round(nextPoint.x), y: Math.round(nextPoint.y) }
             : nextPoint;
     }
 
-    protected resizePointCollection(points: Point[], nextBounds: BoundingBox): boolean {
+    protected resizePointCollection(
+        points: Point[],
+        nextBounds: BoundingBox,
+        options: ResizeOptions = {},
+    ): boolean {
         // Use the frozen originals captured by beginResize() when available so
         // that accumulated rounding across multiple drag frames does not distort
         // the shape's proportions.
         const srcPoints = this._resizeOriginalPoints ?? points;
         const srcBounds = this._resizeOriginalBounds ?? this.getBoundingBox();
         for (let i = 0; i < points.length; i++) {
-            const mapped = this.mapPointToBoundingBox(srcPoints[i], srcBounds, nextBounds);
+            const mapped = this.mapPointToBoundingBox(srcPoints[i], srcBounds, nextBounds, options);
             points[i].x = mapped.x;
             points[i].y = mapped.y;
         }
