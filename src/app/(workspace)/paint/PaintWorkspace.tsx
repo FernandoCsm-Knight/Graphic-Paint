@@ -54,6 +54,10 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
         undo,
         redo,
         pasteSnapshot,
+        copyPendingShapeToClipboard,
+        hasShapeClipboard,
+        isShapeClipboardCurrent,
+        pasteShapeFromClipboard,
         copySnapshot,
         saveSnapshot,
         lockButtonRef,
@@ -128,11 +132,31 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
                     break;
                 case 'v':
                     e.preventDefault();
-                    pasteSnapshot();
+                    void (async () => {
+                        if (hasShapeClipboard() && await isShapeClipboardCurrent()) {
+                            const pastedShape = await pasteShapeFromClipboard();
+                            if (pastedShape) return;
+                        }
+
+                        const pastedImage = await pasteSnapshot({ silent: true });
+                        if (pastedImage) return;
+
+                        if (hasShapeClipboard()) {
+                            const pastedShape = await pasteShapeFromClipboard();
+                            if (pastedShape) return;
+                        }
+
+                        await pasteSnapshot();
+                    })();
                     break;
                 case 'c':
                     e.preventDefault();
-                    copySnapshot();
+                    void (async () => {
+                        const copiedShape = await copyPendingShapeToClipboard();
+                        if (!copiedShape) {
+                            copySnapshot();
+                        }
+                    })();
                     break;
                 default:
             }
@@ -140,7 +164,7 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
 
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [undo, redo, pasteSnapshot, copySnapshot]);
+    }, [undo, redo, pasteSnapshot, pasteShapeFromClipboard, hasShapeClipboard, isShapeClipboardCurrent, copyPendingShapeToClipboard, copySnapshot]);
 
     useEffect(() => {
         const container = containerRef.current;

@@ -31,8 +31,8 @@ const landingHighlights = [
         icon: <LuWorkflow className="h-5 w-5" />,
     },
     {
-        title: 'Interface com presença',
-        copy: 'Cards, menus e interações foram desenhados para parecer produto, não protótipo.',
+        title: 'Armazenamento em núvem',
+        copy: 'Salve, acesse e compartilhe seus workspaces de qualquer lugar, a qualquer hora.',
         icon: <LuSparkles className="h-5 w-5" />,
     },
 ];

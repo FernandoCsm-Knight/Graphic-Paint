@@ -222,6 +222,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
     const resizeBoundsRef = useRef<BoundingBox | null>(null);
     const vertexIdRef = useRef<string | null>(null);
     const rotatePivotRef = useRef<Point | null>(null);
+    const rotatePivotDocRef = useRef<Point | null>(null);
     const rotateStartAngleRef = useRef<number>(0);
     // Visual OBB overlay — angle and half-sizes are tracked independently from the
     // shape's (baked) geometry so the dashed box rotates with the shape.
@@ -269,6 +270,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         resizeBoundsRef.current = null;
         vertexIdRef.current = null;
         rotatePivotRef.current = null;
+        rotatePivotDocRef.current = null;
         rotateStartAngleRef.current = 0;
         overlayCenterRef.current = null;
         overlayAngleRef.current = 0;
@@ -650,12 +652,17 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
             // than shape.getCenter() (AABB center). After a previous rotation the AABB
             // grows, so its center drifts away from the true visual center of the OBB.
             const pivotPixel = overlayCenterRef.current ?? getBoundingBoxCenter(getShapeOverlayBoundingBox(shape));
+            const pointerDocPoint = getPointerDocPoint(shape, docPoint, canvasPoint);
             // Convert to shape-local coordinate space: grid units for pixelated, pixels for standard.
             const pivot = shape.pixelated
                 ? { x: pivotPixel.x / shape.pixelSize, y: pivotPixel.y / shape.pixelSize }
                 : pivotPixel;
             rotatePivotRef.current = pivot;
-            rotateStartAngleRef.current = Math.atan2(docPoint.y - pivot.y, docPoint.x - pivot.x) + Math.PI / 2;
+            rotatePivotDocRef.current = pivotPixel;
+            rotateStartAngleRef.current = Math.atan2(
+                pointerDocPoint.y - pivotPixel.y,
+                pointerDocPoint.x - pivotPixel.x,
+            ) + Math.PI / 2;
             overlayAngleBaseRef.current = overlayAngleRef.current;
             shape.beginRotate();
             pendingMode.current = 'rotate';
@@ -705,7 +712,15 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
             setCanvasCursor("grabbing");
         } else if (pendingMode.current === 'rotate') {
             const pivot = rotatePivotRef.current!;
-            const currentAngle = Math.atan2(docPoint.y - pivot.y, docPoint.x - pivot.x) + Math.PI / 2;
+            const pivotDoc = rotatePivotDocRef.current
+                ?? (shape.pixelated
+                    ? { x: pivot.x * shape.pixelSize, y: pivot.y * shape.pixelSize }
+                    : pivot);
+            const pointerDocPoint = getPointerDocPoint(shape, docPoint, canvasPoint);
+            const currentAngle = Math.atan2(
+                pointerDocPoint.y - pivotDoc.y,
+                pointerDocPoint.x - pivotDoc.x,
+            ) + Math.PI / 2;
             const delta = currentAngle - rotateStartAngleRef.current;
             shape.rotateBy(delta, pivot);
             // Re-read center from shape (_transformBounds updated by applyRotationToTransformFrame).
@@ -818,7 +833,11 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
             if (activeMode === 'resize') {
                 shape?.endResize();
             }
-            if (activeMode === 'rotate') { shape?.endRotate(); rotatePivotRef.current = null; }
+            if (activeMode === 'rotate') {
+                shape?.endRotate();
+                rotatePivotRef.current = null;
+                rotatePivotDocRef.current = null;
+            }
             // Re-sync overlay refs from the shape's baked geometry so subsequent
             // interactions (hover, next drag) use the authoritative post-operation state.
             if (shape) syncOverlayFromShape(shape);

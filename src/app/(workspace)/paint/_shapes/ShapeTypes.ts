@@ -155,6 +155,11 @@ export abstract class Shape extends SceneItem {
         return this._transformBounds ?? this.getBoundingBox();
     }
 
+    restoreTransformFrame(bounds: BoundingBox | null, rotation: number = 0): void {
+        this._transformBounds = bounds ? { ...bounds } : null;
+        this._transformRotation = rotation;
+    }
+
     abstract moveBy(dx: number, dy: number): void;
 
     /**

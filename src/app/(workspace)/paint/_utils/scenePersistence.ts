@@ -27,10 +27,19 @@ import FillShape from '@/app/(workspace)/paint/_shapes/FillShape';
 import ClearRectItem from '@/app/(workspace)/paint/_shapes/ClearRectItem';
 import ImageShape from '@/app/(workspace)/paint/_shapes/ImageShape';
 import ShapeGroup from '@/app/(workspace)/paint/_shapes/ShapeGroup';
+import type { BoundingBox } from '@/app/(workspace)/paint/_shapes/ShapeTypes';
 
-type SerializedSceneItem = {
+export type SerializedSceneItem = {
     kind: string;
     data: Record<string, unknown>;
+};
+
+export type PaintClipboardShapePayload = {
+    item: SerializedSceneItem;
+    pixelated: boolean;
+    pixelSize: number;
+    overlayBounds: BoundingBox | null;
+    visualRotation: number;
 };
 
 const ZERO_POINT = { x: 0, y: 0 };
@@ -514,4 +523,27 @@ export async function deserializePaintScene(
     );
 
     return items.filter((item): item is SceneItem => item !== null);
+}
+
+export async function serializePaintClipboardShape(shape: Shape): Promise<PaintClipboardShapePayload | null> {
+    const item = await serializeSceneItem(shape);
+    if (!item) return null;
+
+    return {
+        item,
+        pixelated: shape.pixelated,
+        pixelSize: shape.pixelSize,
+        overlayBounds: shape.getOverlayBounds(),
+        visualRotation: shape.getVisualRotation(),
+    };
+}
+
+export async function deserializePaintClipboardShape(
+    payload: PaintClipboardShapePayload,
+): Promise<Shape | null> {
+    const item = await deserializeSceneItem(payload.item);
+    if (!(item instanceof Shape)) return null;
+
+    item.restoreTransformFrame(payload.overlayBounds, payload.visualRotation);
+    return item;
 }

@@ -5,10 +5,12 @@ import { SettingsContext } from "../_context/SettingsContext";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import useWorkspaceViewport from "@/hooks/useWorkspaceViewport";
 import { drawGrid, getGridCellSize } from "@/utils/workspaceGrid";
-import { ClipboardImageLoader } from "../_utils/ClipboardImageLoader";
-import { deserializePaintScene, serializePaintScene } from "../_utils/scenePersistence";
-import ImageShape from "../_shapes/ImageShape";
+import {
+    deserializePaintScene,
+    serializePaintScene,
+} from "../_utils/scenePersistence";
 import useDrawingHandlers from "./useDrawingHandlers";
+import usePaintClipboard from "./usePaintClipboard";
 import useScene from "./useScene";
 import type { PaintProjectSnapshot } from '@/lib/workspace/projectPersistence.schemas';
 
@@ -310,47 +312,25 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         renderViewport();
     }, [contextRef, pushShape, takeSnapshotShape, renderViewport]);
 
-    const copySnapshot = useCallback(() => {
-        const docCanvas = documentCanvasRef.current;
-        if (!docCanvas) return;
-        docCanvas.toBlob(async (blob) => {
-            if (blob) {
-                try {
-                    await ClipboardImageLoader.copyImageToClipboard(blob);
-                    alert('Imagem copiada para a área de transferência');
-                } catch {
-                    alert('Falha ao copiar a imagem para a área de transferência');
-                }
-            }
-        }, 'image/png');
-    }, []);
-
-    const pasteSnapshot = useCallback(async () => {
-        const ctx = contextRef.current;
-        const container = containerRef.current;
-        if (!ctx) return;
-        try {
-            if (pendingShapeRef.current !== null) {
-                confirmPendingShape();
-            }
-            const img = await ClipboardImageLoader.loadImageFromClipboard();
-
-            // Place the image centered on the current viewport instead of (0, 0).
-            const vpW = container?.clientWidth  ?? ctx.canvas.width;
-            const vpH = container?.clientHeight ?? ctx.canvas.height;
-            const worldCenterX = (vpW / 2 - viewOffset.x) / zoom;
-            const worldCenterY = (vpH / 2 - viewOffset.y) / zoom;
-            const x = Math.round(worldCenterX - img.naturalWidth  / 2);
-            const y = Math.round(worldCenterY - img.naturalHeight / 2);
-
-            const imageShape = new ImageShape(img, x, y, img.naturalWidth, img.naturalHeight);
-            redrawFromScene(ctx);
-            imageShape.draw(ctx);
-            enterPendingShape(imageShape);
-        } catch {
-            alert('Falha ao colar imagem da área de transferência');
-        }
-    }, [confirmPendingShape, containerRef, contextRef, enterPendingShape, pendingShapeRef, redrawFromScene, viewOffset, zoom]);
+    const {
+        copySnapshot,
+        pasteSnapshot,
+        copyPendingShapeToClipboard,
+        hasShapeClipboard,
+        isShapeClipboardCurrent,
+        pasteShapeFromClipboard,
+    } = usePaintClipboard({
+        contextRef,
+        containerRef,
+        documentCanvasRef,
+        pendingShapeRef,
+        viewOffset,
+        zoom,
+        pushShape,
+        redrawFromScene,
+        enterPendingShape,
+        confirmPendingShape,
+    });
 
     useEffect(() => {
         const setupCanvas = () => {
@@ -451,6 +431,10 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         undo,
         redo,
         pasteSnapshot,
+        copyPendingShapeToClipboard,
+        hasShapeClipboard,
+        isShapeClipboardCurrent,
+        pasteShapeFromClipboard,
         copySnapshot,
         saveSnapshot,
         lockButtonRef,

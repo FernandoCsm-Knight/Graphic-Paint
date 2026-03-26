@@ -86,11 +86,20 @@ export default class Circle extends Shape {
 
     resizeToBoundingBox(bounds: BoundingBox, options: ResizeOptions = {}): boolean {
         void options;
-        const center = {
+        const localCenter = {
             x: bounds.x + bounds.width / 2,
             y: bounds.y + bounds.height / 2,
         };
         const radius = Math.max(bounds.width, bounds.height) / 2;
+        const center = this._resizeRotation !== 0 && this._resizeCenter
+            ? this.rotateOnePoint(
+                localCenter,
+                this._resizeCenter,
+                Math.cos(this._resizeRotation),
+                Math.sin(this._resizeRotation),
+                false,
+            )
+            : localCenter;
 
         this.center = this.pixelated
             ? { x: Math.round(center.x), y: Math.round(center.y) }

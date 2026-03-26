@@ -1,5 +1,6 @@
 import { Shape, type BoundingBox, type ResizeOptions, type ShapeOptions } from "./ShapeTypes";
 import type { Point } from "@/types/geometry";
+import { getShapeVertices } from "../_utils/vertexUtils";
 
 /**
  * A temporary container used during pending placement for pixelated selections.
@@ -70,12 +71,17 @@ export default class ShapeGroup extends Shape {
         center: Point = this.getCenter(),
     ): void {
         this._groupOriginalBounds = bounds;
-        this._childOriginalBounds = this.shapes.map(s => s.getBoundingBox());
+        this._childOriginalBounds = this.shapes.map((shape) =>
+            this.getChildBoundsInGroupSpace(shape, center, rotation)
+        );
         this._resizeOriginalBounds = bounds;
         this._resizeRotation = rotation;
         this._resizeCenter = { ...center };
         this.setTransformFrame(bounds, rotation);
-        for (const s of this.shapes) s.beginResize();
+        for (let i = 0; i < this.shapes.length; i++) {
+            const childBounds = this._childOriginalBounds[i];
+            this.shapes[i].beginResize(childBounds, rotation, center);
+        }
     }
 
     override endResize(): void {
@@ -94,9 +100,11 @@ export default class ShapeGroup extends Shape {
      */
     resizeToBoundingBox(bounds: BoundingBox, options: ResizeOptions = {}): boolean {
         const old      = this._groupOriginalBounds ?? this.getBoundingBox();
-        const originals = this._childOriginalBounds ?? this.shapes.map(s => s.getBoundingBox());
         const resizeCenter = this._resizeCenter ?? this.getCenter();
         const rotation = this._resizeRotation;
+        const originals = this._childOriginalBounds ?? this.shapes.map((shape) =>
+            this.getChildBoundsInGroupSpace(shape, resizeCenter, rotation)
+        );
         if (old.width === 0 || old.height === 0) return false;
         if (bounds.width === 0 || bounds.height === 0) return false;
 
@@ -104,10 +112,7 @@ export default class ShapeGroup extends Shape {
         const scaleY = bounds.height / old.height;
 
         for (let i = 0; i < this.shapes.length; i++) {
-            const sb = originals[i];
-            const sourceBounds = rotation === 0
-                ? sb
-                : this.projectBoundingBox(sb, resizeCenter, -rotation);
+            const sourceBounds = originals[i];
             const nextBounds = {
                 x: options.flipX
                     ? bounds.x + (old.x + old.width - (sourceBounds.x + sourceBounds.width)) * scaleX
@@ -118,11 +123,10 @@ export default class ShapeGroup extends Shape {
                 width:  sourceBounds.width  * scaleX,
                 height: sourceBounds.height * scaleY,
             };
-            this.shapes[i].resizeToBoundingBox({
-                ...(rotation === 0
-                    ? nextBounds
-                    : this.projectBoundingBox(nextBounds, resizeCenter, rotation)),
-            }, options);
+            this.shapes[i].resizeToBoundingBox(
+                this.normalizeAspectLockedBounds(this.shapes[i], nextBounds),
+                options,
+            );
         }
         this.applyResizeToTransformFrame(bounds, rotation);
         return true;
@@ -138,6 +142,50 @@ export default class ShapeGroup extends Shape {
     }
     standardDraw(ctx: CanvasRenderingContext2D): void {
         for (const s of this.shapes) s.draw(ctx);
+    }
+
+    private getChildBoundsInGroupSpace(shape: Shape, pivot: Point, rotation: number): BoundingBox {
+        const vertices = getShapeVertices(shape);
+        if (vertices.length > 0) {
+            const points = vertices.map(({ point }) =>
+                rotation === 0
+                    ? point
+                    : this.rotateOnePoint(point, pivot, Math.cos(-rotation), Math.sin(-rotation), false)
+            );
+            return this.boundingBoxFromPoints(points);
+        }
+
+        const overlayBounds = shape.getOverlayBounds();
+        return rotation === 0
+            ? overlayBounds
+            : this.projectBoundingBox(overlayBounds, pivot, -rotation);
+    }
+
+    private boundingBoxFromPoints(points: Point[]): BoundingBox {
+        const xs = points.map((point) => point.x);
+        const ys = points.map((point) => point.y);
+        return {
+            x: Math.min(...xs),
+            y: Math.min(...ys),
+            width: Math.max(...xs) - Math.min(...xs),
+            height: Math.max(...ys) - Math.min(...ys),
+        };
+    }
+
+    private normalizeAspectLockedBounds(shape: Shape, bounds: BoundingBox): BoundingBox {
+        if (shape.kind !== 'circle' && shape.kind !== 'square') return bounds;
+
+        const size = Math.min(bounds.width, bounds.height);
+        const center = {
+            x: bounds.x + bounds.width / 2,
+            y: bounds.y + bounds.height / 2,
+        };
+        return {
+            x: center.x - size / 2,
+            y: center.y - size / 2,
+            width: size,
+            height: size,
+        };
     }
 
     private projectBoundingBox(bounds: BoundingBox, pivot: Point, angle: number): BoundingBox {
@@ -159,4 +207,5 @@ export default class ShapeGroup extends Shape {
             height: Math.max(...ys) - Math.min(...ys),
         };
     }
+
 }
