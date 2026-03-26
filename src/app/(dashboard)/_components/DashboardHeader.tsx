@@ -24,7 +24,7 @@ export default function DashboardHeader({ userEmail }: { userEmail: string }) {
                             Graphic Paint
                         </p>
                         <p className="theme-sidebar-title mt-1 text-base font-semibold">
-                            Workspace hub
+                            Central do workspace
                         </p>
                     </div>
                 </Link>

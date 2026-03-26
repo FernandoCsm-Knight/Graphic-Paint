@@ -5,6 +5,7 @@ import type { ClipAlgorithm } from "../_context/SettingsContext";
 import type { SceneItem } from "../_hooks/useScene";
 import { Shape, type BoundingBox } from "../_shapes/ShapeTypes";
 import {
+    getShapeLocalBoundingBox,
     normalizeGridBoundingBox,
     unionBoundingBoxes,
 } from "./boundingBox";
@@ -80,7 +81,7 @@ const getCombinedPixelBounds = (shapes: PixelClipShape[]): BoundingBox | null =>
     let bounds: BoundingBox | null = null;
 
     for (const shape of shapes) {
-        const nextBounds = normalizeGridBoundingBox(shape.getBoundingBox());
+        const nextBounds = normalizeGridBoundingBox(getShapeLocalBoundingBox(shape));
         bounds = bounds === null ? nextBounds : unionBoundingBoxes(bounds, nextBounds);
     }
 

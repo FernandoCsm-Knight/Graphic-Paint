@@ -67,9 +67,11 @@ export default class Arrow extends Shape {
         this.start.y += dy;
         this.end.x += dx;
         this.end.y += dy;
+        this.moveTransformFrame(dx, dy);
     }
 
     override beginRotate(): void {
+        this.beginRotateTransformFrame();
         this._rotateOriginalPoints = [{ ...this.start }, { ...this.end }];
     }
 
@@ -80,6 +82,7 @@ export default class Arrow extends Shape {
         const srcEnd   = frozen?.[1] ?? this.end;
         this.start = this.rotateOnePoint(srcStart, pivot, cos, sin);
         this.end   = this.rotateOnePoint(srcEnd,   pivot, cos, sin);
+        this.applyRotationToTransformFrame(angle, pivot);
     }
 
     override beginResize(
@@ -91,6 +94,7 @@ export default class Arrow extends Shape {
         this._resizeOriginalBounds = bounds;
         this._resizeRotation = rotation;
         this._resizeCenter = { ...center };
+        this.setTransformFrame(bounds, rotation);
     }
 
     resizeToBoundingBox(bounds: BoundingBox, options: ResizeOptions = {}): boolean {
@@ -99,6 +103,7 @@ export default class Arrow extends Shape {
         const srcBounds = this._resizeOriginalBounds ?? this.getBoundingBox();
         this.start = this.mapPointToBoundingBox(srcStart, srcBounds, bounds, options);
         this.end   = this.mapPointToBoundingBox(srcEnd,   srcBounds, bounds, options);
+        this.applyResizeToTransformFrame(bounds, this._resizeRotation);
         return true;
     }
 };

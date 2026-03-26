@@ -195,6 +195,9 @@ async function serializeSceneItem(item: SceneItem): Promise<SerializedSceneItem 
                 y: item.y,
                 width: item.width,
                 height: item.height,
+                rotation: item.rotation,
+                flipX: item.flipX,
+                flipY: item.flipY,
                 dataUrl,
             },
         };
@@ -439,6 +442,9 @@ async function deserializeSceneItem(item: SerializedSceneItem): Promise<SceneIte
                 getShapeOptions(data),
             );
             applyCommonShapeData(shape, data);
+            shape.rotation = typeof data.rotation === 'number' ? data.rotation : shape.rotation;
+            shape.flipX = Boolean(data.flipX);
+            shape.flipY = Boolean(data.flipY);
             return shape;
         }
         case 'freeform':

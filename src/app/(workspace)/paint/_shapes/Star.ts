@@ -47,10 +47,7 @@ export default class Star extends Shape {
     }
 
     moveBy(dx: number, dy: number): void {
-        for(const point of this.points) {
-            point.x += dx;
-            point.y += dy;
-        }
+        this.translatePointCollection(this.points, dx, dy);
     }
 
     rotateBy(angle: number, pivot: Point): void {

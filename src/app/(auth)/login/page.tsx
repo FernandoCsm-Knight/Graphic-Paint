@@ -62,7 +62,7 @@ export default function LoginPage() {
         const result = await response.json() as { error?: string; redirectTo?: string };
 
         if (!response.ok || result.error) {
-            setError(result.error ?? 'Nao foi possivel entrar agora.');
+            setError(result.error ?? 'Não foi possível entrar agora.');
             setLoading(false);
             return;
         }
@@ -74,8 +74,8 @@ export default function LoginPage() {
     return (
         <AuthShell
             badge="Entrar"
-            title="Acesse sua workspace e continue exatamente de onde parou."
-            description="Projetos, modulos e exploracoes ficam no mesmo sistema visual. O login agora acompanha a mesma presenca da nova landing."
+            title="Acesse seu workspace e continue exatamente de onde parou."
+            description="Projetos, módulos e explorações ficam no mesmo sistema visual. O login agora acompanha a mesma presença da nova landing."
             activeModuleId="paint"
         >
             <div className="rounded-[1.6rem] border p-5 sm:p-6" style={{ borderColor: 'var(--app-sidebar-border)' }}>
@@ -87,7 +87,7 @@ export default function LoginPage() {
                         Bem-vindo de volta
                     </h1>
                     <p className="theme-sidebar-copy mt-3 text-sm leading-7">
-                        Entre para abrir seus projetos, navegar pelos modulos e continuar o fluxo sem sair da mesma identidade do produto.
+                        Entre para abrir seus projetos, navegar pelos módulos e continuar o fluxo sem sair da mesma identidade do produto.
                     </p>
                 </div>
 
@@ -161,7 +161,7 @@ export default function LoginPage() {
                     }}
                 >
                     <p className="theme-sidebar-copy text-sm leading-7">
-                        Ainda nao tem conta?{' '}
+                        Ainda não tem conta?{' '}
                         <Link
                             href={nextPath === '/dashboard' ? '/register' : `/register?next=${encodeURIComponent(nextPath)}`}
                             className="font-semibold underline"
@@ -183,7 +183,7 @@ export default function LoginPage() {
                         Prefere testar primeiro?
                     </p>
                     <p className="theme-sidebar-copy mt-2 text-sm leading-7">
-                        Entre como convidado para usar o modulo sem dashboard e sem salvamento online.
+                        Entre como convidado para usar o módulo sem dashboard e sem salvamento online.
                     </p>
                     <Link
                         href={guestPath}

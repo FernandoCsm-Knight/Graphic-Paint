@@ -108,12 +108,25 @@ export default class Ellipse extends Shape {
 
     getCenter() { return { x: this.center.x, y: this.center.y }; }
 
+    override getVisualRotation(): number { return this.ellipseAngle; }
+
+    override getOverlayBounds(): BoundingBox {
+        return {
+            x: this.center.x - this.radiusX,
+            y: this.center.y - this.radiusY,
+            width: this.radiusX * 2,
+            height: this.radiusY * 2,
+        };
+    }
+
     moveBy(dx: number, dy: number): void {
         this.center.x += dx;
         this.center.y += dy;
+        this.moveTransformFrame(dx, dy);
     }
 
     override beginRotate(): void {
+        this.beginRotateTransformFrame();
         this._frozenCenter = { ...this.center };
         this._frozenAngle = this.ellipseAngle;
     }
@@ -127,6 +140,7 @@ export default class Ellipse extends Shape {
         const src = this._frozenCenter ?? this.center;
         this.center = this.rotateOnePoint(src, pivot, cos, sin);
         this.ellipseAngle = this._frozenAngle + angle;
+        this.applyRotationToTransformFrame(angle, pivot);
     }
 
     resizeToBoundingBox(bounds: BoundingBox, options: ResizeOptions = {}): boolean {
@@ -142,6 +156,7 @@ export default class Ellipse extends Shape {
         this.radiusX = this.pixelated ? Math.round(bounds.width / 2) : bounds.width / 2;
         this.radiusY = this.pixelated ? Math.round(bounds.height / 2) : bounds.height / 2;
         this.ellipseAngle = this._resizeRotation;
+        this.applyResizeToTransformFrame(bounds, this.ellipseAngle);
         return true;
     }
 };

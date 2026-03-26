@@ -42,9 +42,11 @@ export default class ShapeGroup extends Shape {
         this._groupOriginalBounds = null;
         this._childOriginalBounds = null;
         for (const s of this.shapes) s.moveBy(dx, dy);
+        this.moveTransformFrame(dx, dy);
     }
 
     override beginRotate(): void {
+        this.beginRotateTransformFrame();
         for (const s of this.shapes) s.beginRotate();
     }
 
@@ -59,6 +61,7 @@ export default class ShapeGroup extends Shape {
      */
     rotateBy(angle: number, pivot: Point): void {
         for (const s of this.shapes) s.rotateBy(angle, pivot);
+        this.applyRotationToTransformFrame(angle, pivot);
     }
 
     override beginResize(
@@ -71,6 +74,7 @@ export default class ShapeGroup extends Shape {
         this._resizeOriginalBounds = bounds;
         this._resizeRotation = rotation;
         this._resizeCenter = { ...center };
+        this.setTransformFrame(bounds, rotation);
         for (const s of this.shapes) s.beginResize();
     }
 
@@ -91,6 +95,8 @@ export default class ShapeGroup extends Shape {
     resizeToBoundingBox(bounds: BoundingBox, options: ResizeOptions = {}): boolean {
         const old      = this._groupOriginalBounds ?? this.getBoundingBox();
         const originals = this._childOriginalBounds ?? this.shapes.map(s => s.getBoundingBox());
+        const resizeCenter = this._resizeCenter ?? this.getCenter();
+        const rotation = this._resizeRotation;
         if (old.width === 0 || old.height === 0) return false;
         if (bounds.width === 0 || bounds.height === 0) return false;
 
@@ -99,17 +105,26 @@ export default class ShapeGroup extends Shape {
 
         for (let i = 0; i < this.shapes.length; i++) {
             const sb = originals[i];
-            this.shapes[i].resizeToBoundingBox({
+            const sourceBounds = rotation === 0
+                ? sb
+                : this.projectBoundingBox(sb, resizeCenter, -rotation);
+            const nextBounds = {
                 x: options.flipX
-                    ? bounds.x + (old.x + old.width - (sb.x + sb.width)) * scaleX
-                    : bounds.x + (sb.x - old.x) * scaleX,
+                    ? bounds.x + (old.x + old.width - (sourceBounds.x + sourceBounds.width)) * scaleX
+                    : bounds.x + (sourceBounds.x - old.x) * scaleX,
                 y: options.flipY
-                    ? bounds.y + (old.y + old.height - (sb.y + sb.height)) * scaleY
-                    : bounds.y + (sb.y - old.y) * scaleY,
-                width:  sb.width  * scaleX,
-                height: sb.height * scaleY,
+                    ? bounds.y + (old.y + old.height - (sourceBounds.y + sourceBounds.height)) * scaleY
+                    : bounds.y + (sourceBounds.y - old.y) * scaleY,
+                width:  sourceBounds.width  * scaleX,
+                height: sourceBounds.height * scaleY,
+            };
+            this.shapes[i].resizeToBoundingBox({
+                ...(rotation === 0
+                    ? nextBounds
+                    : this.projectBoundingBox(nextBounds, resizeCenter, rotation)),
             }, options);
         }
+        this.applyResizeToTransformFrame(bounds, rotation);
         return true;
     }
 
@@ -123,5 +138,25 @@ export default class ShapeGroup extends Shape {
     }
     standardDraw(ctx: CanvasRenderingContext2D): void {
         for (const s of this.shapes) s.draw(ctx);
+    }
+
+    private projectBoundingBox(bounds: BoundingBox, pivot: Point, angle: number): BoundingBox {
+        const corners: Point[] = [
+            { x: bounds.x, y: bounds.y },
+            { x: bounds.x + bounds.width, y: bounds.y },
+            { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+            { x: bounds.x, y: bounds.y + bounds.height },
+        ];
+        const projected = corners.map((corner) =>
+            this.rotateOnePoint(corner, pivot, Math.cos(angle), Math.sin(angle), false)
+        );
+        const xs = projected.map((point) => point.x);
+        const ys = projected.map((point) => point.y);
+        return {
+            x: Math.min(...xs),
+            y: Math.min(...ys),
+            width: Math.max(...xs) - Math.min(...xs),
+            height: Math.max(...ys) - Math.min(...ys),
+        };
     }
 }

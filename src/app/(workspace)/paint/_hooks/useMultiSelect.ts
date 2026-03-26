@@ -5,12 +5,15 @@ import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import { ReplacementContext } from "../_context/ReplacementContext";
 import { SettingsContext } from "../_context/SettingsContext";
 import { Shape } from "../_shapes/ShapeTypes";
-import { getShapeBoundingBoxInDocSpace } from "../_utils/boundingBox";
+import {
+    getShapeDocBoundingBox,
+    normalizeBoundingBox,
+    rectsIntersect,
+} from "../_utils/boundingBox";
 import ShapeGroup from "../_shapes/ShapeGroup";
 import type { SceneItem } from "./useScene";
 import type { EnterPendingOptions } from "./usePendingPlacement";
 import type { Point } from "@/types/geometry";
-import type { BoundingBox } from "../_shapes/ShapeTypes";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,15 +55,6 @@ function drawDashedRect(
     overlay.setLineDash([]);
 }
 
-function rectsIntersect(a: BoundingBox, b: BoundingBox): boolean {
-    return (
-        a.x < b.x + b.width &&
-        a.x + a.width > b.x &&
-        a.y < b.y + b.height &&
-        a.y + a.height > b.y
-    );
-}
-
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 const useMultiSelect = ({
@@ -100,11 +94,8 @@ const useMultiSelect = ({
         const s = selStart.current;
         const e = selEnd.current;
         if (!s || !e) return;
-        const sx = Math.min(s.x, e.x);
-        const sy = Math.min(s.y, e.y);
-        const w  = Math.abs(e.x - s.x);
-        const h  = Math.abs(e.y - s.y);
-        selectionItemRef.current.update(() => drawSelectionOverlay(sx, sy, w, h));
+        const bounds = normalizeBoundingBox(s, e);
+        selectionItemRef.current.update(() => drawSelectionOverlay(bounds.x, bounds.y, bounds.width, bounds.height));
     }, [selectionItemRef, drawSelectionOverlay]);
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -113,18 +104,16 @@ const useMultiSelect = ({
         selStart.current = point;
         selEnd.current   = point;
         phase.current    = 'drawing';
-        selectionItemRef.current.update(() => drawSelectionOverlay(point.x, point.y, 0, 0));
+        const bounds = normalizeBoundingBox(point, point);
+        selectionItemRef.current.update(() => drawSelectionOverlay(bounds.x, bounds.y, bounds.width, bounds.height));
         renderViewport();
     }, [renderViewport, drawSelectionOverlay, selectionItemRef]);
 
     const updateMultiSelect = useCallback((point: Point) => {
         if (!selStart.current) return;
         selEnd.current = point;
-        const sx = Math.min(selStart.current.x, point.x);
-        const sy = Math.min(selStart.current.y, point.y);
-        const w  = Math.abs(point.x - selStart.current.x);
-        const h  = Math.abs(point.y - selStart.current.y);
-        selectionItemRef.current.update(() => drawSelectionOverlay(sx, sy, w, h));
+        const bounds = normalizeBoundingBox(selStart.current, point);
+        selectionItemRef.current.update(() => drawSelectionOverlay(bounds.x, bounds.y, bounds.width, bounds.height));
         renderViewport();
     }, [renderViewport, drawSelectionOverlay, selectionItemRef]);
 
@@ -144,22 +133,17 @@ const useMultiSelect = ({
             return;
         }
 
-        const sx = Math.min(selStart.current.x, selEnd.current.x);
-        const sy = Math.min(selStart.current.y, selEnd.current.y);
-        const sw = Math.abs(selEnd.current.x - selStart.current.x);
-        const sh = Math.abs(selEnd.current.y - selStart.current.y);
+        const selectionBounds = normalizeBoundingBox(selStart.current, selEnd.current);
 
         phase.current    = 'idle';
         selStart.current = null;
         selEnd.current   = null;
         selectionItemRef.current.update(null);
 
-        if (sw < 2 || sh < 2) {
+        if (selectionBounds.width < 2 || selectionBounds.height < 2) {
             renderViewport();
             return;
         }
-
-        const selRect: BoundingBox = { x: sx, y: sy, width: sw, height: sh };
 
         // Search all Shape instances in the scene. The freehand cut now stores a
         // ClearRectItem (not a checkpoint) so shapes before a cut remain in the
@@ -167,8 +151,9 @@ const useMultiSelect = ({
         const scene = sceneRef.current;
         const selected = scene.filter(item => {
             if (!(item instanceof Shape)) return false;
-            const bb = getShapeBoundingBoxInDocSpace(item);
-            return rectsIntersect(selRect, bb);
+            if (item.pixelated !== pixelated) return false;
+            const bb = getShapeDocBoundingBox(item);
+            return rectsIntersect(selectionBounds, bb);
         }) as Shape[];
 
         if (selected.length === 0) {
@@ -180,6 +165,16 @@ const useMultiSelect = ({
         const capturedScene = [...scene];
         replaceScene(scene.filter(item => !selected.includes(item as Shape)));
         redrawFromScene(ctx);
+
+        if (selected.length === 1 && !(selected[0] instanceof ShapeGroup)) {
+            const shape = selected[0];
+            enterPendingShape(shape, {
+                onCancel: () => {
+                    replaceScene(capturedScene);
+                },
+            });
+            return;
+        }
 
         // If exactly one ShapeGroup was selected, enter pending with it directly
         // so it stays as a group and the user can ungroup via the lock button.

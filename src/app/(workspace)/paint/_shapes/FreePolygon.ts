@@ -47,10 +47,7 @@ export default class FreePolygon extends Shape {
     }
 
     moveBy(dx: number, dy: number): void {
-        for (const pt of this.points) {
-            pt.x += dx;
-            pt.y += dy;
-        }
+        this.translatePointCollection(this.points, dx, dy);
     }
 
     rotateBy(angle: number, pivot: Point): void {

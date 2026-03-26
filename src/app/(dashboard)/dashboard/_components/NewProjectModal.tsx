@@ -12,7 +12,7 @@ type Module = 'paint' | 'graph' | 'automaton';
 const MODULES: { id: Module; label: string; summary: string }[] = [
     { id: 'paint', label: 'Paint', summary: 'Canvas e desenho visual.' },
     { id: 'graph', label: 'Graph', summary: 'Grafos e algoritmos.' },
-    { id: 'automaton', label: 'Automaton', summary: 'Automatos e simulacoes.' },
+    { id: 'automaton', label: 'Automaton', summary: 'Autômatos e simulações.' },
 ];
 
 type Props = {
@@ -63,10 +63,10 @@ export default function NewProjectModal({ folders, defaultFolderId, onClose, onC
                             Novo projeto
                         </p>
                         <h2 className="theme-sidebar-title mt-3 text-3xl font-black tracking-[-0.03em]">
-                            Crie um novo espaco de trabalho
+                            Crie um novo espaço de trabalho
                         </h2>
                         <p className="theme-sidebar-copy mt-3 max-w-xl text-sm leading-7">
-                            Escolha um modulo, defina um nome e organize em uma pasta se quiser.
+                            Escolha um módulo, defina um nome e organize em uma pasta se quiser.
                         </p>
                     </div>
 
@@ -91,14 +91,14 @@ export default function NewProjectModal({ folders, defaultFolderId, onClose, onC
                             onChange={(event) => setName(event.target.value)}
                             required
                             autoFocus
-                            placeholder="Ex: Arvore de estados"
+                            placeholder="Ex: Árvore de estados"
                             className="ui-input rounded-2xl px-4 py-3 text-sm outline-none"
                         />
                     </label>
 
                     <fieldset>
                         <legend className="theme-sidebar-copy-muted mb-3 text-xs font-semibold uppercase tracking-[0.22em]">
-                            Modulo
+                            Módulo
                         </legend>
                         <div className="grid gap-3 md:grid-cols-3">
                             {MODULES.map((item) => (
@@ -181,10 +181,10 @@ export default function NewProjectModal({ folders, defaultFolderId, onClose, onC
                             </span>
                             <div>
                                 <p className="theme-sidebar-title text-sm font-semibold">
-                                    {module === 'paint' ? 'Projeto de desenho' : module === 'graph' ? 'Projeto de grafo' : 'Projeto de automato'}
+                                    {module === 'paint' ? 'Projeto de desenho' : module === 'graph' ? 'Projeto de grafo' : 'Projeto de autômato'}
                                 </p>
                                 <p className="theme-sidebar-copy text-xs leading-6">
-                                    O projeto sera criado e aberto logo em seguida.
+                                    O projeto será criado e aberto logo em seguida.
                                 </p>
                             </div>
                         </div>

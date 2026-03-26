@@ -51,7 +51,7 @@ export default function RegisterPage() {
         const result = await response.json() as { error?: string; success?: boolean; redirectTo?: string };
 
         if (!response.ok || result.error) {
-            setError(result.error ?? 'Nao foi possivel criar sua conta agora.');
+            setError(result.error ?? 'Não foi possível criar sua conta agora.');
             setLoading(false);
         } else if (result.redirectTo) {
             router.replace(result.redirectTo);
@@ -66,7 +66,7 @@ export default function RegisterPage() {
         <AuthShell
             badge="Cadastro"
             title="Crie sua conta e entre em um workspace desenhado para explorar ideias visuais."
-            description="Cadastro, confirmacao e entrada agora acompanham a mesma presenca visual da landing e dos modulos do produto."
+            description="Cadastro, confirmação e entrada agora acompanham a mesma presença visual da landing e dos módulos do produto."
             activeModuleId="graph"
         >
             <div className="rounded-[1.6rem] border p-5 sm:p-6" style={{ borderColor: 'var(--app-sidebar-border)' }}>
@@ -84,13 +84,13 @@ export default function RegisterPage() {
                         </div>
 
                         <p className="theme-sidebar-copy-muted mt-5 text-[11px] font-semibold uppercase tracking-[0.3em]">
-                            Quase la
+                            Quase lá
                         </p>
                         <h1 className="theme-sidebar-title mt-3 text-3xl font-black tracking-[-0.03em]">
                             Verifique seu e-mail
                         </h1>
                         <p className="theme-sidebar-copy mt-4 text-sm leading-7">
-                            Enviamos um link de confirmacao para ativar sua conta. Depois disso, voce ja pode entrar e abrir sua workspace.
+                            Enviamos um link de confirmação para ativar sua conta. Depois disso, você já pode entrar e abrir seu workspace.
                         </p>
 
                         <div className="mt-6 rounded-2xl border px-4 py-4" style={{ borderColor: 'var(--app-sidebar-border)' }}>
@@ -151,7 +151,7 @@ export default function RegisterPage() {
                                         required
                                         minLength={8}
                                         autoComplete="new-password"
-                                        placeholder="No minimo 8 caracteres"
+                                        placeholder="No mínimo 8 caracteres"
                                         className="min-w-0 grow bg-transparent text-sm outline-none"
                                     />
                                 </div>
@@ -192,7 +192,7 @@ export default function RegisterPage() {
                             }}
                         >
                             <p className="theme-sidebar-copy text-sm leading-7">
-                                Ja tem conta?{' '}
+                                Já tem conta?{' '}
                                 <Link
                                     href={nextPath === '/dashboard' ? '/login' : `/login?next=${encodeURIComponent(nextPath)}`}
                                     className="font-semibold underline"

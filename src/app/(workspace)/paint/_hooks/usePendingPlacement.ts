@@ -7,7 +7,14 @@ import { Shape } from "../_shapes/ShapeTypes";
 import type { BoundingBox } from "../_shapes/ShapeTypes";
 import type { ResizeOptions } from "../_shapes/ShapeTypes";
 import ShapeGroup from "../_shapes/ShapeGroup";
-import { getShapeBoundingBoxInDocSpace, isPointInsideBoundingBoxInclusive } from "../_utils/boundingBox";
+import {
+    getBoundingBoxCenter,
+    getBoundingBoxCorners,
+    getShapeDocBoundingBox,
+    getShapeOverlayBoundingBox,
+    normalizeBoundingBox,
+    isPointInsideBoundingBoxInclusive
+} from "../_utils/boundingBox";
 import { getShapeVertices, moveShapeVertex } from "../_utils/vertexUtils";
 import type { SceneItem } from "./useScene";
 import type { Point } from "@/types/geometry";
@@ -79,22 +86,6 @@ const getRotationHandleWorld = (
     return { x: cx - localY * sin, y: cy + localY * cos };
 };
 
-const getBoundingBoxCenter = (bb: BoundingBox): Point => ({
-    x: bb.x + bb.width / 2,
-    y: bb.y + bb.height / 2,
-});
-
-const getBoundingBoxCorners = (bb: BoundingBox): Record<ResizeHandle, Point> => ({
-    nw: { x: bb.x, y: bb.y },
-    n: { x: bb.x + bb.width / 2, y: bb.y },
-    ne: { x: bb.x + bb.width, y: bb.y },
-    e: { x: bb.x + bb.width, y: bb.y + bb.height / 2 },
-    se: { x: bb.x + bb.width, y: bb.y + bb.height },
-    s: { x: bb.x + bb.width / 2, y: bb.y + bb.height },
-    sw: { x: bb.x, y: bb.y + bb.height },
-    w: { x: bb.x, y: bb.y + bb.height / 2 },
-});
-
 const getOverlayTransformFromBounds = (bb: BoundingBox, angle: number = 0): OverlayTransform => ({
     center: getBoundingBoxCenter(bb),
     angle,
@@ -132,14 +123,7 @@ const RESIZE_HANDLE_CONFIG: Record<ResizeHandle, ResizeHandleConfig> = {
     w: { position: { x: -0.5, y: 0 }, anchor: { x: 0.5, y: 0 }, affectsX: true, affectsY: false },
 };
 
-const getResizeBoundsInDocSpace = (shape: Shape): BoundingBox => getShapeBoundingBoxInDocSpace(shape);
-
-const normalizeBoundingBox = (first: Point, second: Point): BoundingBox => ({
-    x: Math.min(first.x, second.x),
-    y: Math.min(first.y, second.y),
-    width: Math.abs(second.x - first.x),
-    height: Math.abs(second.y - first.y),
-});
+const getResizeBoundsInDocSpace = (shape: Shape): BoundingBox => getShapeDocBoundingBox(shape);
 
 const toShapeBoundingBox = (shape: Shape, docBounds: BoundingBox): BoundingBox => {
     if (!shape.pixelated) return docBounds;
@@ -189,23 +173,6 @@ const toOverlayLocalPoint = (point: Point, transform: OverlayTransform): Point =
 
 const toOverlayWorldPoint = (point: Point, transform: OverlayTransform): Point =>
     rotatePointAround(point, transform.center, transform.angle);
-
-const toPixelatedShapeBoundingBox = (shape: Shape, docBounds: BoundingBox): BoundingBox => {
-    const { pixelSize } = shape;
-    const minX = Math.round(docBounds.x / pixelSize);
-    const minY = Math.round(docBounds.y / pixelSize);
-    const maxX = Math.round((docBounds.x + docBounds.width) / pixelSize);
-    const maxY = Math.round((docBounds.y + docBounds.height) / pixelSize);
-    return {
-        x: minX,
-        y: minY,
-        width: Math.max(0, maxX - minX - 1),
-        height: Math.max(0, maxY - minY - 1),
-    };
-};
-
-const toResizeBounds = (shape: Shape, docBounds: BoundingBox): BoundingBox =>
-    shape.pixelated ? toPixelatedShapeBoundingBox(shape, docBounds) : docBounds;
 
 const getResizeCursor = (handle: ResizeHandle, rotation: number): string => {
     const { position } = RESIZE_HANDLE_CONFIG[handle];
@@ -269,6 +236,15 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
     const isGroupLockedRef     = useRef<boolean>(false);
     const lockButtonRef        = useRef<HTMLButtonElement | null>(null);
 
+    /** Re-reads OBB state from the shape and writes it into the three overlay refs.
+     *  Call after any operation that mutates shape geometry (move, rotate, resize). */
+    const syncOverlayFromShape = (shape: Shape) => {
+        const bounds = getShapeOverlayBoundingBox(shape);
+        overlayCenterRef.current   = getBoundingBoxCenter(bounds);
+        overlayAngleRef.current    = shape.getVisualRotation();
+        overlayHalfSizeRef.current = { hw: bounds.width / 2, hh: bounds.height / 2 };
+    };
+
     const setCanvasCursor = useCallback((cursor: string) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -323,7 +299,8 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
 
         // Center is always derived from the current AABB (correct after baked rotation).
         const bb = getResizeBoundsInDocSpace(shape);
-        const overlayCenter = overlayCenterRef.current ?? getBoundingBoxCenter(bb);
+        const overlayBounds = getShapeOverlayBoundingBox(shape);
+        const overlayCenter = overlayCenterRef.current ?? getBoundingBoxCenter(overlayBounds);
         const cx = overlayCenter.x;
         const cy = overlayCenter.y;
 
@@ -507,7 +484,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
     const getHoverTarget = useCallback((shape: Shape, docPoint: Point, canvasPoint?: Point): HoverTarget => {
         const dpr = window.devicePixelRatio || 1;
         const bb = getResizeBoundsInDocSpace(shape);
-        const center = overlayCenterRef.current ?? getBoundingBoxCenter(bb);
+        const center = overlayCenterRef.current ?? getBoundingBoxCenter(getShapeOverlayBoundingBox(shape));
         const pointerDocPoint = getPointerDocPoint(shape, docPoint, canvasPoint);
         const toScreen = (p: Point) => ({
             x: (p.x * zoom + viewOffset.x) * dpr,
@@ -515,34 +492,10 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         });
         const screenPoint = toScreen(pointerDocPoint);
 
-        // ── Vertex mode ───────────────────────────────────────────────────────
-        if (placementMode === 'vertices') {
-            const vertices = getShapeVertices(shape);
-
-            if (vertices.length > 0) {
-                for (const v of vertices) {
-                    const vDocPos = vertexToDocSpace(v.point, shape);
-                    const vScreen = toScreen(vDocPos);
-                    if (Math.hypot(screenPoint.x - vScreen.x, screenPoint.y - vScreen.y) <= RESIZE_HANDLE_HIT_RADIUS_PX) {
-                        return { kind: 'vertex', vertexId: v.id, cursor: 'crosshair' };
-                    }
-                }
-
-                if (isPointInsideBoundingBoxInclusive(pointerDocPoint, bb)) {
-                    return { kind: 'move', cursor: 'move' };
-                }
-
-                return { kind: 'outside', cursor: '' };
-            }
-
-            // No vertices → fall through to bbox mode (Ellipse, Circle, etc.)
-        }
-
-        // ── BBox mode ─────────────────────────────────────────────────────────
+        // OBB dimensions and visual angle — shared by both vertex mode and bbox mode.
+        // Unrotating the pointer into OBB-local space lets hit-testing match the
+        // visually drawn (rotated) overlay for any shape.
         const handleDistDoc = ROTATION_HANDLE_DIST_PX / (zoom * dpr);
-
-        // OBB dimensions and visual angle — unrotate the pointer into OBB-local space
-        // so handle hit-testing matches the visually drawn (rotated) overlay.
         const halfSize = overlayHalfSizeRef.current;
         const obbHw = halfSize ? halfSize.hw : bb.width  / 2;
         const obbHh = halfSize ? halfSize.hh : bb.height / 2;
@@ -564,11 +517,37 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
             height: obbHh * 2,
         };
 
+        // ── Vertex mode ───────────────────────────────────────────────────────
+        if (placementMode === 'vertices') {
+            const vertices = getShapeVertices(shape);
+
+            if (vertices.length > 0) {
+                for (const v of vertices) {
+                    const vDocPos = vertexToDocSpace(v.point, shape);
+                    const vScreen = toScreen(vDocPos);
+                    if (Math.hypot(screenPoint.x - vScreen.x, screenPoint.y - vScreen.y) <= RESIZE_HANDLE_HIT_RADIUS_PX) {
+                        return { kind: 'vertex', vertexId: v.id, cursor: 'crosshair' };
+                    }
+                }
+
+                // Use the OBB in local space (same as bbox mode) so the move area
+                // matches the visual bounding box even after rotation.
+                if (isPointInsideBoundingBoxInclusive(localPointer, obbBb)) {
+                    return { kind: 'move', cursor: 'move' };
+                }
+
+                return { kind: 'outside', cursor: '' };
+            }
+
+            // No vertices → fall through to bbox mode (Ellipse, Circle, etc.)
+        }
+
+        // ── BBox mode ─────────────────────────────────────────────────────────
         for (const handle of ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as ResizeHandle[]) {
             const handleWorld = getHandleDrawPoint(obbBb, handle);
             const handleScreen = toScreen(handleWorld);
             if (Math.hypot(localScreenPoint.x - handleScreen.x, localScreenPoint.y - handleScreen.y) <= RESIZE_HANDLE_HIT_RADIUS_PX) {
-                return { kind: 'resize', handle, cursor: getResizeCursor(handle, 0) };
+                return { kind: 'resize', handle, cursor: getResizeCursor(handle, angle) };
             }
         }
 
@@ -592,11 +571,9 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         onConfirmCallbackRef.current = options?.onConfirm ?? null;
         onLockCallbackRef.current    = options?.onLock    ?? null;
         isGroupLockedRef.current     = options?.isGroupLocked ?? false;
-        // Capture OBB half-sizes from the initial AABB (angle starts at 0).
-        const initBb = getResizeBoundsInDocSpace(shape);
-        overlayCenterRef.current = getBoundingBoxCenter(initBb);
-        overlayHalfSizeRef.current = { hw: initBb.width / 2, hh: initBb.height / 2 };
         pendingShapeRef.current = shape;
+        syncOverlayFromShape(shape);
+        overlayAngleBaseRef.current = overlayAngleRef.current;
         flushPendingRender();
     }, [flushPendingRender, pendingShapeRef, resetPendingState]);
 
@@ -646,7 +623,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         if (hoverTarget.kind === 'resize') {
             pendingMode.current = 'resize';
             resizeHandleRef.current = hoverTarget.handle;
-            const resizeBounds = getResizeBoundsInDocSpace(shape);
+            const resizeBounds = getShapeOverlayBoundingBox(shape);
             const resizeCenter = getBoundingBoxCenter(resizeBounds);
             const halfSize = overlayHalfSizeRef.current ?? { hw: resizeBounds.width / 2, hh: resizeBounds.height / 2 };
             const resizeBox = {
@@ -669,11 +646,14 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         }
 
         if (hoverTarget.kind === 'rotate') {
-            // Use shape.getCenter() — always in the same coordinate space as docPoint
-            // (grid units for pixelated shapes, doc pixels for standard shapes).
-            // getResizeBoundsInDocSpace converts pixelated shapes to pixel space,
-            // which would mismatch docPoint and break the angle calculation.
-            const pivot = shape.getCenter();
+            // Derive the pivot from the OBB center (overlayCenterRef, pixel-space) rather
+            // than shape.getCenter() (AABB center). After a previous rotation the AABB
+            // grows, so its center drifts away from the true visual center of the OBB.
+            const pivotPixel = overlayCenterRef.current ?? getBoundingBoxCenter(getShapeOverlayBoundingBox(shape));
+            // Convert to shape-local coordinate space: grid units for pixelated, pixels for standard.
+            const pivot = shape.pixelated
+                ? { x: pivotPixel.x / shape.pixelSize, y: pivotPixel.y / shape.pixelSize }
+                : pivotPixel;
             rotatePivotRef.current = pivot;
             rotateStartAngleRef.current = Math.atan2(docPoint.y - pivot.y, docPoint.x - pivot.x) + Math.PI / 2;
             overlayAngleBaseRef.current = overlayAngleRef.current;
@@ -721,14 +701,15 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         } else if (pendingMode.current === 'move') {
             shape.moveBy(docPoint.x - dragStart.current.x, docPoint.y - dragStart.current.y);
             dragStart.current = docPoint;
-            overlayCenterRef.current = getBoundingBoxCenter(getResizeBoundsInDocSpace(shape));
+            syncOverlayFromShape(shape);
             setCanvasCursor("grabbing");
         } else if (pendingMode.current === 'rotate') {
             const pivot = rotatePivotRef.current!;
             const currentAngle = Math.atan2(docPoint.y - pivot.y, docPoint.x - pivot.x) + Math.PI / 2;
             const delta = currentAngle - rotateStartAngleRef.current;
             shape.rotateBy(delta, pivot);
-            overlayCenterRef.current = getPointerDocPoint(shape, pivot);
+            // Re-read center from shape (_transformBounds updated by applyRotationToTransformFrame).
+            overlayCenterRef.current = getBoundingBoxCenter(getShapeOverlayBoundingBox(shape));
             overlayAngleRef.current = overlayAngleBaseRef.current + delta;
             setCanvasCursor("grabbing");
         } else if (pendingMode.current === 'resize' && resizeHandleRef.current && resizeAnchorRef.current && resizeBoundsRef.current) {
@@ -838,6 +819,9 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
                 shape?.endResize();
             }
             if (activeMode === 'rotate') { shape?.endRotate(); rotatePivotRef.current = null; }
+            // Re-sync overlay refs from the shape's baked geometry so subsequent
+            // interactions (hover, next drag) use the authoritative post-operation state.
+            if (shape) syncOverlayFromShape(shape);
             if (activeMode === 'vertex') {
                 setCanvasCursor('crosshair');
             } else if (activeMode === 'resize' && activeHandle) {

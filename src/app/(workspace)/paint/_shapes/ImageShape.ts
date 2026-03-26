@@ -25,8 +25,7 @@ export default class ImageShape extends Shape {
     flipY: boolean = false;
 
     // Frozen at beginRotate() so every frame rotates from the original state.
-    private _frozenX: number = 0;
-    private _frozenY: number = 0;
+    private _frozenCenter: Point | null = null;
     private _frozenRotation: number = 0;
 
     constructor(
@@ -47,10 +46,8 @@ export default class ImageShape extends Shape {
 
     override draw(ctx: CanvasRenderingContext2D): void {
         if (this.rotation !== 0) {
-            const bb = this.getBoundingBox();
-            const cx = bb.x + bb.width  / 2;
-            const cy = bb.y + bb.height / 2;
-            const c = this.pixelated ? toPixels({ x: cx, y: cy }, this.pixelSize) : { x: cx, y: cy };
+            const center = this.getCenter();
+            const c = this.pixelated ? toPixels(center, this.pixelSize) : center;
             ctx.save();
             ctx.translate(c.x, c.y);
             ctx.rotate(this.rotation);
@@ -72,6 +69,29 @@ export default class ImageShape extends Shape {
     }
 
     getBoundingBox(): BoundingBox {
+        const corners = this.getRotatedCorners();
+        const xs = corners.map((point) => point.x);
+        const ys = corners.map((point) => point.y);
+        return {
+            x: Math.min(...xs),
+            y: Math.min(...ys),
+            width: Math.max(...xs) - Math.min(...xs),
+            height: Math.max(...ys) - Math.min(...ys),
+        };
+    }
+
+    override getCenter(): Point {
+        return {
+            x: this.x + this.width / 2,
+            y: this.y + this.height / 2,
+        };
+    }
+
+    override getVisualRotation(): number {
+        return this.rotation;
+    }
+
+    override getOverlayBounds(): BoundingBox {
         return {
             x: this.x,
             y: this.y,
@@ -86,21 +106,24 @@ export default class ImageShape extends Shape {
     }
 
     override beginRotate(): void {
-        this._frozenX = this.x;
-        this._frozenY = this.y;
+        this._frozenCenter = this.getCenter();
         this._frozenRotation = this.rotation;
     }
 
     override endRotate(): void {
-        // Nothing extra to clear (scalar fields, not arrays).
+        this._frozenCenter = null;
     }
 
     rotateBy(angle: number, pivot: Point): void {
         const cos = Math.cos(angle), sin = Math.sin(angle);
-        // Rotate the image's top-left corner around the pivot.
-        const dx = this._frozenX - pivot.x, dy = this._frozenY - pivot.y;
-        this.x = pivot.x + dx * cos - dy * sin;
-        this.y = pivot.y + dx * sin + dy * cos;
+        const srcCenter = this._frozenCenter ?? this.getCenter();
+        const dx = srcCenter.x - pivot.x;
+        const dy = srcCenter.y - pivot.y;
+        const nextCenter = {
+            x: pivot.x + dx * cos - dy * sin,
+            y: pivot.y + dx * sin + dy * cos,
+        };
+        this.setPositionFromCenter(nextCenter);
         this.rotation = this._frozenRotation + angle;
     }
 
@@ -124,5 +147,33 @@ export default class ImageShape extends Shape {
 
     standardDraw(ctx: CanvasRenderingContext2D): void {
         ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+    }
+
+    private setPositionFromCenter(center: Point): void {
+        const nextX = center.x - this.width / 2;
+        const nextY = center.y - this.height / 2;
+        this.x = this.pixelated ? Math.round(nextX) : nextX;
+        this.y = this.pixelated ? Math.round(nextY) : nextY;
+    }
+
+    private getRotatedCorners(): Point[] {
+        const center = this.getCenter();
+        const cos = Math.cos(this.rotation);
+        const sin = Math.sin(this.rotation);
+        const corners: Point[] = [
+            { x: this.x, y: this.y },
+            { x: this.x + this.width, y: this.y },
+            { x: this.x + this.width, y: this.y + this.height },
+            { x: this.x, y: this.y + this.height },
+        ];
+
+        return corners.map((corner) => {
+            const dx = corner.x - center.x;
+            const dy = corner.y - center.y;
+            return {
+                x: center.x + dx * cos - dy * sin,
+                y: center.y + dx * sin + dy * cos,
+            };
+        });
     }
 }

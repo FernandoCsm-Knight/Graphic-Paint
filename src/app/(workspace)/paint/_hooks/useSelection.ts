@@ -4,9 +4,10 @@ import { PaintContext } from "../_context/PaintContext";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import { ReplacementContext } from "../_context/ReplacementContext";
 import { SettingsContext } from "../_context/SettingsContext";
-import type { Shape } from "../_shapes/ShapeTypes";
+import { Shape } from "../_shapes/ShapeTypes";
 import {
     getInclusivePixelBoundingBox,
+    normalizeBoundingBox,
 } from "../_utils/boundingBox";
 import {
     clipSceneItemsToPixelBounds,
@@ -107,11 +108,8 @@ const useSelection = ({
             const rect = getInclusivePixelBoundingBox(bounds, pixelSize);
             selectionItemRef.current.update(() => drawSelectionOverlay(rect.x, rect.y, rect.width, rect.height));
         } else {
-            const sx = Math.min(s.x, e.x);
-            const sy = Math.min(s.y, e.y);
-            const w  = Math.abs(e.x - s.x);
-            const h  = Math.abs(e.y - s.y);
-            selectionItemRef.current.update(() => drawSelectionOverlay(sx, sy, w, h));
+            const bounds = normalizeBoundingBox(s, e);
+            selectionItemRef.current.update(() => drawSelectionOverlay(bounds.x, bounds.y, bounds.width, bounds.height));
         }
     }, [selectionItemRef, pixelated, pixelSize, drawSelectionOverlay]);
 
@@ -144,11 +142,8 @@ const useSelection = ({
             const rect = getInclusivePixelBoundingBox(bounds, pixelSize);
             selectionItemRef.current.update(() => drawSelectionOverlay(rect.x, rect.y, rect.width, rect.height));
         } else {
-            const sx = Math.min(selStart.current.x, nx);
-            const sy = Math.min(selStart.current.y, ny);
-            const w  = Math.abs(nx - selStart.current.x);
-            const h  = Math.abs(ny - selStart.current.y);
-            selectionItemRef.current.update(() => drawSelectionOverlay(sx, sy, w, h));
+            const bounds = normalizeBoundingBox(selStart.current, { x: nx, y: ny });
+            selectionItemRef.current.update(() => drawSelectionOverlay(bounds.x, bounds.y, bounds.width, bounds.height));
         }
         renderViewport();
     }, [snap, renderViewport, drawSelectionOverlay, pixelated, pixelSize, selectionItemRef]);
@@ -186,7 +181,7 @@ const useSelection = ({
             }
 
             const { floatingShapes, floatingBounds } = clipSceneItemsToPixelBounds({
-                scene: sceneRef.current,
+                scene: sceneRef.current.filter(item => !(item instanceof Shape) || item.pixelated),
                 clipAlgorithm,
                 bounds: selectionBounds,
             });
@@ -210,10 +205,8 @@ const useSelection = ({
                 },
             });
         } else {
-            const sx = Math.min(startPoint.x, endPoint.x);
-            const sy = Math.min(startPoint.y, endPoint.y);
-            const sw = Math.abs(endPoint.x - startPoint.x);
-            const sh = Math.abs(endPoint.y - startPoint.y);
+            const bounds = normalizeBoundingBox(startPoint, endPoint);
+            const { x: sx, y: sy, width: sw, height: sh } = bounds;
 
             if (sw < 2 || sh < 2) {
                 renderViewport();

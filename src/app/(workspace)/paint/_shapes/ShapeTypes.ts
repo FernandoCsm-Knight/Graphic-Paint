@@ -51,6 +51,8 @@ export abstract class Shape extends SceneItem {
     protected _resizeOriginalBounds: BoundingBox | null = null;
     protected _resizeRotation: number = 0;
     protected _resizeCenter: Point | null = null;
+    protected _transformBounds: BoundingBox | null = null;
+    protected _transformRotation: number = 0;
 
     // ── Rotate-origin cache ───────────────────────────────────────────────────
     // Populated by beginRotate() so that every rotateBy() call during a drag
@@ -58,6 +60,8 @@ export abstract class Shape extends SceneItem {
     // already-rounded current state, preventing accumulated rounding drift in
     // pixelated mode.
     protected _rotateOriginalPoints: Point[] | null = null;
+    protected _rotateOriginalTransformBounds: BoundingBox | null = null;
+    protected _rotateOriginalTransformRotation: number = 0;
 
     constructor(opts: ShapeOptions) {
         super();
@@ -106,6 +110,7 @@ export abstract class Shape extends SceneItem {
      * in a `points: Point[]` field (all polygon shapes).
      */
     beginRotate(): void {
+        this.beginRotateTransformFrame();
         const self = this as this & { points?: Point[] };
         if (Array.isArray(self.points)) {
             this._rotateOriginalPoints = self.points.map(p => ({ ...p }));
@@ -115,6 +120,7 @@ export abstract class Shape extends SceneItem {
     /** Called when the rotation drag ends. Clears the frozen origin. */
     endRotate(): void {
         this._rotateOriginalPoints = null;
+        this._rotateOriginalTransformBounds = null;
     }
 
     /**
@@ -131,6 +137,22 @@ export abstract class Shape extends SceneItem {
     getCenter(): Point {
         const bb = this.getBoundingBox();
         return { x: bb.x + bb.width / 2, y: bb.y + bb.height / 2 };
+    }
+
+    /**
+     * Returns the visual rotation angle used by the pending-placement overlay.
+     * Shapes with baked geometry can keep the default zero angle.
+     */
+    getVisualRotation(): number {
+        return this._transformRotation;
+    }
+
+    /**
+     * Returns the unrotated bounding box used as the overlay's local box.
+     * By default this is the regular bounding box.
+     */
+    getOverlayBounds(): BoundingBox {
+        return this._transformBounds ?? this.getBoundingBox();
     }
 
     abstract moveBy(dx: number, dy: number): void;
@@ -167,6 +189,7 @@ export abstract class Shape extends SceneItem {
         this._resizeOriginalBounds = bounds;
         this._resizeRotation = rotation;
         this._resizeCenter = { ...center };
+        this.setTransformFrame(bounds, rotation);
     }
 
     /** Called when the resize drag ends. Clears the cached origin. */
@@ -199,6 +222,7 @@ export abstract class Shape extends SceneItem {
             current[i].x = x;
             current[i].y = y;
         }
+        this.applyRotationToTransformFrame(angle, pivot);
     }
 
     /**
@@ -263,7 +287,75 @@ export abstract class Shape extends SceneItem {
             points[i].x = mapped.x;
             points[i].y = mapped.y;
         }
+        this.applyResizeToTransformFrame(nextBounds, this._resizeRotation);
         return true;
+    }
+
+    protected translatePointCollection(points: Point[], dx: number, dy: number): void {
+        for (const point of points) {
+            point.x += dx;
+            point.y += dy;
+        }
+        this.moveTransformFrame(dx, dy);
+    }
+
+    protected moveTransformFrame(dx: number, dy: number): void {
+        const bounds = this.getOverlayBounds();
+        this._transformBounds = {
+            x: bounds.x + dx,
+            y: bounds.y + dy,
+            width: bounds.width,
+            height: bounds.height,
+        };
+    }
+
+    protected setTransformFrame(bounds: BoundingBox, rotation: number = this._transformRotation): void {
+        this._transformBounds = { ...bounds };
+        this._transformRotation = rotation;
+    }
+
+    protected beginRotateTransformFrame(): void {
+        this._rotateOriginalTransformBounds = { ...this.getOverlayBounds() };
+        this._rotateOriginalTransformRotation = this.getVisualRotation();
+    }
+
+    protected applyRotationToTransformFrame(angle: number, pivot: Point): void {
+        const bounds = this._rotateOriginalTransformBounds ?? this.getOverlayBounds();
+        const center = {
+            x: bounds.x + bounds.width / 2,
+            y: bounds.y + bounds.height / 2,
+        };
+        const rotatedCenter = this.rotateOnePoint(center, pivot, Math.cos(angle), Math.sin(angle), false);
+        this._transformBounds = {
+            x: rotatedCenter.x - bounds.width / 2,
+            y: rotatedCenter.y - bounds.height / 2,
+            width: bounds.width,
+            height: bounds.height,
+        };
+        this._transformRotation = this._rotateOriginalTransformRotation + angle;
+    }
+
+    protected applyResizeToTransformFrame(bounds: BoundingBox, rotation: number = this._transformRotation): void {
+        if (rotation !== 0 && this._resizeCenter !== null) {
+            // `bounds` is expressed in OBB-local frame (the pointer was unrotated into it
+            // before the resize math). Rotate its centre back to world space so that
+            // _transformBounds is always a world-space OBB (centre at world position,
+            // width/height = pre-rotation dimensions), consistent with the convention
+            // used by applyRotationToTransformFrame and moveTransformFrame.
+            const localCenter: Point = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+            const cos = Math.cos(rotation);
+            const sin = Math.sin(rotation);
+            const worldCenter = this.rotateOnePoint(localCenter, this._resizeCenter, cos, sin, false);
+            this._transformBounds = {
+                x: worldCenter.x - bounds.width / 2,
+                y: worldCenter.y - bounds.height / 2,
+                width: bounds.width,
+                height: bounds.height,
+            };
+        } else {
+            this._transformBounds = { ...bounds };
+        }
+        this._transformRotation = rotation;
     }
 
     abstract pixelatedDraw(ctx: CanvasRenderingContext2D): void;

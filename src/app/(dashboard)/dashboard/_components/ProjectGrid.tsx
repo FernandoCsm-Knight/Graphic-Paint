@@ -29,7 +29,7 @@ export default function ProjectGrid({ folders, projects, onProjectDeleted, onPro
                         Nenhum projeto nessa vista
                     </h3>
                     <p className="theme-sidebar-copy mt-3 text-sm leading-7">
-                        Crie um projeto novo para preencher essa area com cards de modulo, historico e atalhos de abertura.
+                        Crie um projeto novo para preencher essa área com cards de módulo, histórico e atalhos de abertura.
                     </p>
                     <div className="theme-mobile-pill mt-5 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em]">
                         <LuSparkles className="h-4 w-4" />

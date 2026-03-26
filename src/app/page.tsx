@@ -6,23 +6,23 @@ import { graphicsModules } from '@/types/modules';
 
 const landingModuleMeta: Record<string, { summary: string; highlights: string[] }> = {
     paint: {
-        summary: 'Desenho vetorial e pixel art no mesmo canvas, com selecao, preenchimento, historico e ferramentas de forma.',
+        summary: 'Desenho vetorial e pixel art no mesmo canvas, com seleção, preenchimento, histórico e ferramentas de forma.',
         highlights: ['Canvas fluido', 'Pixel art', 'Ferramentas visuais'],
     },
     graph: {
-        summary: 'Monte grafos, edite vertices e arestas e rode algoritmos visualmente no mesmo workspace interativo.',
-        highlights: ['Algoritmos visuais', 'Edicao instantanea', 'Exploracao orientada'],
+        summary: 'Monte grafos, edite vértices e arestas e rode algoritmos visualmente no mesmo workspace interativo.',
+        highlights: ['Algoritmos visuais', 'Edição instantânea', 'Exploração orientada'],
     },
     automaton: {
-        summary: 'Modele AFN-lambda e automatos com pilha, acompanhe simulacoes e ajuste estados e transicoes com rapidez.',
-        highlights: ['AFN-lambda', 'Automato de pilha', 'Simulacao passo a passo'],
+        summary: 'Modele AFN-lambda e autômatos com pilha, acompanhe simulações e ajuste estados e transições com rapidez.',
+        highlights: ['AFN-lambda', 'Autômato de pilha', 'Simulação passo a passo'],
     },
 };
 
 const landingHighlights = [
     {
-        title: 'Tudo em um unico workspace',
-        copy: 'Desenho, grafos e automatos compartilham a mesma linguagem visual e a mesma navegacao.',
+        title: 'Tudo em um único workspace',
+        copy: 'Desenho, grafos e autômatos compartilham a mesma linguagem visual e a mesma navegação.',
         icon: <LuBlocks className="h-5 w-5" />,
     },
     {
@@ -31,8 +31,8 @@ const landingHighlights = [
         icon: <LuWorkflow className="h-5 w-5" />,
     },
     {
-        title: 'Interface com presenca',
-        copy: 'Cards, menus e interacoes foram desenhados para parecer produto, nao prototipo.',
+        title: 'Interface com presença',
+        copy: 'Cards, menus e interações foram desenhados para parecer produto, não protótipo.',
         icon: <LuSparkles className="h-5 w-5" />,
     },
 ];
@@ -141,7 +141,7 @@ export default async function HomePage() {
                                     color: 'var(--app-accent-text-strong)',
                                 }}
                             >
-                                Paint, Graph e Automaton em um unico lugar
+                                Paint, Graph e Automaton em um único lugar
                             </span>
 
                             <h1
@@ -152,8 +152,8 @@ export default async function HomePage() {
                             </h1>
 
                             <p className="theme-sidebar-copy mt-6 max-w-2xl text-base leading-8 md:text-lg">
-                                O Graphic Paint junta desenho, grafos e automatos em uma interface unica, com cards, menus
-                                e interacoes pensados para explorar, iterar e apresentar melhor.
+                                O Graphic Paint junta desenho, grafos e autômatos em uma interface única, com cards, menus
+                                e interações pensados para explorar, iterar e apresentar melhor.
                             </p>
 
                             {
@@ -167,7 +167,7 @@ export default async function HomePage() {
                                                 color: 'var(--ui-menu-card-surface)',
                                             }}
                                         >
-                                        Comecar gratis
+                                        Começar grátis
                                         <LuArrowRight className="h-4 w-4" />
                                     </Link>
                                     <Link
@@ -187,7 +187,7 @@ export default async function HomePage() {
                             <div className="mt-10 grid gap-4 sm:grid-cols-3">
                                 <div className="module-card rounded-3xl p-4">
                                     <p className="theme-sidebar-copy-muted text-[11px] font-semibold uppercase tracking-[0.26em]">
-                                        Modulos
+                                        Módulos
                                     </p>
                                     <p className="theme-sidebar-title mt-2 text-3xl font-black">3</p>
                                     <p className="theme-sidebar-copy mt-2 text-sm leading-6">
@@ -196,7 +196,7 @@ export default async function HomePage() {
                                 </div>
                                 <div className="module-card rounded-3xl p-4">
                                     <p className="theme-sidebar-copy-muted text-[11px] font-semibold uppercase tracking-[0.26em]">
-                                        Navegacao
+                                        Navegação
                                     </p>
                                     <p className="theme-sidebar-title mt-2 text-3xl font-black">1</p>
                                     <p className="theme-sidebar-copy mt-2 text-sm leading-6">
@@ -205,11 +205,11 @@ export default async function HomePage() {
                                 </div>
                                 <div className="module-card rounded-3xl p-4">
                                     <p className="theme-sidebar-copy-muted text-[11px] font-semibold uppercase tracking-[0.26em]">
-                                        Experiencia
+                                        Experiência
                                     </p>
                                     <p className="theme-sidebar-title mt-2 text-3xl font-black">100%</p>
                                     <p className="theme-sidebar-copy mt-2 text-sm leading-6">
-                                        no navegador, pronta para abrir e comecar a testar ideias rapidamente.
+                                        no navegador, pronta para abrir e começar a testar ideias rapidamente.
                                     </p>
                                 </div>
                             </div>
@@ -222,7 +222,7 @@ export default async function HomePage() {
                                         Workspace preview
                                     </p>
                                     <h2 className="theme-sidebar-title mt-2 text-2xl font-semibold">
-                                        Interface forte, modulos claros e foco na exploracao
+                                        Interface forte, módulos claros e foco na exploração
                                     </h2>
                                 </div>
                                 <span className="theme-status-available rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em]">
@@ -244,7 +244,7 @@ export default async function HomePage() {
                                         <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
                                     </div>
                                     <span className="theme-sidebar-copy-muted text-xs">
-                                        Barra lateral com modulos reais do projeto
+                                        Barra lateral com módulos reais do projeto
                                     </span>
                                 </div>
 
@@ -319,14 +319,14 @@ export default async function HomePage() {
                         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                             <div>
                                 <p className="theme-sidebar-copy-muted text-[11px] font-semibold uppercase tracking-[0.3em]">
-                                    Modulos do produto
+                                    Módulos do produto
                                 </p>
                                 <h2 className="theme-sidebar-title mt-3 text-3xl font-black tracking-[-0.03em]">
                                     Os mesmos cards da sidebar, agora apresentando a plataforma
                                 </h2>
                             </div>
                             <p className="theme-sidebar-copy max-w-2xl text-sm leading-7 md:text-base">
-                                Cada modulo foi desenhado para parecer parte do mesmo sistema. A home agora apresenta isso
+                                Cada módulo foi desenhado para parecer parte do mesmo sistema. A home agora apresenta isso
                                 com a mesma linguagem visual usada dentro do app.
                             </p>
                         </div>
@@ -372,7 +372,7 @@ export default async function HomePage() {
                                                             }}
                                                         >
                                                             <span className="theme-sidebar-copy text-sm font-medium">
-                                                                {user ? `Abrir modulo ${module.name}` : `Explorar ${module.name} como convidado`}
+                                                                {user ? `Abrir módulo ${module.name}` : `Explorar ${module.name} como convidado`}
                                                             </span>
                                                             <LuArrowRight className="h-4 w-4" />
                                                         </div>

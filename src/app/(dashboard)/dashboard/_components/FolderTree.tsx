@@ -67,7 +67,7 @@ export default function FolderTree({ folders, activeFolderId, onSelectFolder, on
                     </span>
                     <div>
                         <p className="theme-sidebar-title text-sm font-semibold">Todos os projetos</p>
-                        <p className="theme-sidebar-copy-muted text-xs">Visao completa</p>
+                        <p className="theme-sidebar-copy-muted text-xs">Visão completa</p>
                     </div>
                 </div>
             </button>

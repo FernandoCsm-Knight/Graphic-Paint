@@ -43,7 +43,10 @@ const ClientShell = ({
                 <main className="relative z-0 h-full min-h-0 min-w-0 flex-1 overflow-hidden">
                     <MobileTopbar
                         activeModuleName={activeModule.name}
-                        onOpenSidebar={() => setIsMobileSidebarOpen(true)}
+                        onOpenSidebar={() => {
+                            if(isSidebarCollapsed) setIsSidebarCollapsed(false);
+                            setIsMobileSidebarOpen(true);
+                        }}
                     />
 
                     <div className="theme-workspace-gradient absolute inset-0" />

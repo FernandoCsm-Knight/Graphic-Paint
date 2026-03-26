@@ -69,9 +69,11 @@ export default class Circle extends Shape {
     moveBy(dx: number, dy: number): void {
         this.center.x += dx;
         this.center.y += dy;
+        this.moveTransformFrame(dx, dy);
     }
 
     override beginRotate(): void {
+        this.beginRotateTransformFrame();
         this._rotateOriginalPoints = [{ ...this.center }];
     }
 
@@ -79,6 +81,7 @@ export default class Circle extends Shape {
         const cos = Math.cos(angle), sin = Math.sin(angle);
         const src = this._rotateOriginalPoints?.[0] ?? this.center;
         this.center = this.rotateOnePoint(src, pivot, cos, sin);
+        this.applyRotationToTransformFrame(angle, pivot);
     }
 
     resizeToBoundingBox(bounds: BoundingBox, options: ResizeOptions = {}): boolean {
@@ -93,6 +96,7 @@ export default class Circle extends Shape {
             ? { x: Math.round(center.x), y: Math.round(center.y) }
             : center;
         this.radius = this.pixelated ? Math.round(radius) : radius;
+        this.applyResizeToTransformFrame(bounds, 0);
         return true;
     }
 };

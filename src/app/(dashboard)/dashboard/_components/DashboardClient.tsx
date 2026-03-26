@@ -31,7 +31,7 @@ export default function DashboardClient({ initialFolders, initialProjects }: Pro
 
     const stats = [
         {
-            label: 'Projetos visiveis',
+            label: 'Projetos visíveis',
             value: visibleProjects.length,
             icon: <LuLayers3 className="h-4 w-4" />,
         },
@@ -71,12 +71,12 @@ export default function DashboardClient({ initialFolders, initialProjects }: Pro
                     </span>
 
                     <h1 className="theme-sidebar-title mt-5 text-4xl font-black tracking-[-0.04em]">
-                        Organize projetos, troque de modulo e continue criando sem perder contexto.
+                        Organize projetos, troque de módulo e continue criando sem perder contexto.
                     </h1>
 
                     <p className="theme-sidebar-copy mt-4 max-w-3xl text-sm leading-8 md:text-base">
-                        Essa area agora acompanha a linguagem visual da landing e do auth: mais contraste,
-                        melhor hierarquia e cards com mais presenca para navegar seus projetos.
+                        Essa área agora acompanha a linguagem visual da landing e do auth: mais contraste,
+                        melhor hierarquia e cards com mais presença para navegar seus projetos.
                     </p>
                 </div>
 
@@ -148,8 +148,8 @@ export default function DashboardClient({ initialFolders, initialProjects }: Pro
                                 </h2>
                                 <p className="theme-sidebar-copy mt-3 max-w-2xl text-sm leading-7">
                                     {visibleProjects.length === 0
-                                        ? 'Nenhum projeto nessa vista ainda. Crie um novo para comecar.'
-                                        : `${visibleProjects.length} projeto(s) pronto(s) para abrir, editar e continuar de onde voce parou.`}
+                                        ? 'Nenhum projeto nessa vista ainda. Crie um novo para começar.'
+                                        : `${visibleProjects.length} projeto(s) pronto(s) para abrir, editar e continuar de onde você parou.`}
                                 </p>
                             </div>
 

@@ -42,10 +42,7 @@ export default class Rectangle extends Shape {
     }
 
     moveBy(dx: number, dy: number): void {
-        for (const p of this.points) {
-            p.x += dx;
-            p.y += dy;
-        }
+        this.translatePointCollection(this.points, dx, dy);
     }
 
     rotateBy(angle: number, pivot: Point): void {
