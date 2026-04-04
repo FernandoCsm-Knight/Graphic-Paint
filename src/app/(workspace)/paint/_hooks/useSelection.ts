@@ -33,6 +33,16 @@ type SelectionPhase = 'idle' | 'drawing';
 
 // ─── Overlay drawing helpers ──────────────────────────────────────────────────
 
+function getVisibleSceneSlice(scene: SceneItem[]): SceneItem[] {
+    for (let i = scene.length - 1; i >= 0; i--) {
+        if (scene[i].isCheckpoint()) {
+            return scene.slice(i);
+        }
+    }
+
+    return scene;
+}
+
 function applyViewportTransform(
     overlay: CanvasRenderingContext2D,
     zoom: number,
@@ -180,8 +190,9 @@ const useSelection = ({
                 return;
             }
 
+            const visibleScene = getVisibleSceneSlice(sceneRef.current);
             const { floatingShapes, floatingBounds } = clipSceneItemsToPixelBounds({
-                scene: sceneRef.current.filter(item => !(item instanceof Shape) || item.pixelated),
+                scene: visibleScene.filter(item => !(item instanceof Shape) || item.pixelated),
                 clipAlgorithm,
                 bounds: selectionBounds,
             });

@@ -29,6 +29,16 @@ type SelectionPhase = 'idle' | 'drawing';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function getVisibleSceneSlice(scene: SceneItem[]): SceneItem[] {
+    for (let i = scene.length - 1; i >= 0; i--) {
+        if (scene[i].isCheckpoint()) {
+            return scene.slice(i);
+        }
+    }
+
+    return scene;
+}
+
 function applyViewportTransform(
     overlay: CanvasRenderingContext2D,
     zoom: number,
@@ -145,11 +155,12 @@ const useMultiSelect = ({
             return;
         }
 
-        // Search all Shape instances in the scene. The freehand cut now stores a
-        // ClearRectItem (not a checkpoint) so shapes before a cut remain in the
-        // scene array and are fully selectable here.
+        // Search only the currently visible scene contents. Shapes hidden behind
+        // a raster checkpoint (for example after erasing) should not come back
+        // as selectable vector items.
         const scene = sceneRef.current;
-        const selected = scene.filter(item => {
+        const visibleScene = getVisibleSceneSlice(scene);
+        const selected = visibleScene.filter(item => {
             if (!(item instanceof Shape)) return false;
             if (item.pixelated !== pixelated) return false;
             const bb = getShapeDocBoundingBox(item);
