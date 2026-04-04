@@ -17,7 +17,6 @@ export default class FreeForm extends SceneItem {
     brushStyle: BrushStyle;
     isEraser: boolean;
     filled: boolean;
-
     points: Point[];
     private boundingBox: { minX: number; maxX: number; minY: number; maxY: number } | null = null;
     private snapshot: ImageData | null = null;
@@ -94,7 +93,6 @@ export default class FreeForm extends SceneItem {
 
         const gco = ctx.globalCompositeOperation;
         if(this.isEraser) ctx.globalCompositeOperation = 'destination-out';
-
         ctx.strokeStyle = this.strokeStyle;
 
         if(this.pixelated) {

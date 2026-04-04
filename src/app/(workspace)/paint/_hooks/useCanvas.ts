@@ -72,6 +72,35 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         getWorldSize,
     });
 
+    const getVisibleDocumentRegion = useCallback((viewportWidthArg?: number, viewportHeightArg?: number) => {
+        const documentCanvas = documentCanvasRef.current;
+        const fallbackViewport = getViewportSize();
+        const viewportWidth = viewportWidthArg ?? fallbackViewport.width;
+        const viewportHeight = viewportHeightArg ?? fallbackViewport.height;
+
+        if (!documentCanvas || viewportWidth <= 0 || viewportHeight <= 0) {
+            return null;
+        }
+
+        const sourceWidth = Math.min(documentCanvas.width, viewportWidth / zoom);
+        const sourceHeight = Math.min(documentCanvas.height, viewportHeight / zoom);
+        const maxSourceX = Math.max(0, documentCanvas.width - sourceWidth);
+        const maxSourceY = Math.max(0, documentCanvas.height - sourceHeight);
+        const sourceX = Math.min(maxSourceX, Math.max(0, -viewOffset.x / zoom));
+        const sourceY = Math.min(maxSourceY, Math.max(0, -viewOffset.y / zoom));
+
+        return {
+            sourceX,
+            sourceY,
+            sourceWidth,
+            sourceHeight,
+            viewportWidth,
+            viewportHeight,
+            documentWidth: documentCanvas.width,
+            documentHeight: documentCanvas.height,
+        };
+    }, [getViewportSize, viewOffset.x, viewOffset.y, zoom]);
+
     const resizeViewportCanvas = useCallback((canvas: HTMLCanvasElement, width: number, height: number) => {
         const dpr = window.devicePixelRatio || 1;
         const bitmapWidth = Math.max(1, Math.floor(width * dpr));
@@ -95,6 +124,9 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         resizeViewportCanvas(viewportCanvas, viewportWidth, viewportHeight);
         resizeViewportCanvas(overlayCanvas, viewportWidth, viewportHeight);
 
+        const visibleRegion = getVisibleDocumentRegion(viewportWidth, viewportHeight);
+        if (!visibleRegion) return;
+
         if (!viewportCtxRef.current || viewportCtxRef.current.canvas !== viewportCanvas) {
             viewportCtxRef.current = viewportCanvas.getContext("2d", { alpha: true }) ?? null;
         }
@@ -109,12 +141,7 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         const dpr = window.devicePixelRatio || 1;
         const offsetX = viewOffset.x;
         const offsetY = viewOffset.y;
-        const sourceWidth = Math.min(documentCanvas.width, viewportWidth / zoom);
-        const sourceHeight = Math.min(documentCanvas.height, viewportHeight / zoom);
-        const maxSourceX = Math.max(0, documentCanvas.width - sourceWidth);
-        const maxSourceY = Math.max(0, documentCanvas.height - sourceHeight);
-        const sourceX = Math.min(maxSourceX, Math.max(0, -offsetX / zoom));
-        const sourceY = Math.min(maxSourceY, Math.max(0, -offsetY / zoom));
+        const { sourceX, sourceY, sourceWidth, sourceHeight } = visibleRegion;
 
         viewportCtx.setTransform(1, 0, 0, 1, 0, 0);
         viewportCtx.clearRect(0, 0, viewportCtx.canvas.width, viewportCtx.canvas.height);
@@ -155,6 +182,7 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         replacementCanvasRef,
         resizeViewportCanvas,
         selectionItemRef,
+        getVisibleDocumentRegion,
         viewOffset.x,
         viewOffset.y,
         zoom,
@@ -283,6 +311,7 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         useDrawingHandlers({
             renderViewport,
             getViewportSize,
+            getVisibleDocumentRegion,
             clampViewOffset,
             getMinAllowedZoom,
             sceneRef,
@@ -342,8 +371,8 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
             const rect = parent.getBoundingClientRect();
             const viewportWidth = Math.max(1, Math.floor(rect.width));
             const viewportHeight = Math.max(1, Math.floor(rect.height));
-            const worldWidth = Math.max(MIN_CANVAS_WIDTH, canvasSize.width, Math.ceil(viewportWidth * CANVAS_SCALE_FACTOR));
-            const worldHeight = Math.max(MIN_CANVAS_HEIGHT, canvasSize.height, Math.ceil(viewportHeight * CANVAS_SCALE_FACTOR));
+            const worldWidth = Math.max(worldSize.width, MIN_CANVAS_WIDTH, canvasSize.width, Math.ceil(viewportWidth * CANVAS_SCALE_FACTOR));
+            const worldHeight = Math.max(worldSize.height, MIN_CANVAS_HEIGHT, canvasSize.height, Math.ceil(viewportHeight * CANVAS_SCALE_FACTOR));
 
             setWorldSize((prev) => {
                 const nextW = Math.max(prev.width, worldWidth);
@@ -419,6 +448,8 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         pixelated,
         setViewOffset,
         setWorldSize,
+        worldSize.width,
+        worldSize.height,
         canvasSize.width,
         canvasSize.height,
     ]);

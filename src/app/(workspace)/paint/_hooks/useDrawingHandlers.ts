@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useRef } from "react";
+import React, { useCallback, useContext, useEffect, useRef } from "react";
 import type { PointerEvent } from "react";
 import { PaintContext } from "../_context/PaintContext";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
@@ -20,6 +20,15 @@ import type { Point } from "@/types/geometry";
 type DrawingHandlersInput = {
     renderViewport: () => void;
     getViewportSize: () => { width: number; height: number };
+    getVisibleDocumentRegion: (
+        viewportWidth?: number,
+        viewportHeight?: number
+    ) => {
+        sourceX: number;
+        sourceY: number;
+        documentWidth: number;
+        documentHeight: number;
+    } | null;
     clampViewOffset: (next: Point, viewportWidth?: number, viewportHeight?: number, canvasWidth?: number, canvasHeight?: number, zoomLevel?: number) => Point;
     getMinAllowedZoom: (viewportWidth?: number, viewportHeight?: number, canvasWidth?: number, canvasHeight?: number) => number;
     sceneRef: React.RefObject<SceneItem[]>;
@@ -31,6 +40,7 @@ type DrawingHandlersInput = {
 const useDrawingHandlers = ({
     renderViewport,
     getViewportSize,
+    getVisibleDocumentRegion,
     clampViewOffset,
     getMinAllowedZoom,
     sceneRef,
@@ -130,15 +140,16 @@ const useDrawingHandlers = ({
     const isRightDragging = useRef(false);
     const start = useRef<Point>({ x: 0, y: 0 });
     const currentShape = useRef<SceneItem | null>(null);
-    const rafId = useRef<number | null>(null);
+    const shapePreviewRafId = useRef<number | null>(null);
+    const viewportRenderRafId = useRef<number | null>(null);
     const pendingPoint = useRef<Point | null>(null);
 
     /** Throttles shape preview redraws to one per animation frame. */
     const scheduleShapePreview = useCallback((point: Point, ctx: CanvasRenderingContext2D) => {
         pendingPoint.current = point;
-        if (rafId.current !== null) return;
-        rafId.current = requestAnimationFrame(() => {
-            rafId.current = null;
+        if (shapePreviewRafId.current !== null) return;
+        shapePreviewRafId.current = requestAnimationFrame(() => {
+            shapePreviewRafId.current = null;
             if (!pendingPoint.current) return;
             redrawFromScene(ctx);
                 const shape = generator({
@@ -158,15 +169,43 @@ const useDrawingHandlers = ({
         });
     }, [redrawFromScene, currentColorRef, thicknessRef, selectedShape, pixelated, pixelSize, lineAlgorithm, lineDash, renderViewport]);
 
+    /** Coalesces multiple rapid pointermove updates into one viewport repaint. */
+    const scheduleViewportRender = useCallback(() => {
+        if (viewportRenderRafId.current !== null) return;
+        viewportRenderRafId.current = requestAnimationFrame(() => {
+            viewportRenderRafId.current = null;
+            renderViewport();
+        });
+    }, [renderViewport]);
+
+    useEffect(() => {
+        return () => {
+            if (shapePreviewRafId.current !== null) {
+                cancelAnimationFrame(shapePreviewRafId.current);
+            }
+            if (viewportRenderRafId.current !== null) {
+                cancelAnimationFrame(viewportRenderRafId.current);
+            }
+        };
+    }, []);
+
     const getCanvasPoint = useCallback((e: PointerEvent<HTMLCanvasElement>): Point | null => {
         const canvas = canvasRef.current;
         if (!canvas) return null;
         const rect = canvas.getBoundingClientRect();
+        const visibleRegion = getVisibleDocumentRegion(rect.width, rect.height);
+        if (!visibleRegion) return null;
+
+        const localX = e.clientX - rect.left;
+        const localY = e.clientY - rect.top;
+        const maxX = Math.max(0, visibleRegion.documentWidth - 0.001);
+        const maxY = Math.max(0, visibleRegion.documentHeight - 0.001);
+
         return {
-            x: (e.clientX - rect.left - viewOffset.x) / zoom,
-            y: (e.clientY - rect.top - viewOffset.y) / zoom,
+            x: Math.max(0, Math.min(maxX, visibleRegion.sourceX + localX / zoom)),
+            y: Math.max(0, Math.min(maxY, visibleRegion.sourceY + localY / zoom)),
         };
-    }, [canvasRef, viewOffset.x, viewOffset.y, zoom]);
+    }, [canvasRef, getVisibleDocumentRegion, zoom]);
 
     const handlePointerDown = useCallback((e: PointerEvent<HTMLCanvasElement>) => {
         if (panDown(e)) return;
@@ -272,7 +311,7 @@ const useDrawingHandlers = ({
             } else if (selectedShape === 'freeform') {
                 if (currentShape.current instanceof FreeForm) {
                     currentShape.current.lineTo(point, ctx);
-                    renderViewport();
+                    scheduleViewportRender();
                 }
             } else {
                 scheduleShapePreview(point, ctx);
@@ -281,7 +320,7 @@ const useDrawingHandlers = ({
     }, [
         panMove, contextRef, getCanvasPoint, pixelated, pixelSize,
         isSelectionActive, updateSelection, updateMultiSelect, selectedShape,
-        scheduleShapePreview, renderViewport, polygon,
+        scheduleShapePreview, scheduleViewportRender, polygon,
         hasPendingShape, pendingPointerMove,
     ]);
 
@@ -298,9 +337,13 @@ const useDrawingHandlers = ({
         if (panUp(e)) return;
 
         if (!pendingPointerUp() && selectedShape !== 'polygon' && isDrawing.current) {
-            if (rafId.current !== null) {
-                cancelAnimationFrame(rafId.current);
-                rafId.current = null;
+            if (shapePreviewRafId.current !== null) {
+                cancelAnimationFrame(shapePreviewRafId.current);
+                shapePreviewRafId.current = null;
+            }
+            if (viewportRenderRafId.current !== null) {
+                cancelAnimationFrame(viewportRenderRafId.current);
+                viewportRenderRafId.current = null;
             }
 
             const ctx = contextRef.current;
