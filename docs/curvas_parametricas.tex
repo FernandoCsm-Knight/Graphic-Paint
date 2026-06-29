@@ -1,0 +1,945 @@
+% =============================================================================
+%  Documentação Técnica, Módulo de Curvas Paramétricas
+%  Graphic Paint, Next.js / TypeScript
+%  Autor: Fernando Campos Silva Dal' Maria
+%  Data:  Junho de 2026
+% =============================================================================
+
+\documentclass[12pt, a4paper]{article}
+
+% ── Pacotes ──────────────────────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{mathtools}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, fit, backgrounds, calc}
+
+% ── Layout ───────────────────────────────────────────────────────────────────
+\geometry{
+    top    = 2.5cm,
+    bottom = 2.5cm,
+    left   = 3.0cm,
+    right  = 2.5cm,
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Graphic Paint, Curvas Paramétricas}
+\fancyhead[R]{\small \leftmark}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Cores personalizadas ─────────────────────────────────────────────────────
+\definecolor{codebg}{HTML}{F5F5F5}
+\definecolor{codeframe}{HTML}{CCCCCC}
+\definecolor{keyword}{HTML}{0550AE}
+\definecolor{string}{HTML}{032F62}
+\definecolor{comment}{HTML}{6E7781}
+\definecolor{function}{HTML}{8250DF}
+\definecolor{accent}{HTML}{0969DA}
+
+% ── Estilo de código (TypeScript / pseudocódigo) ──────────────────────────────
+\lstdefinelanguage{TypeScript}{
+    morekeywords={
+        const, let, var, function, return, for, if, else, while, do,
+        class, extends, abstract, readonly, new, this, type, import,
+        export, default, from, interface, implements, private, protected,
+        public, static, void, null, undefined, true, false, number, string,
+        boolean, any, unknown, never, as, in, of, break, continue,
+    },
+    sensitive = true,
+    morecomment  = [l]{//},
+    morecomment  = [s]{/*}{*/},
+    morestring   = [b]',
+    morestring   = [b]",
+    morestring   = [b]`,
+}
+
+\lstdefinelanguage{Pseudocode}{
+    morekeywords={
+        function, return, for, if, else, end, do, while, Input, Output,
+        Inicializa, Para, Retorna, até,
+    },
+    sensitive = false,
+    morecomment  = [l]{//},
+}
+
+\lstset{
+    backgroundcolor  = \color{codebg},
+    frame            = single,
+    rulecolor        = \color{codeframe},
+    basicstyle       = \ttfamily\small,
+    keywordstyle     = \color{keyword}\bfseries,
+    stringstyle      = \color{string},
+    commentstyle     = \color{comment}\itshape,
+    numbers          = left,
+    numberstyle      = \tiny\color{gray},
+    numbersep        = 8pt,
+    breaklines       = true,
+    breakatwhitespace= true,
+    tabsize          = 4,
+    showstringspaces = false,
+    captionpos       = b,
+}
+
+% ── Ambientes matemáticos ─────────────────────────────────────────────────────
+\newtheorem{prop}{Propriedade}[section]
+\newtheorem{defn}{Definição}[section]
+\theoremstyle{remark}
+\newtheorem{obs}{Observação}[section]
+
+% ── Hiperlinks ────────────────────────────────────────────────────────────────
+\hypersetup{
+    colorlinks  = true,
+    linkcolor   = accent,
+    urlcolor    = accent,
+    citecolor   = accent,
+    pdftitle    = {Curvas Paramétricas, Graphic Paint},
+    pdfauthor   = {Fernando Campos Silva Dal' Maria},
+}
+
+% ── Macros ────────────────────────────────────────────────────────────────────
+\newcommand{\file}[1]{\texttt{\small #1}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\kind}[1]{\texttt{'#1'}}
+
+% =============================================================================
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    \vspace*{3cm}
+    {\LARGE\bfseries Graphic Paint \par}
+    \vspace{2.5cm}
+    \rule{\textwidth}{0.5pt}
+    \vspace{0.5cm}
+    {\Huge\bfseries Módulo de Curvas Paramétricas \par}
+    \vspace{0.3cm}
+    {\large Curvas de Bézier e B-\emph{spline} Cúbica \par}
+    \vspace{0.5cm}
+    \rule{\textwidth}{0.5pt}
+    \vspace{2cm}
+    {\large Fernando Campos Silva Dal' Maria \par}
+    \vspace{0.5cm}
+    {\normalsize Junho de 2026 \par}
+    \vfill
+    {\small
+        Repositório: \href{https://github.com/FernandoCsm-Knight/Graphic-Paint}{/Graphic-Paint} \\[4pt]
+        Versão hospedada: \href{https://graphic-paint-roan.vercel.app/paint}{Paint}
+    }
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% =============================================================================
+\section{Visão Geral}
+% =============================================================================
+
+Este documento descreve a implementação e o uso das ferramentas de \textbf{curvas
+paramétricas} adicionadas ao módulo de pintura (\emph{paint}) do aplicativo
+\textbf{Graphic Paint}. Foram integradas duas curvas clássicas de design geométrico:
+
+\begin{itemize}
+    \item \textbf{Curva de Bézier} de grau arbitrário, avaliada pelo algoritmo
+          de De~Casteljau~\cite{decasteljau1959}.
+    \item \textbf{B-\emph{spline} cúbica uniforme} com vetor de nós
+          \emph{clamped}, avaliada pelo algoritmo de de~Boor~\cite{deboor1972}.
+\end{itemize}
+
+Ambas seguem exatamente a arquitetura de formas já existente no projeto:
+herdam da classe abstrata \code{Shape}, são serializ\-áveis/desserializáveis,
+suportam o modo pixelado e entram no fluxo de \emph{pending-placement} (mover,
+rotacionar e redimensionar antes de confirmar).
+
+% =============================================================================
+\section{Organização do Código}
+% =============================================================================
+
+\subsection{Estrutura de pastas relevante}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    font=\small\ttfamily,
+    every node/.style={anchor=west, inner sep=3pt, minimum height=0.52cm},
+    % estilos de nó, text width fixo garante que nenhum nó estoure a margem
+    dir/.style  = {draw=gray!55,   fill=gray!10,    rounded corners=2pt, text width=10.2cm},
+    file/.style = {draw=accent!35, fill=accent!5,   rounded corners=2pt, text width=9.8cm},
+    new/.style  = {draw=green!55!black, fill=green!7,  rounded corners=2pt, text width=9.8cm},
+    mod/.style  = {draw=orange!65, fill=orange!8,   rounded corners=2pt, text width=9.8cm},
+]
+% ── recuos ────────────────────────────────────────────────────────────────────
+\def\la{0.35cm}   % nível 1
+\def\lb{0.70cm}   % nível 2
+\def\s{0.56cm}    % espaçamento vertical
+
+% ── raiz ──────────────────────────────────────────────────────────────────────
+\node[dir] at (0,      0)       {\strut src/app/(workspace)/paint/};
+
+% ── _shapes/ ──────────────────────────────────────────────────────────────────
+\node[dir]  at (\la,  -1*\s)   {\strut \_shapes/};
+\node[file] at (\lb,  -2*\s)   {\strut ShapeTypes.ts \normalfont\itshape(base)};
+\node[file] at (\lb,  -3*\s)   {\strut FreePolygon.ts \normalfont\itshape(referência)};
+\node[new]  at (\lb,  -4*\s)   {\strut BezierCurve.ts \normalfont\bfseries[NOVO]};
+\node[new]  at (\lb,  -5*\s)   {\strut BSplineCurve.ts \normalfont\bfseries[NOVO]};
+
+% ── _hooks/ ───────────────────────────────────────────────────────────────────
+\node[dir]  at (\la,  -6*\s)   {\strut \_hooks/};
+\node[file] at (\lb,  -7*\s)   {\strut usePolygonDrawing.ts \normalfont\itshape(referência)};
+\node[mod]  at (\lb,  -8*\s)   {\strut useDrawingHandlers.ts \normalfont\itshape(modificado)};
+\node[new]  at (\lb,  -9*\s)   {\strut useCurveDrawing.ts \normalfont\bfseries[NOVO]};
+
+% ── _types/ ───────────────────────────────────────────────────────────────────
+\node[dir]  at (\la, -10*\s)   {\strut \_types/};
+\node[mod]  at (\lb, -11*\s)   {\strut Graphics.ts \normalfont\itshape(modificado)};
+
+% ── _utils/ ───────────────────────────────────────────────────────────────────
+\node[dir]  at (\la, -12*\s)   {\strut \_utils/};
+\node[mod]  at (\lb, -13*\s)   {\strut scenePersistence.ts \normalfont\itshape(modificado)};
+
+% ── _components/ ──────────────────────────────────────────────────────────────
+\node[dir]  at (\la, -14*\s)   {\strut \_components/menu/\ldots/};
+\node[mod]  at (\lb, -15*\s)   {\strut ShapeSelector.tsx \normalfont\itshape(modificado)};
+
+\end{tikzpicture}
+
+\smallskip
+{\small
+  \tikz\node[draw=green!55!black, fill=green!7, rounded corners=2pt,
+             font=\ttfamily\small, inner sep=2pt]{\strut\ [NOVO]\ };~arquivo criado\quad
+  \tikz\node[draw=orange!65, fill=orange!8, rounded corners=2pt,
+             font=\ttfamily\small, inner sep=2pt]{\strut\ (modificado)\ };~arquivo alterado\quad
+  \tikz\node[draw=accent!35, fill=accent!5, rounded corners=2pt,
+             font=\ttfamily\small, inner sep=2pt]{\strut\ (referência)\ };~inalterado / modelo
+}
+\caption{Arquivos criados (verde) e modificados (laranja) na implementação.}
+\end{figure}
+
+\subsection{Hierarquia de classes}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    font=\small\ttfamily,
+    cls/.style = {rectangle, draw=gray, fill=gray!8, rounded corners=4pt,
+                  minimum width=3.8cm, minimum height=1.0cm, align=center},
+    ncls/.style= {rectangle, draw=accent!70, fill=accent!8, rounded corners=4pt,
+                  minimum width=3.8cm, minimum height=1.0cm, align=center},
+    >=Latex,
+]
+    \node[cls] (si)   at (0,   0) {SceneItem \\ (abstrata)};
+    \node[cls] (sh)   at (0,  -2) {Shape \\ (abstrata)};
+    \node[cls] (fp)   at (-4, -4) {FreePolygon};
+    \node[ncls](bz)   at ( 0, -4) {BezierCurve \\ \textnormal{\textit{[nova]}}};
+    \node[ncls](bs)   at ( 4, -4) {BSplineCurve \\ \textnormal{\textit{[nova]}}};
+    \node[cls] (ot)   at (-8, -4) {Line, Circle, \ldots};
+
+    \draw[->] (sh) -- (si);
+    \draw[->] (fp) -- (sh);
+    \draw[->] (bz) -- (sh);
+    \draw[->] (bs) -- (sh);
+    \draw[->] (ot) -- (sh);
+\end{tikzpicture}
+\caption{Hierarquia de herança. Tanto \code{BezierCurve} quanto \code{BSplineCurve}
+         herdam de \code{Shape} diretamente, seguindo o mesmo padrão de todas as
+         demais formas geométricas.}
+\end{figure}
+
+\subsection{Arquivo: \file{\_shapes/BezierCurve.ts}}
+
+Implementa a curva de Bézier de grau arbitrário.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lp{9.5cm}}
+\toprule
+\textbf{Símbolo} & \textbf{Responsabilidade} \\
+\midrule
+\code{deCasteljau(pts, t)} & Avalia um único ponto $B(t)$ via interpolações lineares
+                             sucessivas sobre uma cópia temporária dos pontos de controle. \\
+\code{sampleBezier(pts, steps)} & Gera um array de \code{steps+1} pontos amostrando
+                                   $t$ uniformemente em $[0, 1]$. \\
+\code{BezierCurve.standardDraw()} & Renderização vetorial: usa API nativa do Canvas
+                                    (\code{quadraticCurveTo} / \code{bezierCurveTo}) para
+                                    graus 2–3; para grau $\geq 4$ usa amostragem + \code{lineTo}. \\
+\code{BezierCurve.pixelatedDraw()} & Amostragem em coordenadas de grade $\to$
+                                     Bresenham entre pares consecutivos $\to$
+                                     \code{drawPixel}. \\
+\code{BezierCurve.getBoundingBox()} & Envelope AABB dos pontos de controle
+                                      (conservador, mas suficiente para transformações). \\
+\code{BezierCurve.moveBy()} & Delega a \code{translatePointCollection()}. \\
+\code{BezierCurve.rotateBy()} & Delega a \code{rotatePoints()}, utilizando
+                                 snapshot congelado para evitar deriva de arredondamento. \\
+\code{BezierCurve.resizeToBoundingBox()} & Delega a \code{resizePointCollection()}. \\
+\bottomrule
+\end{tabular}
+\caption{Responsabilidades dos símbolos em \file{BezierCurve.ts}.}
+\end{table}
+
+\subsection{Arquivo: \file{\_shapes/BSplineCurve.ts}}
+
+Implementa a B-\emph{spline} cúbica uniforme com nós \emph{clamped}.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lp{9.5cm}}
+\toprule
+\textbf{Símbolo} & \textbf{Responsabilidade} \\
+\midrule
+\code{buildClampedKnots(n, k)} & Constrói o vetor de nós $T$ de comprimento $n+k+1$
+                                  com multiplicidade $k+1$ nos extremos. \\
+\code{findKnotSpan(n, k, t, T)} & Busca binária pelo índice do span $i$ tal que
+                                   $T_i \leq t < T_{i+1}$; trata o extremo superior. \\
+\code{deBoor(pts, T, k, span, t)} & Triângulo de de~Boor: $k$ passos de interpolação
+                                     linear, retorna $C(t)$. \\
+\code{sampleBSpline(pts, steps)} & Amostra uniformemente o domínio $[T_k, T_n]$
+                                    em \code{steps+1} pontos. \\
+\code{BSplineCurve.standardDraw()} & Renderização vetorial por amostragem + \code{lineTo}. \\
+\code{BSplineCurve.pixelatedDraw()} & Amostragem em grade $\to$ Bresenham $\to$ \code{drawPixel}. \\
+\bottomrule
+\end{tabular}
+\caption{Responsabilidades dos símbolos em \file{BSplineCurve.ts}.}
+\end{table}
+
+\subsection{Arquivo: \file{\_hooks/useCurveDrawing.ts}}
+
+\emph{React Hook} que gerencia o estado de interação multi-clique compartilhado
+pelas duas ferramentas de curva.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lp{9cm}}
+\toprule
+\textbf{Símbolo / constante} & \textbf{Responsabilidade} \\
+\midrule
+\code{points} (ref)               & Acumula os pontos de controle já confirmados. \\
+\code{cursor} (ref)               & Posição atual do ponteiro (pré-confirmação). \\
+\code{lastClickTime} (ref)        & Instante do último clique, para detecção de
+                                    duplo-clique ($\Delta t < 300\,\text{ms}$). \\
+\code{BEZIER\_MIN\_POINTS = 3}    & Mínimo para emitir uma curva de Bézier válida. \\
+\code{BSPLINE\_MIN\_POINTS = 4}   & Mínimo para a B-\emph{spline} cúbica \emph{clamped}. \\
+\code{drawPreview()}              & Redesenha o canvas com: polígono de controle
+                                    tracejado, marcadores nos pontos confirmados e
+                                    a curva resultante (se pontos suficientes). \\
+\code{finalize()}                 & Cria a instância final da curva e chama
+                                    \code{enterPending()} para o fluxo de placement. \\
+\code{cancel()}                   & Descarta todos os pontos e redesenha a cena. \\
+\code{onPointerDown()}            & Adiciona ponto ou finaliza em duplo-clique. \\
+\code{onPointerMove()}            & Atualiza o cursor e redesenha o preview. \\
+\bottomrule
+\end{tabular}
+\caption{Símbolos relevantes em \file{useCurveDrawing.ts}.}
+\end{table}
+
+\subsection{Modificações em arquivos existentes}
+
+\subsubsection{\file{\_types/Graphics.ts}}
+
+O tipo de união \code{Geometric} recebeu dois novos membros:
+
+\begin{lstlisting}[language=TypeScript, caption={Adição ao tipo \code{Geometric}.}]
+export type Geometric =
+    // ... membros anteriores ...
+    | 'bezier'   // curva de Bezier
+    | 'bspline'; // B-spline cubica clamped
+\end{lstlisting}
+
+\subsubsection{\file{\_hooks/useDrawingHandlers.ts}}
+
+Foram feitas três alterações pontuais:
+
+\begin{enumerate}
+    \item \textbf{Import}: \code{import useCurveDrawing from './useCurveDrawing'}
+    \item \textbf{Instância do hook}: chamada a \code{useCurveDrawing(\{...\})} logo
+          após a instância de \code{usePolygonDrawing}.
+    \item \textbf{Despacho de eventos}: nas callbacks \code{handlePointerDown} e
+          \code{handlePointerMove}, adicionado o bloco:
+\begin{lstlisting}[language=TypeScript, caption={Despacho para o hook de curvas.},
+                   numbers=none]
+} else if (selectedShape === 'bezier' || selectedShape === 'bspline') {
+    curve.onPointerDown(mappedPoint); // ou onPointerMove
+}
+\end{lstlisting}
+    e em \code{handlePointerUp} a guarda:
+\begin{lstlisting}[language=TypeScript, numbers=none]
+const isCurveShape = selectedShape === 'bezier' || selectedShape === 'bspline';
+if (!pendingPointerUp() && selectedShape !== 'polygon'
+        && !isCurveShape && isDrawing.current) { ... }
+\end{lstlisting}
+\end{enumerate}
+
+\subsubsection{\file{\_utils/scenePersistence.ts}}
+
+Adicionados dois imports, dois casos em \code{serializeSceneItem()} e dois
+casos em \code{deserializeSceneItem()}. A estrutura serializada é idêntica à
+do polígono livre, apenas um array de pontos:
+
+\begin{lstlisting}[language=TypeScript, caption={Padrão de serialização das curvas.}]
+// Serializacao (serializeSceneItem)
+if (item instanceof BezierCurve || item instanceof BSplineCurve) {
+    return { kind: item.kind, data: { ...getCommonShapeData(item),
+        points: clonePoints(item.points) } };
+}
+
+// Desserializacao (switch em deserializeSceneItem)
+case 'bezier': {
+    const shape = new BezierCurve(readPoints(data.points), getShapeOptions(data));
+    applyCommonShapeData(shape, data);
+    return shape;
+}
+case 'bspline': {
+    const shape = new BSplineCurve(readPoints(data.points), getShapeOptions(data));
+    applyCommonShapeData(shape, data);
+    return shape;
+}
+\end{lstlisting}
+
+\subsubsection{\file{\_components/menu/main/ui/ShapeSelector.tsx}}
+
+Importados \code{TbVectorBezier2} e \code{TbVectorSpline} do pacote
+\code{react-icons/tb}, e adicionados dois \code{WorkspaceToolButton} na barra
+inferior do seletor de formas.
+
+% =============================================================================
+\section{Modelo Matemático}
+% =============================================================================
+
+\subsection{Curva de Bézier}
+
+\subsubsection{Definição via polinômios de Bernstein}
+
+\begin{defn}[Curva de Bézier de grau $n$]
+Dados $n+1$ pontos de controle $\mathbf{P}_0, \mathbf{P}_1, \ldots, \mathbf{P}_n
+\in \mathbb{R}^2$ e um parâmetro $t \in [0, 1]$, a \emph{curva de Bézier} de
+grau $n$ é o mapa:
+\begin{equation}
+    \mathbf{B}(t)
+    = \sum_{i=0}^{n} \binom{n}{i} (1-t)^{n-i}\, t^i\, \mathbf{P}_i
+    = \sum_{i=0}^{n} B_{i,n}(t)\, \mathbf{P}_i,
+    \label{eq:bernstein}
+\end{equation}
+onde $B_{i,n}(t) = \binom{n}{i}(1-t)^{n-i} t^i$ é o $i$-ésimo
+\emph{polinômio de Bernstein} de grau $n$.
+\end{defn}
+
+Os polinômios de Bernstein satisfazem a partição da unidade
+$\sum_{i=0}^n B_{i,n}(t) = 1$ e são todos não-negativos em $[0,1]$, o que
+garante que a curva reside no \emph{invólucro convexo} (casco convexo)
+dos pontos de controle.
+
+\begin{prop}[Interpolação nas extremidades]
+$\mathbf{B}(0) = \mathbf{P}_0$ e $\mathbf{B}(1) = \mathbf{P}_n$.
+\end{prop}
+
+\begin{prop}[Tangente nas extremidades]
+\[
+    \mathbf{B}'(0) = n\,(\mathbf{P}_1 - \mathbf{P}_0), \qquad
+    \mathbf{B}'(1) = n\,(\mathbf{P}_n - \mathbf{P}_{n-1}).
+\]
+A tangente de saída é paralela ao segmento $\mathbf{P}_0\mathbf{P}_1$
+e a tangente de chegada é paralela a $\mathbf{P}_{n-1}\mathbf{P}_n$.
+\end{prop}
+
+\subsubsection{Algoritmo de De Casteljau}
+
+A avaliação direta de~\eqref{eq:bernstein} é numericamente instável para graus
+elevados. O algoritmo de De~Casteljau~\cite{decasteljau1959} computa o mesmo
+resultado por subdivisão recursiva:
+
+\begin{defn}[Algoritmo de De Casteljau]
+Define-se a família de pontos intermediários:
+\begin{align}
+    \mathbf{P}_i^{(0)} &= \mathbf{P}_i, \quad i = 0, \ldots, n, \\[4pt]
+    \mathbf{P}_i^{(r)} &= (1-t)\,\mathbf{P}_i^{(r-1)}
+                        + t\,\mathbf{P}_{i+1}^{(r-1)},
+    \quad r = 1, \ldots, n, \; i = 0, \ldots, n-r.
+\end{align}
+O ponto da curva é $\mathbf{B}(t) = \mathbf{P}_0^{(n)}$.
+\end{defn}
+
+O processo pode ser visualizado como um triângulo de interpolações lineares
+sucessivas (Tabela~\ref{tab:decasteljau}).
+
+\begin{table}[H]
+\centering
+\begin{tabular}{cccccc}
+\toprule
+$r=0$ & $r=1$ & $r=2$ & $r=3$ & $\cdots$ & $r=n$ \\
+\midrule
+$\mathbf{P}_0^{(0)}$ & $\mathbf{P}_0^{(1)}$ & $\mathbf{P}_0^{(2)}$ & $\mathbf{P}_0^{(3)}$ & $\cdots$ & $\mathbf{B}(t)$ \\
+$\mathbf{P}_1^{(0)}$ & $\mathbf{P}_1^{(1)}$ & $\mathbf{P}_1^{(2)}$ & $\mathbf{P}_1^{(3)}$ & & \\
+$\mathbf{P}_2^{(0)}$ & $\mathbf{P}_2^{(1)}$ & $\mathbf{P}_2^{(2)}$ & & & \\
+$\mathbf{P}_3^{(0)}$ & $\mathbf{P}_3^{(1)}$ & & & & \\
+$\vdots$ & & & & & \\
+\bottomrule
+\end{tabular}
+\caption{Triângulo de De~Casteljau para grau $n$. Cada nível $r$ é calculado
+         interpolando o nível $r-1$.}
+\label{tab:decasteljau}
+\end{table}
+
+\paragraph{Pseudocódigo.}
+
+\begin{lstlisting}[language=Pseudocode, caption={De Casteljau, avaliação de $\mathbf{B}(t)$.}]
+function deCasteljau(P[0..n], t):
+    d[0..n] <- copia de P[0..n]     // buffer temporario
+    Para r de 1 ate n:
+        Para i de 0 ate n - r:
+            d[i].x <- (1-t)*d[i].x + t*d[i+1].x
+            d[i].y <- (1-t)*d[i].y + t*d[i+1].y
+    Retorna d[0]
+\end{lstlisting}
+
+\paragraph{Complexidade.}
+$O(n^2)$ operações de ponto flutuante por avaliação. Para graus práticos
+($n \leq 20$) e o número de amostras utilizado ($\leq 400$), o custo é
+negligenciável em hardware moderno.
+
+\subsubsection{Casos especiais na renderização vetorial}
+
+A implementação aproveita as primitivas nativas do Canvas~2D para os graus
+mais comuns, eliminando o custo de amostragem:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{cll}
+\toprule
+\textbf{Grau $n$} & \textbf{Nº de CPs} & \textbf{Primitiva usada} \\
+\midrule
+1 & 2 & \code{ctx.lineTo(P\textsubscript{1})} \\
+2 & 3 & \code{ctx.quadraticCurveTo(P\textsubscript{1}, P\textsubscript{2})} \\
+3 & 4 & \code{ctx.bezierCurveTo(P\textsubscript{1}, P\textsubscript{2}, P\textsubscript{3})} \\
+$\geq 4$ & $\geq 5$ & De~Casteljau + $\max(100,\;n \times 30)$ \code{lineTo} \\
+\bottomrule
+\end{tabular}
+\caption{Mapeamento grau $\to$ primitiva Canvas~2D.}
+\end{table}
+
+\subsubsection{Renderização pixelada}
+
+Em modo pixelado, a curva é amostrada em coordenadas de grade
+(\emph{pixels} lógicos de tamanho \code{pixelSize}) e cada segmento
+entre amostras consecutivas é rasterizado pelo algoritmo de Bresenham.
+O número de amostras é dimensionado pela diagonal da \emph{bounding box}:
+
+\begin{equation}
+    \text{steps} = \max\!\left(
+        3 \cdot \left\lceil \frac{\sqrt{w^2+h^2}}{\mathit{pixelSize}} \right\rceil,\;
+        20 \cdot n,\;
+        50
+    \right),
+\end{equation}
+
+onde $w$ e $h$ são a largura e a altura da \emph{bounding box} em
+coordenadas do documento. Isso garante que não haja lacunas na curva
+rasterizada, mesmo quando os pontos de controle cobrem grande área.
+
+% ---------------------------------------------------------------------------
+\subsection{B-\emph{spline} Cúbica com Nós \emph{Clamped}}
+% ---------------------------------------------------------------------------
+
+\subsubsection{Funções base de B-\emph{spline} (Cox–de~Boor)}
+
+\begin{defn}[Vetor de nós]
+Um \emph{vetor de nós} é uma sequência não-decrescente
+$T = (t_0 \leq t_1 \leq \cdots \leq t_m)$.
+Para uma B-\emph{spline} de grau $k$ com $n$ pontos de controle,
+$m = n + k + 1$ (i.e., $m+1$ nós).
+\end{defn}
+
+\begin{defn}[Funções base, recursão de Cox–de~Boor \cite{cox1972,deboor1972}]
+\begin{align}
+    N_{i,0}(t) &=
+    \begin{cases}
+        1 & \text{se } t_i \leq t < t_{i+1}, \\
+        0 & \text{caso contrário,}
+    \end{cases} \\[6pt]
+    N_{i,k}(t) &=
+    \frac{t - t_i}{t_{i+k} - t_i}\,N_{i,k-1}(t)
+    + \frac{t_{i+k+1} - t}{t_{i+k+1} - t_{i+1}}\,N_{i+1,k-1}(t),
+    \label{eq:coxdeboor}
+\end{align}
+com a convenção $0/0 = 0$.
+\end{defn}
+
+A curva B-\emph{spline} é então:
+\begin{equation}
+    \mathbf{C}(t) = \sum_{i=0}^{n-1} N_{i,k}(t)\;\mathbf{P}_i,
+    \qquad t \in [t_k,\; t_n].
+    \label{eq:bspline}
+\end{equation}
+
+\subsubsection{Vetor de nós \emph{clamped} uniforme}
+
+Para que a curva \emph{interpole} os pontos inicial e final, usa-se o
+vetor de nós \emph{clamped} (com multiplicidade $k+1$ nos extremos):
+
+\begin{equation}
+    T = \underbrace{0, \ldots, 0}_{k+1},\;
+        1, 2, \ldots, n-k-1,\;
+        \underbrace{n-k, \ldots, n-k}_{k+1}.
+    \label{eq:clamped_knots}
+\end{equation}
+
+Para a B-\emph{spline} cúbica ($k = 3$) com $n$ pontos de controle ($n \geq 4$):
+
+\begin{equation}
+    T = \underbrace{0, 0, 0, 0}_{4},\;
+        1, 2, \ldots, n-4,\;
+        \underbrace{n-3, n-3, n-3, n-3}_{4}.
+\end{equation}
+
+\begin{prop}[Interpolação nas extremidades]
+Com o vetor \emph{clamped}, $\mathbf{C}(0) = \mathbf{P}_0$ e
+$\mathbf{C}(n-3) = \mathbf{P}_{n-1}$.
+\end{prop}
+
+\begin{prop}[Continuidade $C^2$]
+Em cada nó interno simples, a curva possui continuidade de segunda derivada
+($C^2$), garantindo transições suaves entre segmentos cúbicos consecutivos.
+\end{prop}
+
+\begin{prop}[Controle local]
+Mover o ponto $\mathbf{P}_i$ afeta apenas os $k+1 = 4$ segmentos que
+contêm $\mathbf{P}_i$ em sua janela de influência. Isso contrasta com a
+curva de Bézier, cujo controle é \emph{global}.
+\end{prop}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ccccc}
+\toprule
+$n$ & \#\,nós & Vetor de nós $T$ & Domínio & \#\,segmentos \\
+\midrule
+4 & 8 & $[0,0,0,0,1,1,1,1]$ & $[0,1]$ & 1 \\
+5 & 9 & $[0,0,0,0,1,2,2,2,2]$ & $[0,2]$ & 2 \\
+6 & 10 & $[0,0,0,0,1,2,3,3,3,3]$ & $[0,3]$ & 3 \\
+$n$ & $n+4$ & (fórmula~\ref{eq:clamped_knots}) & $[0, n-3]$ & $n-3$ \\
+\bottomrule
+\end{tabular}
+\caption{Exemplos do vetor de nós \emph{clamped} para diferentes valores de $n$.}
+\end{table}
+
+\subsubsection{Algoritmo de de~Boor}
+
+Para avaliar $\mathbf{C}(t)$, localiza-se o \emph{span} $[t_i, t_{i+1})$
+que contém $t$ e executa-se o algoritmo de de~Boor~\cite{deboor1972},
+análogo ao triângulo de De~Casteljau:
+
+\begin{lstlisting}[language=Pseudocode, caption={Algoritmo de de~Boor, avaliação de $\mathbf{C}(t)$.}]
+// Pre: span = i tal que T[i] <= t < T[i+1]
+function deBoor(P[0..n-1], T[0..n+k], k, span, t):
+    d[0..k] <- P[span-k .. span]   // janela de k+1 pontos de controle
+
+    Para r de 1 ate k:
+        Para j de k ate r:
+            i_local <- span - k + j
+            denom   <- T[i_local + k - r + 1] - T[i_local]
+            Se denom = 0:
+                alpha <- 0
+            Senao:
+                alpha <- (t - T[i_local]) / denom
+            d[j] <- (1 - alpha)*d[j-1] + alpha*d[j]
+
+    Retorna d[k]
+\end{lstlisting}
+
+\paragraph{Localização do span.}
+
+A implementação usa busca binária em $[T_k, T_n)$ com tratamento especial
+do extremo superior ($t = T_n$, que pertence ao último span não-vazio):
+
+\begin{lstlisting}[language=Pseudocode, caption={Localização do span por busca binária.}]
+function findKnotSpan(n, k, t, T):
+    Se t >= T[n]:
+        i <- n - 1
+        Enquanto i > k E T[i] = T[n]:
+            i <- i - 1
+        Retorna i
+
+    lo <- k;  hi <- n;  mid <- (lo + hi) / 2
+    Enquanto t < T[mid] OU t >= T[mid+1]:
+        Se t < T[mid]:
+            hi <- mid
+        Senao:
+            lo <- mid
+        mid <- (lo + hi) / 2
+    Retorna mid
+\end{lstlisting}
+
+\subsubsection{Comparativo: Bézier vs. B-\emph{spline}}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.35}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Característica} & \textbf{Bézier} & \textbf{B-\emph{spline} cúbica} \\
+\midrule
+Grau da curva                   & $n = \#\text{CPs} - 1$ & 3 (fixo) \\
+Nº mín.\ de pontos de controle  & 3 & 4 \\
+Interpolação de extremos        & Sim ($P_0$, $P_n$) & Sim (\emph{clamped}) \\
+Controle de influência          & Global & Local ($k+1$ segmentos) \\
+Continuidade                    & $C^\infty$ (polinomial) & $C^2$ em nós simples \\
+Adicionar ponto sem mudar grau  & Não & Sim \\
+Adequado para curvas longas     & Grau alto $\Rightarrow$ oscilação & Sim, $n$ arbitrário \\
+Custo de avaliação              & $O(n^2)$ & $O(k^2) = O(9)$ por ponto \\
+\bottomrule
+\end{tabular}
+\caption{Comparativo entre as duas curvas implementadas.}
+\end{table}
+
+% =============================================================================
+\section{Manual de Uso}
+% =============================================================================
+
+\subsection{Selecionando a ferramenta}
+
+As duas ferramentas de curva ficam na barra inferior do \textbf{Seletor de Formas},
+ao lado do botão de Polígono Livre:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Componente} & \textbf{Ferramenta} & \textbf{Tipo interno} \\
+\midrule
+\texttt{TbVectorBezier2} & Curva de Bézier & \code{bezier} \\
+\texttt{TbVectorSpline}  & B-\emph{spline} cúbica & \code{bspline} \\
+\bottomrule
+\end{tabular}
+\caption{Botões de seleção das ferramentas de curva no seletor de formas.}
+\end{table}
+
+\begin{obs}
+Clicar em uma ferramenta já ativa volta para a ferramenta de forma livre
+(\code{freeform}), comportamento padrão de todas as ferramentas do seletor.
+\end{obs}
+
+\subsection{Desenhando uma curva de Bézier}
+
+\subsubsection*{Passo a passo}
+
+\begin{enumerate}[leftmargin=1.6cm, label=\textbf{Passo \arabic*.}]
+
+    \item \textbf{Selecione a ferramenta Bézier} clicando no botão
+          \texttt{TbVectorBezier2} no seletor de formas.
+
+    \item \textbf{Adicione o primeiro ponto de controle} clicando em qualquer
+          posição do canvas. O ponto aparece como um marcador cheio.
+
+    \item \textbf{Continue adicionando pontos} com cliques únicos. A cada
+          clique:
+          \begin{itemize}
+              \item Um marcador circular é desenhado no ponto confirmado.
+              \item O polígono de controle (linhas tracejadas ligando todos os
+                    pontos) é atualizado.
+              \item Assim que 3 ou mais pontos existirem, a \emph{curva
+                    resultante} é exibida em tempo real.
+          \end{itemize}
+
+    \item \textbf{Mova o mouse} após cada clique para visualizar como o próximo
+          ponto influenciará a curva (o cursor é mostrado como um anel aberto).
+
+    \item \textbf{Finalize a curva} com um dos métodos:
+          \begin{itemize}
+              \item \textbf{Duplo-clique}, o ponto do segundo clique NÃO é
+                    adicionado (o clique duplo finaliza sem novo ponto).
+              \item \textbf{Tecla \texttt{Enter}}, finaliza com os pontos atuais.
+          \end{itemize}
+
+    \item \textbf{Modo \emph{pending-placement}}: após finalizar, a curva entra
+          no modo de posicionamento. É possível:
+          \begin{itemize}
+              \item \textbf{Mover} arrastando a curva.
+              \item \textbf{Rotacionar} usando o puxador de rotação.
+              \item \textbf{Redimensionar} pelos puxadores de canto/aresta.
+              \item \textbf{Confirmar} clicando fora da curva ou pressionando
+                    \texttt{Enter}.
+              \item \textbf{Cancelar} com \texttt{Escape}.
+          \end{itemize}
+
+\end{enumerate}
+
+\subsubsection*{Cancelar durante a edição}
+
+Pressione \texttt{Escape} a qualquer momento para descartar todos os pontos
+adicionados e retornar ao estado inicial da ferramenta.
+Trocar de ferramenta também cancela automaticamente.
+
+\subsubsection*{Quantidade de pontos e grau resultante}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ccc}
+\toprule
+\textbf{Nº de pontos clicados} & \textbf{Grau da curva} & \textbf{Primitiva usada} \\
+\midrule
+2 & 1 (reta) & \code{lineTo} \\
+3 & 2 (quadrática) & \code{quadraticCurveTo} \\
+4 & 3 (cúbica) & \code{bezierCurveTo} \\
+5+ & $n-1$ (alto) & amostragem + \code{lineTo} \\
+\bottomrule
+\end{tabular}
+\caption{Relação entre quantidade de cliques e grau da curva de Bézier.}
+\end{table}
+
+\subsection{Desenhando uma B-\emph{spline} cúbica}
+
+\subsubsection*{Passo a passo}
+
+\begin{enumerate}[leftmargin=1.6cm, label=\textbf{Passo \arabic*.}]
+
+    \item \textbf{Selecione a ferramenta B-\emph{spline}} clicando em
+          \texttt{TbVectorSpline}.
+
+    \item \textbf{Adicione ao menos 4 pontos de controle} com cliques únicos.
+          Com menos de 4 pontos, o preview mostra apenas o polígono de controle
+          sem a curva.
+
+    \item \textbf{Continue adicionando pontos} para refinar a forma. Cada novo
+          ponto adiciona um segmento cúbico à curva. A propriedade de
+          \emph{controle local} significa que deslocar mentalmente um ponto
+          afeta apenas os $\approx 4$ segmentos próximos.
+
+    \item \textbf{Finalize} com duplo-clique ou \texttt{Enter} (mesmo
+          comportamento da ferramenta Bézier).
+
+    \item \textbf{Modo \emph{pending-placement}}: idêntico ao da Bézier.
+
+\end{enumerate}
+
+\subsubsection*{Quantidade de pontos e segmentos}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ccc}
+\toprule
+\textbf{Nº de pontos ($n$)} & \textbf{Nº de segmentos cúbicos} & \textbf{Obs.} \\
+\midrule
+$< 4$ &, & Curva não é exibida \\
+4 & 1 & 1 cúbica (similar a Bézier cúbica) \\
+5 & 2 & $C^2$ na junção \\
+6 & 3 & $C^2$ em 2 junções \\
+$n$ & $n - 3$ & $C^2$ em $n-4$ nós internos \\
+\bottomrule
+\end{tabular}
+\caption{Relação entre pontos de controle e segmentos da B-\emph{spline} cúbica.}
+\end{table}
+
+\subsection{Propriedades comuns às duas ferramentas}
+
+\subsubsection*{Modo pixelado}
+
+Quando o modo pixelado está ativo (seletor de estilo de pintura), as curvas
+são rasterizadas usando o algoritmo de Bresenham entre amostras consecutivas,
+respeitando a grade de \code{pixelSize} unidades. O resultado é uma curva
+suave em termos de forma, mas com textura pixelada.
+
+\subsubsection*{Espessura e cor}
+
+Ambas as ferramentas respeitam:
+\begin{itemize}
+    \item \textbf{Cor atual} do seletor de cor.
+    \item \textbf{Espessura} do controle de espessura (\emph{thickness}).
+    \item \textbf{Estilo de traço} (\emph{dash preset}), sólido, tracejado, etc.
+    \item \textbf{Algoritmo de linha} (\emph{Bresenham} ou \emph{DDA}) para o
+          polígono de controle no modo pixelado.
+\end{itemize}
+
+\subsubsection*{Desfazer/Refazer}
+
+O botão de desfazer (\emph{Undo}) funciona normalmente: após confirmar a curva
+no modo \emph{pending-placement}, ela é adicionada à cena e pode ser desfeita
+junto com qualquer outra forma.
+
+\subsubsection*{Seleção e transformações pós-commit}
+
+Após confirmada, a curva pode ser selecionada pela ferramenta de seleção
+(clique sobre ela) e:
+\begin{itemize}
+    \item \textbf{Movida} arrastando.
+    \item \textbf{Rotacionada} pelo puxador de rotação.
+    \item \textbf{Redimensionada} pelos puxadores, os pontos de controle são
+          remapeados proporcionalmente para a nova \emph{bounding box}.
+    \item \textbf{Copiada/Colada} pelo clipboard interno.
+    \item \textbf{Salva} junto com o projeto (serialização em JSON via
+          Supabase).
+\end{itemize}
+
+\subsubsection*{Diferenças práticas de uso}
+
+\begin{itemize}
+    \item Use a \textbf{Bézier} quando quiser uma única curva suave de forma
+          previsível, ideal para lettering, formas orgânicas simples e
+          traços de precisão com poucos pontos.
+    \item Use a \textbf{B-\emph{spline}} quando quiser uma curva composta de
+          muitos pontos com controle suave entre eles, ideal para trajetórias
+          longas, contornos de objetos complexos e refinamento incremental
+          (adicionando pontos sem afetar outras partes da curva).
+\end{itemize}
+
+% =============================================================================
+\section{Referências}
+% =============================================================================
+
+\begin{thebibliography}{9}
+
+\bibitem{decasteljau1959}
+de Casteljau, P. (1959).
+\textit{Outillages methodes calcul}.
+André Citroën Automobiles SA, Paris.
+Nota técnica interna.
+
+\bibitem{deboor1972}
+de~Boor, C. (1972).
+On calculating with B-splines.
+\textit{Journal of Approximation Theory}, 6(1), 50--62.
+\url{https://doi.org/10.1016/0021-9045(72)90080-9}
+
+\bibitem{cox1972}
+Cox, M.\,G. (1972).
+The numerical evaluation of B-splines.
+\textit{IMA Journal of Applied Mathematics}, 10(2), 134--149.
+\url{https://doi.org/10.1093/imamat/10.2.134}
+
+\bibitem{farin2002}
+Farin, G. (2002).
+\textit{Curves and Surfaces for CAGD: A Practical Guide} (5th ed.).
+Morgan Kaufmann.
+ISBN 978-1-55860-737-8.
+[§5 -- Bézier curves; §6 -- Geometric continuity]
+
+\bibitem{piegl1997}
+Piegl, L., \& Tiller, W. (1997).
+\textit{The NURBS Book} (2nd ed.).
+Springer.
+ISBN 978-3-540-61545-3.
+[Algorithm A2.1 -- FindSpan; Algorithm A3.1 -- CurvePoint;
+ §9.1 -- Clamped knot vector]
+
+\bibitem{bresenham1965}
+Bresenham, J.\,E. (1965).
+Algorithm for computer control of a digital plotter.
+\textit{IBM Systems Journal}, 4(1), 25--30.
+\url{https://doi.org/10.1147/sj.41.0025}
+
+\end{thebibliography}
+
+\end{document}

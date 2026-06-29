@@ -22,6 +22,8 @@ import Heptagon from '@/app/(workspace)/paint/_shapes/Heptagon';
 import Octagon from '@/app/(workspace)/paint/_shapes/Octagon';
 import Star from '@/app/(workspace)/paint/_shapes/Star';
 import FreePolygon from '@/app/(workspace)/paint/_shapes/FreePolygon';
+import BezierCurve from '@/app/(workspace)/paint/_shapes/BezierCurve';
+import BSplineCurve from '@/app/(workspace)/paint/_shapes/BSplineCurve';
 import FreeForm from '@/app/(workspace)/paint/_shapes/FreeForm';
 import FillShape from '@/app/(workspace)/paint/_shapes/FillShape';
 import ClearRectItem from '@/app/(workspace)/paint/_shapes/ClearRectItem';
@@ -265,7 +267,9 @@ async function serializeSceneItem(item: SceneItem): Promise<SerializedSceneItem 
         item instanceof Heptagon ||
         item instanceof Octagon ||
         item instanceof Star ||
-        item instanceof FreePolygon
+        item instanceof FreePolygon ||
+        item instanceof BezierCurve ||
+        item instanceof BSplineCurve
     ) {
         return {
             kind: item.kind,
@@ -418,6 +422,16 @@ async function deserializeSceneItem(item: SerializedSceneItem): Promise<SceneIte
         }
         case 'polygon': {
             const shape = new FreePolygon(readPoints(data.points), getShapeOptions(data));
+            applyCommonShapeData(shape, data);
+            return shape;
+        }
+        case 'bezier': {
+            const shape = new BezierCurve(readPoints(data.points), getShapeOptions(data));
+            applyCommonShapeData(shape, data);
+            return shape;
+        }
+        case 'bspline': {
+            const shape = new BSplineCurve(readPoints(data.points), getShapeOptions(data));
             applyCommonShapeData(shape, data);
             return shape;
         }

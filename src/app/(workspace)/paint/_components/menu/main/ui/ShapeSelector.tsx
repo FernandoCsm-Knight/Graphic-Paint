@@ -19,7 +19,7 @@ import {
 import { PaintContext } from "../../../../_context/PaintContext";
 import type { Geometric } from "../../../../_types/Graphics";
 import { BsHeptagon } from "react-icons/bs";
-import { TbOvalVertical, TbPolygon } from "react-icons/tb";
+import { TbOvalVertical, TbPolygon, TbVectorBezier2, TbVectorSpline } from "react-icons/tb";
 import GlassCard from "@/components/GlassCard";
 import type { Point } from "@/types/geometry";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
@@ -108,6 +108,22 @@ const ShapeSelector = () => {
                         stayActive
                     >
                         <TbPolygon className="ui-icon" />
+                    </WorkspaceToolButton>
+                    <WorkspaceToolButton
+                        ariaLabel="Curva de Bézier (clique para pontos de controle, duplo-clique para finalizar)"
+                        onClick={() => onSelect('bezier')}
+                        active={selectedShape === 'bezier'}
+                        stayActive
+                    >
+                        <TbVectorBezier2 className="ui-icon" />
+                    </WorkspaceToolButton>
+                    <WorkspaceToolButton
+                        ariaLabel="B-spline cúbica (clique para pontos de controle, duplo-clique para finalizar)"
+                        onClick={() => onSelect('bspline')}
+                        active={selectedShape === 'bspline'}
+                        stayActive
+                    >
+                        <TbVectorSpline className="ui-icon" />
                     </WorkspaceToolButton>
                 </div>
             </div>

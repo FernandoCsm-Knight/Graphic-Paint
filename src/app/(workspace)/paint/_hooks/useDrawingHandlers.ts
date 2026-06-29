@@ -13,6 +13,7 @@ import useWorkspacePanZoom from "@/hooks/useWorkspacePanZoom";
 import useSelection from "./useSelection";
 import useMultiSelect from "./useMultiSelect";
 import usePolygonDrawing from "./usePolygonDrawing";
+import useCurveDrawing from "./useCurveDrawing";
 import usePendingPlacement from "./usePendingPlacement";
 import type { SceneItem } from "./useScene";
 import type { Point } from "@/types/geometry";
@@ -134,6 +135,19 @@ const useDrawingHandlers = ({
         selectedShape,
     });
 
+    const curve = useCurveDrawing({
+        contextRef,
+        renderViewport,
+        redrawFromScene,
+        enterPending: enterPendingShape,
+        currentColorRef,
+        thicknessRef,
+        pixelated,
+        pixelSize,
+        lineAlgorithm,
+        selectedShape,
+    });
+
     const hasPendingShape = useCallback(() => pendingShapeRef.current !== null, [pendingShapeRef]);
 
     const isDrawing = useRef(false);
@@ -241,6 +255,8 @@ const useDrawingHandlers = ({
             pendingPointerDown(mappedPoint, point);
         } else if (selectedShape === 'polygon') {
             polygon.onPointerDown(mappedPoint);
+        } else if (selectedShape === 'bezier' || selectedShape === 'bspline') {
+            curve.onPointerDown(mappedPoint);
         } else {
             canvas.setPointerCapture(e.pointerId);
             isDrawing.current = true;
@@ -280,7 +296,7 @@ const useDrawingHandlers = ({
     }, [
         panDown, canvasRef, contextRef, getCanvasPoint, pixelated, pixelSize,
         isSelectionActive, startSelection, startMultiSelect, isFillActive, currentColorRef, isEraserActive,
-        selectedShape, thicknessRef, lineAlgorithm, lineDash, brushStyle, renderViewport, polygon,
+        selectedShape, thicknessRef, lineAlgorithm, lineDash, brushStyle, renderViewport, polygon, curve,
         hasPendingShape, pendingPointerDown,
     ]);
 
@@ -303,6 +319,8 @@ const useDrawingHandlers = ({
             pendingPointerMove(point, currentPoint);
         } else if (selectedShape === 'polygon') {
             polygon.onPointerMove(point);
+        } else if (selectedShape === 'bezier' || selectedShape === 'bspline') {
+            curve.onPointerMove(point);
         } else if (isDrawing.current && contextRef.current) {
             const ctx = contextRef.current;
 
@@ -320,7 +338,7 @@ const useDrawingHandlers = ({
     }, [
         panMove, contextRef, getCanvasPoint, pixelated, pixelSize,
         isSelectionActive, updateSelection, updateMultiSelect, selectedShape,
-        scheduleShapePreview, scheduleViewportRender, polygon,
+        scheduleShapePreview, scheduleViewportRender, polygon, curve,
         hasPendingShape, pendingPointerMove,
     ]);
 
@@ -336,7 +354,8 @@ const useDrawingHandlers = ({
 
         if (panUp(e)) return;
 
-        if (!pendingPointerUp() && selectedShape !== 'polygon' && isDrawing.current) {
+        const isCurveShape = selectedShape === 'bezier' || selectedShape === 'bspline';
+        if (!pendingPointerUp() && selectedShape !== 'polygon' && !isCurveShape && isDrawing.current) {
             if (shapePreviewRafId.current !== null) {
                 cancelAnimationFrame(shapePreviewRafId.current);
                 shapePreviewRafId.current = null;
