@@ -14,6 +14,20 @@ function isEpsilon(symbol: string): boolean {
 }
 
 /**
+ * Returns true if a single token matches `char`.
+ * Tokens are interpreted as regular expressions: `[a-z]`, `\d`, `a|b`, etc.
+ * Falls back to literal comparison if the token is not a valid regex.
+ */
+function matchesToken(token: string, char: string): boolean {
+    if (EPSILON_SYMBOLS.has(token)) return false;
+    try {
+        return new RegExp(`^(?:${token})$`).test(char);
+    } catch {
+        return token === char;
+    }
+}
+
+/**
  * Compute the ε-closure of a set of states (BFS).
  * Returns all states reachable from `startIds` via zero or more ε-transitions.
  */
@@ -50,7 +64,7 @@ function step(
     const usedTransitionIds = new Set<TransitionId>();
 
     for (const t of transitions) {
-        if (currentStates.has(t.source) && splitSymbols(t.symbol).includes(char)) {
+        if (currentStates.has(t.source) && splitSymbols(t.symbol).some(p => matchesToken(p, char))) {
             nextStates.add(t.target);
             usedTransitionIds.add(t.id);
         }

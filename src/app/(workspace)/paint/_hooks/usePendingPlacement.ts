@@ -855,6 +855,19 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         return false;
     }, [flushPendingRender, pendingShapeRef, setCanvasCursor]);
 
+    // ── Delete/Backspace → descartar forma pendente ───────────────────────────
+
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+            if (!pendingShapeRef.current) return;
+            e.preventDefault();
+            cancelPending();
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [cancelPending, pendingShapeRef]);
+
     /** Called by the HTML lock button's onClick to group/ungroup the pending ShapeGroup. */
     const handleLockClick = useCallback(() => {
         const onLock = onLockCallbackRef.current;

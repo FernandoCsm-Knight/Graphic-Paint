@@ -224,8 +224,12 @@ const useDrawingHandlers = ({
     const handlePointerDown = useCallback((e: PointerEvent<HTMLCanvasElement>) => {
         if (panDown(e)) return;
 
-        // Right-click: start multi-shape selection whenever no shape is pending.
+        // Right-click: finaliza curva em andamento, ou inicia multi-seleção.
         if (e.button === 2) {
+            if (!hasPendingShape() && (selectedShape === 'bezier' || selectedShape === 'bspline') && curve.isActive()) {
+                curve.finalize();
+                return;
+            }
             if (!hasPendingShape()) {
                 const point = getCanvasPoint(e);
                 if (point) {
@@ -355,6 +359,7 @@ const useDrawingHandlers = ({
         if (panUp(e)) return;
 
         const isCurveShape = selectedShape === 'bezier' || selectedShape === 'bspline';
+        if (isCurveShape) curve.onPointerUp();
         if (!pendingPointerUp() && selectedShape !== 'polygon' && !isCurveShape && isDrawing.current) {
             if (shapePreviewRafId.current !== null) {
                 cancelAnimationFrame(shapePreviewRafId.current);
@@ -404,6 +409,7 @@ const useDrawingHandlers = ({
         stopMultiSelect,
         pendingPointerUp,
         enterPendingShape,
+        curve,
     ]);
 
     return {

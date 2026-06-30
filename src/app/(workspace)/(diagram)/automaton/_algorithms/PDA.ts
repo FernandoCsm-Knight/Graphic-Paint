@@ -13,6 +13,20 @@ function splitSymbols(symbol: string): string[] {
     return symbol.split(',').map((s) => s.trim());
 }
 
+/**
+ * Returns true if a single token matches `char`.
+ * Tokens are interpreted as regular expressions: `[a-z]`, `\d`, `a|b`, etc.
+ * Falls back to literal comparison if the token is not a valid regex.
+ */
+function matchesToken(token: string, char: string): boolean {
+    if (isEpsilonSymbol(token)) return false;
+    try {
+        return new RegExp(`^(?:${token})$`).test(char);
+    } catch {
+        return token === char;
+    }
+}
+
 /** Readable stack display: [] or [A, B, …] (index 0 = topo). */
 function formatStack(stack: string[]): string {
     return stack.length === 0 ? '[]' : `[${stack.join(', ')}]`;
@@ -57,7 +71,7 @@ function applyTransition(
         if (!isLambdaMove) return null;
     } else {
         // We only want moves that consume currentChar
-        if (!symbols.includes(currentChar)) return null;
+        if (!symbols.some(s => matchesToken(s, currentChar))) return null;
     }
 
     // Check and apply stackPop

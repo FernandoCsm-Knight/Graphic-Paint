@@ -8,10 +8,11 @@
  *
  * Fluxo de interação:
  *   1. Clique simples → adiciona ponto de controle.
- *   2. Clique duplo   → finaliza a curva (commit para pending-placement).
- *   3. Enter          → finaliza a curva.
- *   4. Escape         → cancela e descarta todos os pontos.
- *   5. Troca de tool  → cancela automaticamente.
+ *   2. Arrastar ponto existente → reposiciona o ponto de controle.
+ *   3. Clique duplo   → finaliza a curva (commit para pending-placement).
+ *   4. Enter          → finaliza a curva.
+ *   5. Escape         → cancela e descarta todos os pontos.
+ *   6. Troca de tool  → cancela automaticamente.
  *
  * Mínimos de pontos de controle:
  *   Bézier  : 3 (quadrática) — com 2 pontos emite apenas um segmento.
@@ -61,6 +62,7 @@ const useCurveDrawing = ({
     const points = useRef<Point[]>([]);
     const cursor = useRef<Point | null>(null);
     const lastClickTime = useRef<number>(0);
+    const dragIndex = useRef<number>(-1);
 
     const isCurveShape = selectedShape === 'bezier' || selectedShape === 'bspline';
 
@@ -70,6 +72,7 @@ const useCurveDrawing = ({
         ctx: CanvasRenderingContext2D,
         pts: Point[],
         cur: Point | null,
+        activeDragIndex: number = -1,
     ) => {
         if (pts.length === 0) return;
 
@@ -104,8 +107,12 @@ const useCurveDrawing = ({
             ctx.globalAlpha = 1;
 
             // Marcadores nos pontos de controle já confirmados
-            for (const pt of pts) {
+            for (let i = 0; i < pts.length; i++) {
+                const pt = pts[i];
                 const { x: px, y: py } = toPixels(pt, pixelSize);
+                // Ponto ativo (sendo arrastado) em branco/invertido
+                ctx.fillStyle = i === activeDragIndex ? '#ffffff' : color;
+                ctx.fillRect(px - pixelSize, py - pixelSize, pixelSize * 3, pixelSize * 3);
                 ctx.fillStyle = color;
                 ctx.fillRect(px, py, pixelSize, pixelSize);
             }
@@ -143,18 +150,39 @@ const useCurveDrawing = ({
             }
 
             // Marcadores nos pontos de controle confirmados
-            ctx.fillStyle = color;
-            for (const pt of pts) {
-                ctx.beginPath();
-                ctx.arc(pt.x, pt.y, Math.max(3, lw + 1), 0, Math.PI * 2);
-                ctx.fill();
+            const markerRadius = Math.max(3, lw + 1);
+            for (let i = 0; i < pts.length; i++) {
+                const pt = pts[i];
+                if (i === activeDragIndex) {
+                    // Ponto ativo: anel externo + preenchimento contrastante
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, markerRadius + 3, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, markerRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, markerRadius - 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, markerRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
 
-            // Marcador do cursor (anel vazio)
-            if (cur) {
+            // Marcador do cursor (anel vazio) — só mostra quando não está arrastando
+            if (cur && activeDragIndex < 0) {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = Math.max(1, lw * 0.6);
                 ctx.globalAlpha = 0.6;
                 ctx.beginPath();
-                ctx.arc(cur.x, cur.y, Math.max(3, lw + 1), 0, Math.PI * 2);
+                ctx.arc(cur.x, cur.y, markerRadius, 0, Math.PI * 2);
                 ctx.stroke();
                 ctx.globalAlpha = 1;
             }
@@ -211,6 +239,7 @@ const useCurveDrawing = ({
         const ctx = contextRef.current;
         points.current = [];
         cursor.current = null;
+        dragIndex.current = -1;
         if (ctx) {
             redrawFromScene(ctx);
             renderViewport();
@@ -241,6 +270,28 @@ const useCurveDrawing = ({
         const ctx = contextRef.current;
         if (!ctx) return;
 
+        // Verifica se o clique está perto de um ponto existente para iniciar arraste
+        const lw = Math.max(1, thicknessRef.current);
+        const hitRadius = pixelated ? 1.5 : Math.max(8, lw + 4);
+        let hitIdx = -1;
+        let minDist = hitRadius;
+        for (let i = 0; i < points.current.length; i++) {
+            const p = points.current[i];
+            const dx = p.x - mappedPoint.x;
+            const dy = p.y - mappedPoint.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < minDist) { minDist = dist; hitIdx = i; }
+        }
+
+        if (hitIdx >= 0) {
+            // Inicia arraste do ponto existente (não adiciona ponto novo)
+            dragIndex.current = hitIdx;
+            redrawFromScene(ctx);
+            drawPreview(ctx, points.current, null, hitIdx);
+            renderViewport();
+            return;
+        }
+
         const now = Date.now();
         const isDoubleClick = now - lastClickTime.current < 300;
         lastClickTime.current = now;
@@ -257,11 +308,20 @@ const useCurveDrawing = ({
         redrawFromScene(ctx);
         drawPreview(ctx, points.current, cursor.current);
         renderViewport();
-    }, [contextRef, finalize, redrawFromScene, drawPreview, renderViewport]);
+    }, [contextRef, thicknessRef, pixelated, finalize, redrawFromScene, drawPreview, renderViewport]);
 
     const onPointerMove = useCallback((mappedPoint: Point) => {
         const ctx = contextRef.current;
         if (!ctx || points.current.length === 0) return;
+
+        if (dragIndex.current >= 0) {
+            // Reposiciona o ponto sendo arrastado
+            points.current[dragIndex.current] = mappedPoint;
+            redrawFromScene(ctx);
+            drawPreview(ctx, points.current, null, dragIndex.current);
+            renderViewport();
+            return;
+        }
 
         cursor.current = mappedPoint;
         redrawFromScene(ctx);
@@ -269,7 +329,13 @@ const useCurveDrawing = ({
         renderViewport();
     }, [contextRef, redrawFromScene, drawPreview, renderViewport]);
 
-    return { onPointerDown, onPointerMove };
+    const onPointerUp = useCallback(() => {
+        dragIndex.current = -1;
+    }, []);
+
+    const isActive = () => points.current.length > 0;
+
+    return { onPointerDown, onPointerMove, onPointerUp, finalize, isActive };
 };
 
 export default useCurveDrawing;

@@ -73,7 +73,6 @@
 import bresenham from "../_algorithms/BresenhamLine";
 import type { Point } from "@/types/geometry";
 import { Shape, type BoundingBox, type ResizeOptions, type ShapeOptions } from "./ShapeTypes";
-import { map } from "../_types/Graphics";
 
 const DEGREE = 3; // cúbica
 
@@ -197,13 +196,13 @@ export default class BSplineCurve extends Shape {
         ctx.fillStyle = this.strokeStyle;
         const drawPixel = this.drawPixel.bind(this);
 
+        // pts já estão em coordenadas de grade (convertidas antes de chegar aqui).
+        // diag em grid-units → sem divisão por pixelSize.
         const bb = this.getBoundingBox();
-        const diag = Math.ceil(Math.hypot(bb.width, bb.height) / this.pixelSize);
+        const diag = Math.ceil(Math.hypot(bb.width, bb.height));
         const steps = Math.max(diag * 3, pts.length * 20, 50);
 
-        // Converte para coordenadas de grade antes de amostrar
-        const gridPts = pts.map(p => map(p, this.pixelSize));
-        const samples = sampleBSpline(gridPts, steps);
+        const samples = sampleBSpline(pts, steps);
 
         for (let i = 0; i < samples.length - 1; i++) {
             const a: Point = { x: Math.round(samples[i].x),     y: Math.round(samples[i].y) };

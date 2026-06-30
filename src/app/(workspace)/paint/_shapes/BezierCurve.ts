@@ -51,7 +51,6 @@
 import bresenham from "../_algorithms/BresenhamLine";
 import type { Point } from "@/types/geometry";
 import { Shape, type BoundingBox, type ResizeOptions, type ShapeOptions } from "./ShapeTypes";
-import { map } from "../_types/Graphics";
 
 // ─── De Casteljau evaluation ─────────────────────────────────────────────────
 
@@ -139,15 +138,13 @@ export default class BezierCurve extends Shape {
         ctx.fillStyle = this.strokeStyle;
         const drawPixel = this.drawPixel.bind(this);
 
-        // Dimensiona o número de amostras pela diagonal da bbox para evitar
-        // lacunas ao rasterizar em coordenadas de grade (pixelSize unidades).
+        // pts já estão em coordenadas de grade (convertidas antes de chegar aqui).
+        // diag em grid-units → sem divisão por pixelSize.
         const bb = this.getBoundingBox();
-        const diag = Math.ceil(Math.hypot(bb.width, bb.height) / this.pixelSize);
+        const diag = Math.ceil(Math.hypot(bb.width, bb.height));
         const steps = Math.max(diag * 3, pts.length * 20, 50);
 
-        // Converte para coordenadas de grade antes de amostrar
-        const gridPts = pts.map(p => map(p, this.pixelSize));
-        const samples = sampleBezier(gridPts, steps);
+        const samples = sampleBezier(pts, steps);
 
         // Bresenham entre pares consecutivos de amostras
         for (let i = 0; i < samples.length - 1; i++) {

@@ -234,7 +234,7 @@ const AutomatonLabelEditor = ({ svgRef }: AutomatonLabelEditorProps) => {
                         onChange={(e) => setSymbolValue(e.target.value)}
                         onKeyDown={handleSymbolKeyDown}
                         onBlur={() => { if (!showStackFields) commit(); }}
-                        placeholder={isTransitionEdit ? 'a, b, λ, …' : 'Label'}
+                        placeholder={isTransitionEdit ? 'a, [a-z], λ, …' : 'Label'}
                         className="ui-input rounded-lg px-2 py-1 text-sm w-28 min-w-0"
                     />
                     <span className="ui-panel-muted text-xs select-none">
