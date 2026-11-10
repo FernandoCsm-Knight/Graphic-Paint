@@ -1,5 +1,6 @@
 import bresenham from "../_algorithms/BresenhamLine";
 import dda from "../_algorithms/DDA";
+import { createSpraySeed, sprayDots } from "../_algorithms/Spray";
 import type { Point } from "@/types/geometry";
 import { SceneItem, type BoundingBox, type ShapeOptions } from "./ShapeTypes";
 import type { BrushStyle, LineAlgorithm } from "../_context/SettingsContext";
@@ -18,13 +19,15 @@ export default class FreeForm extends SceneItem {
     isEraser: boolean;
     filled: boolean;
     points: Point[];
+    /** Seed for the spray brush, so replay draws exactly the same dots. */
+    seed: number;
     private boundingBox: { minX: number; maxX: number; minY: number; maxY: number } | null = null;
     private snapshot: ImageData | null = null;
     /** Canvas state captured before the stroke begins — used to redraw the full
      *  dashed path from scratch on each lineTo, keeping the dash phase consistent. */
     private preStrokeSnapshot: ImageData | null = null;
 
-    constructor(points: Point[], opts: ShapeOptions & { isEraser: boolean; brushStyle?: BrushStyle }) {
+    constructor(points: Point[], opts: ShapeOptions & { isEraser: boolean; brushStyle?: BrushStyle; seed?: number }) {
         super();
         this.strokeStyle = opts.strokeStyle ?? '#000000';
         this.lineWidth = opts.lineWidth ?? 1;
@@ -36,6 +39,7 @@ export default class FreeForm extends SceneItem {
         this.isEraser = opts.isEraser;
         this.filled = opts.filled ?? false;
         this.points = points;
+        this.seed = opts.seed ?? createSpraySeed();
         this.updateBoundingBox();
     }
 
@@ -51,10 +55,9 @@ export default class FreeForm extends SceneItem {
 
     override isCheckpoint(): boolean { return this.snapshot !== null; }
 
-    override releaseSnapshot(force = false): boolean {
+    // Replay is exact for every brush (spray uses a seeded generator).
+    override releaseSnapshot(): boolean {
         if (this.snapshot === null) return false;
-        // Spray uses random dots while drawing, so its replay is not exact.
-        if (!force && this.brushStyle === 'spray') return false;
         this.snapshot = null;
         return true;
     }
@@ -113,15 +116,9 @@ export default class FreeForm extends SceneItem {
             }
         } else if(this.brushStyle === 'spray') {
             if(distance > 1) {
-                const density = Math.max(8, this.lineWidth * 3);
-                const radius = this.lineWidth * 2.5;
-                ctx.fillStyle = this.strokeStyle;
-                for(let i = 0; i < density; i++) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const r = Math.sqrt(Math.random()) * radius;
-                    ctx.fillRect(p.x + r * Math.cos(angle) - 0.5, p.y + r * Math.sin(angle) - 0.5, 1, 1);
-                }
                 this.addPoint(p);
+                ctx.fillStyle = this.strokeStyle;
+                this.drawSprayAt(this.points.length - 1, ctx);
             }
         } else if(distance > 2) {
             this.addPoint(p);
@@ -176,13 +173,10 @@ export default class FreeForm extends SceneItem {
         if(this.isEraser) ctx.globalCompositeOperation = 'destination-out';
 
         if(this.brushStyle === 'spray') {
-            // Spray: draw a filled dot at each recorded point (simplified replay)
+            // Same seeded dots as the live stroke, point by point.
             ctx.fillStyle = this.strokeStyle;
-            const r = this.lineWidth / 2;
-            for(const pt of this.points) {
-                ctx.beginPath();
-                ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
-                ctx.fill();
+            for(let i = 0; i < this.points.length; i++) {
+                this.drawSprayAt(i, ctx);
             }
         } else if(this.points.length === 1) {
             ctx.beginPath();
@@ -265,6 +259,13 @@ export default class FreeForm extends SceneItem {
             if(point.x > this.boundingBox.maxX) this.boundingBox.maxX = point.x;
             if(point.y < this.boundingBox.minY) this.boundingBox.minY = point.y;
             if(point.y > this.boundingBox.maxY) this.boundingBox.maxY = point.y;
+        }
+    }
+
+    /** Draws the seeded spray dots of the `index`-th point (fillStyle must be set). */
+    private drawSprayAt(index: number, ctx: CanvasRenderingContext2D): void {
+        for (const dot of sprayDots(this.points[index], index, this.seed, this.lineWidth)) {
+            ctx.fillRect(dot.x - 0.5, dot.y - 0.5, 1, 1);
         }
     }
 

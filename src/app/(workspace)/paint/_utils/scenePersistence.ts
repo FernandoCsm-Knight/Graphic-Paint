@@ -86,6 +86,7 @@ function getCommonFreeformData(shape: FreeForm) {
         brushStyle: shape.brushStyle,
         isEraser: shape.isEraser,
         filled: shape.filled,
+        seed: shape.seed,
     };
 }
 
@@ -480,6 +481,8 @@ async function deserializeSceneItem(item: SerializedSceneItem): Promise<SceneIte
                 brushStyle: (typeof data.brushStyle === 'string' ? data.brushStyle : 'smooth') as BrushStyle,
                 isEraser: Boolean(data.isEraser),
                 filled: Boolean(data.filled),
+                // Old saves have no seed: use a fixed one so every reload looks the same.
+                seed: typeof data.seed === 'number' ? data.seed >>> 0 : 0,
             });
         case 'floodfill':
             return new FillShape({

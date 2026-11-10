@@ -56,7 +56,7 @@ Regras gerais:
 
 **Pronto quando:** teste de ida e volta prova que a cena com apagar/recorte é restaurada igual; typecheck/lint/test passam.
 
-### [ ] 6. Spray igual depois de recarregar
+### [x] 6. Spray igual depois de recarregar
 - Em `_shapes/FreeForm.ts`, o spray usa `Math.random()` ao desenhar, mas o replay desenha círculos.
 - Usar um gerador pseudoaleatório com semente (ex.: mulberry32) salva no item, usado tanto no desenho ao vivo quanto no replay. Serializar a semente.
 
@@ -107,3 +107,4 @@ Regras gerais:
 - 2026-11-10 · T3 · replay extraído para `_utils/sceneReplay.ts` (`replayScene` sempre limpa antes; `drawRedoItem` limpa antes de refazer checkpoint); `useScene.ts` usa os helpers · `sceneReplay.test.ts` com canvas falso reproduz o bug do canvas que cresce · 32 testes passando · não verificado no navegador.
 - 2026-11-10 · T4 · `_utils/sceneHistory.ts`: checkpoint no máximo a cada 10 itens (`applyCheckpointInterval`), desfazer limitado a 50 (`undoFloorRef` em `useScene.ts`) e snapshots anteriores ao checkpoint base liberados (`releaseSnapshotsBeforeFloor`); `SceneItem.releaseSnapshot()`/`isBarrier()`; seleção usa `getSelectableSceneSlice` (barreira) para manter o comportamento · itens continuam na cena para persistência · spray não libera pelo intervalo (replay inexato, ver T6) — após T6, trocar a condição em `FreeForm.releaseSnapshot` · `RasterCheckpoint` nunca é liberado (ver T5) · 42 testes · não verificado no navegador.
 - 2026-11-10 · T5 · "apagar página" agora registra um `ClearRectItem` com a união da faixa apagada (`_utils/eraseBand.ts`) via novo `pushSceneItemRef` (substitui `saveSnapshotRef`); `RasterCheckpoint`/`takeSnapshotShape` removidos (não há mais item raster sem dados vetoriais); recorte de seleção já usava `ClearRectItem` + `ImageShape` (persistidos); campos do `ClearRectItem` públicos (sem cast na serialização) · 46 testes · `ImageShape` não testado em Node (precisa de DOM) · não verificado no navegador.
+- 2026-11-10 · T6 · `_algorithms/Spray.ts` (mulberry32 + `sprayDots` por semente e índice do ponto); `FreeForm` guarda `seed`, desenho ao vivo e replay usam a mesma função (antes o replay desenhava círculos); semente serializada (projetos antigos → semente 0); `FreeForm.releaseSnapshot` agora libera spray também (pendência da T4 resolvida) · 54 testes · não verificado no navegador.
