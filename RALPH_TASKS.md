@@ -92,7 +92,7 @@ Regras gerais:
 
 **Pronto quando:** `grep -r "alert(" src` não retorna nada; typecheck/lint passam.
 
-### [ ] 11. README do projeto
+### [x] 11. README do projeto
 - Substituir o README padrão do create-next-app por um README em português: o que é o app (Paint, Grafos, Autômatos), como rodar (`npm install`, variáveis do Supabase, `npm run dev`), scripts disponíveis e estrutura de pastas.
 
 **Pronto quando:** README não contém mais texto do template.
@@ -112,3 +112,4 @@ Regras gerais:
 - 2026-11-10 · T8 · `src/utils/isTypingTarget.ts` (input de texto, textarea, select, contentEditable; ignora range/checkbox/color etc.) aplicado em todos os listeners globais de keydown: `PaintWorkspace.tsx`, `usePendingPlacement.ts`, `usePolygonDrawing.ts`, `useCurveDrawing.ts`, `useGraphD3.ts`, `useAutomatonD3.ts`; Ctrl+Shift+Z refaz no Paint · 57 testes · não verificado no navegador.
 - 2026-11-10 · T9 · `src/lib/workspace/autosave.ts` (`Autosaver`: debounce 900 ms, não reenvia payload igual, status idle/saving/saved/error, novas tentativas 2s/5s/15s/30s, `flush` com keepalive só até 60 KB); `useCanvas.ts` usa um Autosaver por projeto, cacheia a cena serializada por `sceneRevision` (pan/zoom não reserializa), salva ao esconder a aba e ao sair do workspace, avisa no `beforeunload` com alterações pendentes; badge do Paint mostra "Salvando…/Salvo/Erro ao salvar — tentando novamente" · 64 testes · enquanto a migração da T7 não for aplicada o badge vai mostrar erro · não verificado no navegador.
 - 2026-11-10 · T10 · `src/context/ToastContext.ts` (contexto, `useToast`, `toastReducer`, máx. 3 avisos, duração por tipo) + `src/context/providers/ToastProvider.tsx` (avisos no topo, cores do tema, `role=alert` para erro, botão fechar) montado em `app/layout.tsx`; os 3 `alert()` de `usePaintClipboard.ts` viraram `showToast` · `grep alert( src` vazio · 66 testes · visual não verificado no navegador.
+- 2026-11-10 · T11 · README em português (módulos, tecnologias, como rodar com Supabase, scripts, estrutura de pastas, como o Paint guarda o desenho, atalhos); `.env.example` com as duas variáveis do Supabase e exceção `!.env.example` no `.gitignore` · todas as tarefas `[x]` exceto T7 `[!]` (migração a aplicar no Supabase).
