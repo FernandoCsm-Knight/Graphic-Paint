@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { PaintContext, type PaintContextType } from "../PaintContext";
 import type { Geometric } from "../../_types/Graphics";
-import type { Shape } from "../../_shapes/ShapeTypes";
+import type { SceneItem, Shape } from "../../_shapes/ShapeTypes";
 import { SelectionOverlayItem } from "../../_types/SelectionOverlayItem";
 
 const DEFAULT_CANVAS_SIZE = {
@@ -25,7 +25,7 @@ const PaintProvider = ({ children }: PaintProviderProps) => {
     const redrawPendingOverlayRef = useRef<(() => void) | null>(null);
     const selectionItemRef = useRef<SelectionOverlayItem>(new SelectionOverlayItem());
     const toolCursorRef = useRef<string>("");
-    const saveSnapshotRef = useRef<(() => void) | null>(null);
+    const pushSceneItemRef = useRef<((item: SceneItem) => void) | null>(null);
 
     const [pixelated, setPixelated] = useState<boolean>(false);
     const [isEraserActive, setEraser] = useState<boolean>(false);
@@ -43,7 +43,7 @@ const PaintProvider = ({ children }: PaintProviderProps) => {
         redrawPendingOverlayRef,
         selectionItemRef,
         toolCursorRef,
-        saveSnapshotRef,
+        pushSceneItemRef,
 
         pixelated,
         setPixelated,

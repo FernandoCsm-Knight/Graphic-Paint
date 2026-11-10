@@ -1,11 +1,13 @@
 'use client';
 
 import { LuGripHorizontal } from "react-icons/lu";
-import { useContext, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { PaintContext } from "../_context/PaintContext";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import type { Point } from "@/types/geometry";
 import { useDraggable } from "@/hooks/useDraggable";
+import ClearRectItem from "../_shapes/ClearRectItem";
+import { eraseBandToRect, mergeEraseBands, type EraseBand } from "../_utils/eraseBand";
 
 const HANDLE_HEIGHT = 40;
 
@@ -15,10 +17,12 @@ const getSafeAreaBottom = (): number => {
 };
 
 const PageSizeEraser = () => {
-    const { canvasRef, contextRef, renderViewport, saveSnapshotRef } = useContext(PaintContext)!;
+    const { canvasRef, contextRef, renderViewport, pushSceneItemRef } = useContext(PaintContext)!;
     const { containerRef, viewOffset, zoom } = useWorkspaceContext();
     const [isActive, setIsActive] = useState(false);
     const [previewHeight, setPreviewHeight] = useState(0);
+    /** Union of everything cleared during the current drag (document coords). */
+    const erasedBandRef = useRef<EraseBand | null>(null);
 
     const getContainerMetrics = () => {
         const container = containerRef.current;
@@ -64,6 +68,7 @@ const PageSizeEraser = () => {
 
         if (clearHeight > 0) {
             ctx.clearRect(0, worldTop, docCanvas.width, clearHeight);
+            erasedBandRef.current = mergeEraseBands(erasedBandRef.current, { top: worldTop, bottom: worldBottom });
             renderViewport();
         }
     };
@@ -87,7 +92,13 @@ const PageSizeEraser = () => {
         setIsActive(false);
         setPreviewHeight(0);
         setPosition(getInitialPosition());
-        saveSnapshotRef.current?.();
+
+        // Record the erased band as a vector item so it is undoable and persisted.
+        const rect = eraseBandToRect(erasedBandRef.current, contextRef.current?.canvas.width ?? 0);
+        erasedBandRef.current = null;
+        if (rect) {
+            pushSceneItemRef.current?.(new ClearRectItem(rect.x, rect.y, rect.w, rect.h));
+        }
     }
 
     const { elementRef, handlePointerDown, dragStyle, setPosition } = useDraggable({

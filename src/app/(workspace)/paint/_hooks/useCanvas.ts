@@ -11,7 +11,7 @@ import {
 } from "../_utils/scenePersistence";
 import useDrawingHandlers from "./useDrawingHandlers";
 import usePaintClipboard from "./usePaintClipboard";
-import useScene from "./useScene";
+import useScene, { type SceneItem } from "./useScene";
 import type { PaintProjectSnapshot } from '@/lib/workspace/projectPersistence.schemas';
 
 const MIN_CANVAS_WIDTH = 2400;
@@ -60,7 +60,7 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         placementMode,
     } = useContext(SettingsContext)!;
 
-    const { sceneRef, sceneRevision, pushShape, undoScene, redoScene, redrawFromScene, takeSnapshotShape, replaceScene } = useScene();
+    const { sceneRef, sceneRevision, pushShape, undoScene, redoScene, redrawFromScene, replaceScene } = useScene();
 
     const viewportCtxRef = useRef<CanvasRenderingContext2D | null>(null);
     const overlayViewportCtxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -334,12 +334,11 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         if (ctx && redoScene(ctx)) renderViewport();
     }, [contextRef, redoScene, renderViewport]);
 
-    const saveSnapshot = useCallback(() => {
-        const ctx = contextRef.current;
-        if (!ctx) return;
-        pushShape(takeSnapshotShape(ctx));
+    /** Commit an item that was already drawn on the document canvas. */
+    const pushSceneItem = useCallback((item: SceneItem) => {
+        pushShape(item);
         renderViewport();
-    }, [contextRef, pushShape, takeSnapshotShape, renderViewport]);
+    }, [pushShape, renderViewport]);
 
     const {
         copySnapshot,
@@ -467,7 +466,7 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         isShapeClipboardCurrent,
         pasteShapeFromClipboard,
         copySnapshot,
-        saveSnapshot,
+        pushSceneItem,
         lockButtonRef,
         handleLockClick,
     };

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { SceneItem } from "../_shapes/ShapeTypes";
+import type { SceneItem } from "../_shapes/ShapeTypes";
 import { drawRedoItem, replayScene } from "../_utils/sceneReplay";
 import {
     applyCheckpointInterval,
@@ -9,20 +9,12 @@ import {
 
 export type { SceneItem };
 
-/**
- * Module-private raster checkpoint — a full canvas bitmap stored as ImageData.
- * Used by takeSnapshotShape (selection cuts, explicit saves) as a restore point
- * for redrawFromScene.
- *
- * FreeForm and FillShape self-contain their own ImageData snapshot after draw,
- * so they act as their own checkpoints (isCheckpoint() returns true once drawn).
+/*
+ * Checkpoints: FreeForm and FillShape keep their own ImageData snapshot after
+ * draw, so they act as restore points (isCheckpoint() returns true while the
+ * snapshot is held). Every other item is replayed from its vector data, which
+ * is what gets persisted.
  */
-class RasterCheckpoint extends SceneItem {
-    private data: ImageData;
-    constructor(data: ImageData) { super(); this.data = data; }
-    draw(ctx: CanvasRenderingContext2D): void { ctx.putImageData(this.data, 0, 0); }
-    override isCheckpoint(): boolean { return true; }
-}
 
 /**
  * Manages the ordered list of drawn items and the redo stack.
@@ -50,15 +42,6 @@ const useScene = () => {
     /** Replay the scene onto ctx (clears, then draws from the last checkpoint). */
     const redrawFromScene = useCallback((ctx: CanvasRenderingContext2D) => {
         replayScene(sceneRef.current, ctx);
-    }, []);
-
-    /**
-     * Capture the current canvas state as a RasterCheckpoint.
-     * Called for selection cuts and explicit saves.
-     */
-    const takeSnapshotShape = useCallback((ctx: CanvasRenderingContext2D): SceneItem => {
-        const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-        return new RasterCheckpoint(imageData);
     }, []);
 
     /** Add an item to the scene and clear the redo stack. */
@@ -136,7 +119,6 @@ const useScene = () => {
         clearScene,
         replaceScene,
         redrawFromScene,
-        takeSnapshotShape,
     };
 };
 

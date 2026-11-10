@@ -305,14 +305,13 @@ async function serializeSceneItem(item: SceneItem): Promise<SerializedSceneItem 
     }
 
     if (item instanceof ClearRectItem) {
-        const raw = item as unknown as Record<string, number>;
         return {
             kind: 'clearrect',
             data: {
-                x: raw.x,
-                y: raw.y,
-                w: raw.w,
-                h: raw.h,
+                x: item.x,
+                y: item.y,
+                w: item.w,
+                h: item.h,
             },
         };
     }

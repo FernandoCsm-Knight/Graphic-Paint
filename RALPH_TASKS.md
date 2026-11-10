@@ -49,7 +49,7 @@ Regras gerais:
 
 **Pronto quando:** no máximo ~`50/N + 1` ImageData vivos na cena; desfazer/refazer continuam corretos; testes cobrem o limite.
 
-### [ ] 5. "Apagar página" e recortes de seleção persistem após recarregar
+### [x] 5. "Apagar página" e recortes de seleção persistem após recarregar
 - `RasterCheckpoint` (usado por `saveSnapshot` em `useCanvas.ts`, pelo `PageSizeEraser` e por recortes em `useSelection.ts`) não é serializado em `scenePersistence.ts` e some ao recarregar.
 - Opção preferida: transformar "apagar página" em um item vetorial (ex.: `ClearRectItem` do tamanho do canvas) e recortes de seleção em `ClearRectItem` + `ImageShape`. Alternativa: serializar o checkpoint como PNG (data URL) com kind `checkpoint`.
 - Adicionar o novo kind ao schema zod em `src/lib/workspace/projectPersistence.schemas.ts` se necessário.
@@ -106,3 +106,4 @@ Regras gerais:
 - 2026-11-10 · T2 · testes em `_algorithms/lineRasterization.test.ts` (Bresenham/DDA), `_algorithms/clipping.test.ts` (Cohen-Sutherland, Liang-Barsky, Sutherland-Hodgman) e `_utils/scenePersistence.test.ts` (ida e volta de 15 kinds); `vitest.config.ts` → `.mts` para evitar aviso de ESM · 26 testes passando · `.gitignore` agora ignora o estado do Ralph.
 - 2026-11-10 · T3 · replay extraído para `_utils/sceneReplay.ts` (`replayScene` sempre limpa antes; `drawRedoItem` limpa antes de refazer checkpoint); `useScene.ts` usa os helpers · `sceneReplay.test.ts` com canvas falso reproduz o bug do canvas que cresce · 32 testes passando · não verificado no navegador.
 - 2026-11-10 · T4 · `_utils/sceneHistory.ts`: checkpoint no máximo a cada 10 itens (`applyCheckpointInterval`), desfazer limitado a 50 (`undoFloorRef` em `useScene.ts`) e snapshots anteriores ao checkpoint base liberados (`releaseSnapshotsBeforeFloor`); `SceneItem.releaseSnapshot()`/`isBarrier()`; seleção usa `getSelectableSceneSlice` (barreira) para manter o comportamento · itens continuam na cena para persistência · spray não libera pelo intervalo (replay inexato, ver T6) — após T6, trocar a condição em `FreeForm.releaseSnapshot` · `RasterCheckpoint` nunca é liberado (ver T5) · 42 testes · não verificado no navegador.
+- 2026-11-10 · T5 · "apagar página" agora registra um `ClearRectItem` com a união da faixa apagada (`_utils/eraseBand.ts`) via novo `pushSceneItemRef` (substitui `saveSnapshotRef`); `RasterCheckpoint`/`takeSnapshotShape` removidos (não há mais item raster sem dados vetoriais); recorte de seleção já usava `ClearRectItem` + `ImageShape` (persistidos); campos do `ClearRectItem` públicos (sem cast na serialização) · 46 testes · `ImageShape` não testado em Node (precisa de DOM) · não verificado no navegador.

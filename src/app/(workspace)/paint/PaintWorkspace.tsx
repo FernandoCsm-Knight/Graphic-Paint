@@ -25,7 +25,7 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
         canvasRef,
         selectedShape,
         pixelated,
-        saveSnapshotRef,
+        pushSceneItemRef,
         setPixelated,
         setCanvasSize,
     } = useContext(PaintContext)!;
@@ -59,7 +59,7 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
         isShapeClipboardCurrent,
         pasteShapeFromClipboard,
         copySnapshot,
-        saveSnapshot,
+        pushSceneItem,
         lockButtonRef,
         handleLockClick,
     } = useCanvas({
@@ -107,14 +107,14 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
     ]);
 
     useEffect(() => {
-        saveSnapshotRef.current = saveSnapshot;
+        pushSceneItemRef.current = pushSceneItem;
 
         return () => {
-            if (saveSnapshotRef.current === saveSnapshot) {
-                saveSnapshotRef.current = null;
+            if (pushSceneItemRef.current === pushSceneItem) {
+                pushSceneItemRef.current = null;
             }
         };
-    }, [saveSnapshot, saveSnapshotRef]);
+    }, [pushSceneItem, pushSceneItemRef]);
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {

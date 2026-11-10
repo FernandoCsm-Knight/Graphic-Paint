@@ -1,6 +1,6 @@
 import { createContext, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { Geometric } from "../_types/Graphics";
-import type { Shape } from "../_shapes/ShapeTypes";
+import type { SceneItem, Shape } from "../_shapes/ShapeTypes";
 import type { SelectionOverlayItem } from "../_types/SelectionOverlayItem";
 
 export type PaintContextType = {
@@ -44,7 +44,8 @@ export type PaintContextType = {
     renderViewport: () => void;
     setRenderViewport: (callback: () => void) => void;
 
-    saveSnapshotRef: RefObject<(() => void) | null>;
+    /** Commits a scene item (e.g. the page-size eraser's ClearRectItem) to the scene/undo history. */
+    pushSceneItemRef: RefObject<((item: SceneItem) => void) | null>;
 };
 
 export const PaintContext = createContext<PaintContextType | undefined>(undefined);
