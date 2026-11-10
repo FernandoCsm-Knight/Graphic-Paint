@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { requireUser } from '@/lib/auth/server';
-import type { Database } from '@/lib/supabase/db.types';
+import type { Json } from '@/lib/supabase/db.types';
 import { createClient } from '@/lib/supabase/server';
 import type {
     AutomatonProjectSnapshot,
@@ -11,6 +11,23 @@ import type {
 } from '@/lib/workspace/projectPersistence.schemas';
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+/** The project does not exist, belongs to someone else or is from another module. */
+export class ProjectAccessError extends Error {
+    constructor() {
+        super('Projeto invalido ou nao pertence ao usuario autenticado.');
+        this.name = 'ProjectAccessError';
+    }
+}
+
+/** Postgres error code raised by the save_* functions for ownership failures. */
+const PROJECT_ACCESS_ERRCODE = 'P0002';
+
+function throwRpcError(error: { code?: string } | null): void {
+    if (!error) return;
+    if (error.code === PROJECT_ACCESS_ERRCODE) throw new ProjectAccessError();
+    throw error;
+}
 
 type OwnedProjectContext = {
     supabase: SupabaseServerClient;
@@ -30,7 +47,7 @@ async function getOwnedProjectContext(
         .single();
 
     if (error || !data || data.module !== module) {
-        throw new Error('Projeto invalido ou nao pertence ao usuario autenticado.');
+        throw new ProjectAccessError();
     }
 
     return {
@@ -97,56 +114,33 @@ export async function saveGraphProjectSnapshot(
 ): Promise<void> {
     const { supabase } = await getOwnedProjectContext(projectId, 'graph');
 
-    const { error: projectError } = await supabase.from('graph_projects').upsert({
-        project_id: projectId,
-        directed: snapshot.directed,
-        snap_to_grid: snapshot.snapToGrid,
-        grid_size: snapshot.gridSize,
-        canvas_width: snapshot.canvasWidth,
-        canvas_height: snapshot.canvasHeight,
-        view_offset_x: snapshot.viewOffset.x,
-        view_offset_y: snapshot.viewOffset.y,
-        zoom: snapshot.zoom,
+    // Settings + nodes + edges are replaced in a single transaction.
+    const { error } = await supabase.rpc('save_graph_project', {
+        p_project_id: projectId,
+        p_settings: {
+            directed: snapshot.directed,
+            snap_to_grid: snapshot.snapToGrid,
+            grid_size: snapshot.gridSize,
+            canvas_width: snapshot.canvasWidth,
+            canvas_height: snapshot.canvasHeight,
+            view_offset_x: snapshot.viewOffset.x,
+            view_offset_y: snapshot.viewOffset.y,
+            zoom: snapshot.zoom,
+        },
+        p_nodes: snapshot.nodes.map((node) => ({
+            node_id: node.id,
+            x: node.x,
+            y: node.y,
+            label: node.label,
+        })),
+        p_edges: snapshot.edges.map((edge) => ({
+            edge_id: edge.id,
+            source_node_id: edge.source,
+            target_node_id: edge.target,
+            weight: edge.weight,
+        })),
     });
-    if (projectError) throw projectError;
-
-    const { error: deleteEdgesError } = await supabase
-        .from('graph_edges')
-        .delete()
-        .eq('project_id', projectId);
-    if (deleteEdgesError) throw deleteEdgesError;
-
-    const { error: deleteNodesError } = await supabase
-        .from('graph_nodes')
-        .delete()
-        .eq('project_id', projectId);
-    if (deleteNodesError) throw deleteNodesError;
-
-    if (snapshot.nodes.length > 0) {
-        const { error: insertNodesError } = await supabase.from('graph_nodes').insert(
-            snapshot.nodes.map((node) => ({
-                project_id: projectId,
-                node_id: node.id,
-                x: node.x,
-                y: node.y,
-                label: node.label,
-            }))
-        );
-        if (insertNodesError) throw insertNodesError;
-    }
-
-    if (snapshot.edges.length > 0) {
-        const { error: insertEdgesError } = await supabase.from('graph_edges').insert(
-            snapshot.edges.map((edge) => ({
-                project_id: projectId,
-                edge_id: edge.id,
-                source_node_id: edge.source,
-                target_node_id: edge.target,
-                weight: edge.weight,
-            }))
-        );
-        if (insertEdgesError) throw insertEdgesError;
-    }
+    throwRpcError(error);
 }
 
 export async function getAutomatonProjectSnapshot(projectId: string): Promise<AutomatonProjectSnapshot> {
@@ -211,60 +205,37 @@ export async function saveAutomatonProjectSnapshot(
 ): Promise<void> {
     const { supabase } = await getOwnedProjectContext(projectId, 'automaton');
 
-    const { error: projectError } = await supabase.from('automaton_projects').upsert({
-        project_id: projectId,
-        automaton_type: snapshot.automatonType,
-        snap_to_grid: snapshot.snapToGrid,
-        grid_size: snapshot.gridSize,
-        canvas_width: snapshot.canvasWidth,
-        canvas_height: snapshot.canvasHeight,
-        view_offset_x: snapshot.viewOffset.x,
-        view_offset_y: snapshot.viewOffset.y,
-        zoom: snapshot.zoom,
+    // Settings + states + transitions are replaced in a single transaction.
+    const { error } = await supabase.rpc('save_automaton_project', {
+        p_project_id: projectId,
+        p_settings: {
+            automaton_type: snapshot.automatonType,
+            snap_to_grid: snapshot.snapToGrid,
+            grid_size: snapshot.gridSize,
+            canvas_width: snapshot.canvasWidth,
+            canvas_height: snapshot.canvasHeight,
+            view_offset_x: snapshot.viewOffset.x,
+            view_offset_y: snapshot.viewOffset.y,
+            zoom: snapshot.zoom,
+        },
+        p_states: snapshot.states.map((state) => ({
+            state_id: state.id,
+            x: state.x,
+            y: state.y,
+            label: state.label,
+            is_initial: state.isInitial,
+            is_final: state.isFinal,
+        })),
+        p_transitions: snapshot.transitions.map((transition) => ({
+            transition_id: transition.id,
+            source_state_id: transition.source,
+            target_state_id: transition.target,
+            symbol: transition.symbol,
+            stack_pop: transition.stackPop ?? null,
+            stack_push: transition.stackPush ?? null,
+        })),
     });
-    if (projectError) throw projectError;
-
-    const { error: deleteTransitionsError } = await supabase
-        .from('automaton_transitions')
-        .delete()
-        .eq('project_id', projectId);
-    if (deleteTransitionsError) throw deleteTransitionsError;
-
-    const { error: deleteStatesError } = await supabase
-        .from('automaton_states')
-        .delete()
-        .eq('project_id', projectId);
-    if (deleteStatesError) throw deleteStatesError;
-
-    if (snapshot.states.length > 0) {
-        const { error: insertStatesError } = await supabase.from('automaton_states').insert(
-            snapshot.states.map((state) => ({
-                project_id: projectId,
-                state_id: state.id,
-                x: state.x,
-                y: state.y,
-                label: state.label,
-                is_initial: state.isInitial,
-                is_final: state.isFinal,
-            }))
-        );
-        if (insertStatesError) throw insertStatesError;
-    }
-
-    if (snapshot.transitions.length > 0) {
-        const { error: insertTransitionsError } = await supabase.from('automaton_transitions').insert(
-            snapshot.transitions.map((transition) => ({
-                project_id: projectId,
-                transition_id: transition.id,
-                source_state_id: transition.source,
-                target_state_id: transition.target,
-                symbol: transition.symbol,
-                stack_pop: transition.stackPop ?? null,
-                stack_push: transition.stackPush ?? null,
-            }))
-        );
-        if (insertTransitionsError) throw insertTransitionsError;
-    }
+    throwRpcError(error);
 }
 
 export async function getPaintProjectSnapshot(projectId: string): Promise<PaintProjectSnapshot> {
@@ -317,42 +288,30 @@ export async function savePaintProjectSnapshot(
 ): Promise<void> {
     const { supabase } = await getOwnedProjectContext(projectId, 'paint');
 
-    const { error: projectError } = await supabase.from('paint_projects').upsert({
-        project_id: projectId,
-        canvas_width: snapshot.canvasWidth,
-        canvas_height: snapshot.canvasHeight,
-        pixelated: snapshot.pixelated,
-        pixel_size: snapshot.pixelSize,
-        view_offset_x: snapshot.viewOffset.x,
-        view_offset_y: snapshot.viewOffset.y,
-        zoom: snapshot.zoom,
-        line_algorithm: snapshot.lineAlgorithm,
-        grid_display: snapshot.gridDisplay,
-        clip_algorithm: snapshot.clipAlgorithm,
-        line_dash: snapshot.lineDash,
-        brush_style: snapshot.brushStyle,
-        placement_mode: snapshot.placementMode,
+    // Settings + scene items are replaced in a single transaction, so a failed
+    // insert can no longer leave the project empty.
+    const { error } = await supabase.rpc('save_paint_project', {
+        p_project_id: projectId,
+        p_settings: {
+            canvas_width: snapshot.canvasWidth,
+            canvas_height: snapshot.canvasHeight,
+            pixelated: snapshot.pixelated,
+            pixel_size: snapshot.pixelSize,
+            view_offset_x: snapshot.viewOffset.x,
+            view_offset_y: snapshot.viewOffset.y,
+            zoom: snapshot.zoom,
+            line_algorithm: snapshot.lineAlgorithm,
+            grid_display: snapshot.gridDisplay,
+            clip_algorithm: snapshot.clipAlgorithm,
+            line_dash: snapshot.lineDash,
+            brush_style: snapshot.brushStyle,
+            placement_mode: snapshot.placementMode,
+        },
+        p_scene: snapshot.scene.map((item) => ({
+            position: item.position,
+            kind: item.kind,
+            data: item.data,
+        })) as Json,
     });
-    if (projectError) throw projectError;
-
-    const { error: deleteSceneError } = await supabase
-        .from('paint_scene_items')
-        .delete()
-        .eq('project_id', projectId);
-    if (deleteSceneError) throw deleteSceneError;
-
-    if (snapshot.scene.length === 0) {
-        return;
-    }
-
-    const sceneItems: Database['public']['Tables']['paint_scene_items']['Insert'][] = snapshot.scene.map((item) => ({
-        project_id: projectId,
-        position: item.position,
-        kind: item.kind,
-        data: item.data as Database['public']['Tables']['paint_scene_items']['Insert']['data'],
-        snapshot_path: null,
-    }));
-
-    const { error: insertSceneError } = await supabase.from('paint_scene_items').insert(sceneItems);
-    if (insertSceneError) throw insertSceneError;
+    throwRpcError(error);
 }

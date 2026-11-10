@@ -457,7 +457,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      save_automaton_project: {
+        Args: {
+          p_project_id: string
+          p_settings: Json
+          p_states: Json
+          p_transitions: Json
+        }
+        Returns: undefined
+      }
+      save_graph_project: {
+        Args: {
+          p_edges: Json
+          p_nodes: Json
+          p_project_id: string
+          p_settings: Json
+        }
+        Returns: undefined
+      }
+      save_paint_project: {
+        Args: {
+          p_project_id: string
+          p_scene: Json
+          p_settings: Json
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
