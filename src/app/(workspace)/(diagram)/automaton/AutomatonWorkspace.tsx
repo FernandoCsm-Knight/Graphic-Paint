@@ -128,9 +128,13 @@ export default function AutomatonWorkspace({ projectId, initialSnapshot }: Autom
         hydratedRef.current = true;
     }, [dispatch, initialSnapshot, setViewOffset, setWorldSize, setZoom]);
 
-    useEffect(() => {
+    // Reset the selected input whenever the simulation input text changes
+    // (adjusting state during render instead of in an effect).
+    const [prevSimulationInput, setPrevSimulationInput] = useState(state.simulationInput);
+    if (prevSimulationInput !== state.simulationInput) {
+        setPrevSimulationInput(state.simulationInput);
         setSelectedInputIndex(0);
-    }, [state.simulationInput]);
+    }
 
     useEffect(() => {
         if (!state.showSimulation) return;
