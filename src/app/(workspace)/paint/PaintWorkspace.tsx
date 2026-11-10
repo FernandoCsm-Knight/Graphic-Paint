@@ -11,10 +11,18 @@ import { ReplacementContext } from '@/app/(workspace)/paint/_context/Replacement
 import { SettingsContext } from '@/app/(workspace)/paint/_context/SettingsContext';
 import useCanvas from '@/app/(workspace)/paint/_hooks/useCanvas';
 import type { PaintProjectSnapshot } from '@/lib/workspace/projectPersistence.schemas';
+import type { SaveStatus } from '@/lib/workspace/autosave';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { LuLock, LuLockOpen } from 'react-icons/lu';
 import { map } from './_types/Graphics';
 import { isTypingTarget } from "@/utils/isTypingTarget";
+
+const SAVE_STATUS_LABELS: Record<SaveStatus, string> = {
+    idle: '',
+    saving: 'Salvando…',
+    saved: 'Salvo',
+    error: 'Erro ao salvar — tentando novamente',
+};
 
 type PaintWorkspaceProps = {
     projectId?: string;
@@ -63,6 +71,7 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
         pushSceneItem,
         lockButtonRef,
         handleLockClick,
+        saveStatus,
     } = useCanvas({
         projectId,
         initialScene: initialSnapshot?.scene,
@@ -202,6 +211,9 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
     } else {
         badge = `${viewportSize.width} x ${viewportSize.height} · ${Math.round(zoom * 100)}%`;
     }
+
+    const saveLabel = projectId ? SAVE_STATUS_LABELS[saveStatus] : '';
+    if (saveLabel) badge = `${badge} · ${saveLabel}`;
 
     const shellOptions = useMemo<WorkspaceShellOptions>(() => ({
         onWheel: (event) => {
