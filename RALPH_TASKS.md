@@ -36,7 +36,7 @@ Regras gerais:
 
 **Pronto quando:** testes passam e cobrem os casos básicos (reta horizontal/vertical/diagonal, linha totalmente dentro/fora/cruzando a janela).
 
-### [ ] 3. Desfazer não deixa sobras após o canvas crescer
+### [x] 3. Desfazer não deixa sobras após o canvas crescer
 - Em `_hooks/useScene.ts` (`redrawFromScene`), sempre limpar o canvas (`clearRect`) antes de aplicar o checkpoint.
 - Garantir que `RasterCheckpoint`, `FreeForm.draw` e `FillShape.draw` com snapshot não deixem pixels fora da área do snapshot.
 
@@ -104,3 +104,4 @@ Regras gerais:
 <!-- Uma linha por iteração: data · tarefa · o que mudou · pendências -->
 - 2026-11-10 · T1 · scripts `typecheck`/`lint`/`test` + vitest (`vitest.config.ts`, alias `@`); corrigidos 3 erros `react-hooks/set-state-in-effect` em `AutomatonWorkspace.tsx` e `AutomatonLabelEditor.tsx` (estado ajustado durante render; posição do editor via `useMemo` + origem do SVG por ResizeObserver) · restam 5 warnings em `usePendingPlacement.ts` (não bloqueiam) · editor de rótulo do autômato não testado no navegador.
 - 2026-11-10 · T2 · testes em `_algorithms/lineRasterization.test.ts` (Bresenham/DDA), `_algorithms/clipping.test.ts` (Cohen-Sutherland, Liang-Barsky, Sutherland-Hodgman) e `_utils/scenePersistence.test.ts` (ida e volta de 15 kinds); `vitest.config.ts` → `.mts` para evitar aviso de ESM · 26 testes passando · `.gitignore` agora ignora o estado do Ralph.
+- 2026-11-10 · T3 · replay extraído para `_utils/sceneReplay.ts` (`replayScene` sempre limpa antes; `drawRedoItem` limpa antes de refazer checkpoint); `useScene.ts` usa os helpers · `sceneReplay.test.ts` com canvas falso reproduz o bug do canvas que cresce · 32 testes passando · não verificado no navegador.

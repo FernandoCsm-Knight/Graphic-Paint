@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { SceneItem } from "../_shapes/ShapeTypes";
+import { drawRedoItem, replayScene } from "../_utils/sceneReplay";
 
 export type { SceneItem };
 
@@ -35,30 +36,9 @@ const useScene = () => {
         setSceneRevision((revision) => revision + 1);
     }, []);
 
-    /**
-     * Replay the scene onto ctx, starting from the last checkpoint.
-     * Clears the canvas first only if no checkpoint exists in the scene.
-     */
+    /** Replay the scene onto ctx (clears, then draws from the last checkpoint). */
     const redrawFromScene = useCallback((ctx: CanvasRenderingContext2D) => {
-        const scene = sceneRef.current;
-
-        if (scene.length === 0) {
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            return;
-        }
-
-        let startIdx = 0;
-        let found: boolean = false;
-        for (let i = scene.length - 1; i >= 0 && !found; i--) {
-            found = scene[i].isCheckpoint();
-            if (found) startIdx = i;
-        }
-
-        if (!found) ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-
-        for (let i = startIdx; i < scene.length; i++) {
-            scene[i].draw(ctx);
-        }
+        replayScene(sceneRef.current, ctx);
     }, []);
 
     /**
@@ -105,7 +85,7 @@ const useScene = () => {
         if (response) {
             const shape = redoStackRef.current.pop()!;
             sceneRef.current.push(shape);
-            shape.draw(ctx);
+            drawRedoItem(shape, ctx);
             bumpSceneRevision();
         }
 
