@@ -8,6 +8,7 @@ import type { Point } from "@/types/geometry";
 import type { Geometric } from "../_types/Graphics";
 import { toPixels } from "../_types/Graphics";
 import type { LineAlgorithm } from "../_context/SettingsContext";
+import { isTypingTarget } from "@/utils/isTypingTarget";
 
 type UsePolygonDrawingInput = {
     contextRef: RefObject<CanvasRenderingContext2D | null>;
@@ -204,6 +205,7 @@ const usePolygonDrawing = ({
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
+            if (isTypingTarget(e.target)) return;
             if (selectedShape !== 'polygon' || points.current.length === 0) return;
             if (e.key === 'Enter') { e.preventDefault(); finalize(); }
             else if (e.key === 'Escape') { e.preventDefault(); cancel(); }

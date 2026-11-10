@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import * as d3 from 'd3';
 import type { GraphState, GraphAction, GraphNode, GraphEdge } from '../_types/graph';
+import { isTypingTarget } from "@/utils/isTypingTarget";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -227,7 +228,7 @@ export function useGraphD3(
                 dispatchRef.current({ type: 'SET_SELECTING_FOR', target: 'none' });
             }
             if (e.key === 'Delete' || e.key === 'Backspace') {
-                if ((e.target as HTMLElement).tagName === 'INPUT') return;
+                if (isTypingTarget(e.target)) return;
                 const s = stateRef.current;
                 if (s.editingNodeId || s.editingEdgeId) return;
                 if (s.selectedNodeId) {

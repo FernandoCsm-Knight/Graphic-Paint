@@ -14,6 +14,7 @@ import type { PaintProjectSnapshot } from '@/lib/workspace/projectPersistence.sc
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { LuLock, LuLockOpen } from 'react-icons/lu';
 import { map } from './_types/Graphics';
+import { isTypingTarget } from "@/utils/isTypingTarget";
 
 type PaintWorkspaceProps = {
     projectId?: string;
@@ -120,11 +121,18 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
         const onKeyDown = (e: KeyboardEvent) => {
             const isCtrlOrMeta = e.ctrlKey || e.metaKey;
             if (!isCtrlOrMeta) return;
+            // Keep native copy/paste/undo inside text fields.
+            if (isTypingTarget(e.target)) return;
 
             switch (e.key.toLowerCase()) {
                 case 'z':
                     e.preventDefault();
-                    undo();
+                    // Ctrl+Shift+Z = redo (common on macOS and many editors).
+                    if (e.shiftKey) {
+                        redo();
+                    } else {
+                        undo();
+                    }
                     break;
                 case 'y':
                     e.preventDefault();

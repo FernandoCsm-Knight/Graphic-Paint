@@ -70,7 +70,7 @@ Regras gerais:
 
 **Pronto quando:** não existe mais caminho em que o delete roda sem o insert na mesma transação; typecheck/lint passam.
 
-### [ ] 8. Atalhos de teclado não atrapalham campos de texto
+### [x] 8. Atalhos de teclado não atrapalham campos de texto
 - Criar `src/utils/isTypingTarget.ts` (retorna true para `input`, `textarea`, `select` e `contentEditable`).
 - Usar em todos os listeners de `keydown`: `paint/PaintWorkspace.tsx`, `paint/_hooks/usePendingPlacement.ts`, `usePolygonDrawing.ts`, `useCurveDrawing.ts`, `graph/_hooks/useGraphD3.ts`, `automaton/_hooks/useAutomatonD3.ts` (substituir o `tagName === 'INPUT'` atual).
 - Adicionar Ctrl+Shift+Z como refazer no Paint.
@@ -109,3 +109,4 @@ Regras gerais:
 - 2026-11-10 · T5 · "apagar página" agora registra um `ClearRectItem` com a união da faixa apagada (`_utils/eraseBand.ts`) via novo `pushSceneItemRef` (substitui `saveSnapshotRef`); `RasterCheckpoint`/`takeSnapshotShape` removidos (não há mais item raster sem dados vetoriais); recorte de seleção já usava `ClearRectItem` + `ImageShape` (persistidos); campos do `ClearRectItem` públicos (sem cast na serialização) · 46 testes · `ImageShape` não testado em Node (precisa de DOM) · não verificado no navegador.
 - 2026-11-10 · T6 · `_algorithms/Spray.ts` (mulberry32 + `sprayDots` por semente e índice do ponto); `FreeForm` guarda `seed`, desenho ao vivo e replay usam a mesma função (antes o replay desenhava círculos); semente serializada (projetos antigos → semente 0); `FreeForm.releaseSnapshot` agora libera spray também (pendência da T4 resolvida) · 54 testes · não verificado no navegador.
 - 2026-11-10 · T7 [!] · funções `save_paint_project`, `save_graph_project`, `save_automaton_project` (plpgsql, SECURITY INVOKER, uma transação) em `supabase/migrations/20261110000000_atomic_project_save.sql` e anexadas a `src/lib/sql/schema.sql`; `projectPersistence.ts` usa `supabase.rpc(...)`; tipos em `db.types.ts`; rota: `unstable_rethrow`, ZodError → 400, `ProjectAccessError` → 404, resto → log no servidor + 500 genérico · **BLOQUEIO: a migração precisa ser aplicada no Supabase (SQL Editor ou `supabase db push`). Até lá, salvar projetos falha (dados existentes não são apagados).** · não testado contra banco real.
+- 2026-11-10 · T8 · `src/utils/isTypingTarget.ts` (input de texto, textarea, select, contentEditable; ignora range/checkbox/color etc.) aplicado em todos os listeners globais de keydown: `PaintWorkspace.tsx`, `usePendingPlacement.ts`, `usePolygonDrawing.ts`, `useCurveDrawing.ts`, `useGraphD3.ts`, `useAutomatonD3.ts`; Ctrl+Shift+Z refaz no Paint · 57 testes · não verificado no navegador.
