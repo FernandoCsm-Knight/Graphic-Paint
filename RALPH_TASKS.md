@@ -30,7 +30,7 @@ Regras gerais:
 
 **Pronto quando:** `npm run typecheck`, `npm run lint` e `npm test` rodam e passam (mesmo que ainda sem testes, use `--passWithNoTests`).
 
-### [ ] 2. Testes dos algoritmos puros
+### [x] 2. Testes dos algoritmos puros
 - Criar testes para `_algorithms/BresenhamLine.ts`, `DDA.ts`, `CohenSutherland.ts`, `LiangBarsky.ts`, `SutherlandHodgman.ts`.
 - Criar teste de ida e volta para `_utils/scenePersistence.ts` (serializar → desserializar → mesmos dados) para formas vetoriais (line, rect, circle, ellipse, polygon, bezier, bspline, freeform, floodfill, clearrect, group). Use mocks simples de canvas quando necessário.
 
@@ -103,3 +103,4 @@ Regras gerais:
 
 <!-- Uma linha por iteração: data · tarefa · o que mudou · pendências -->
 - 2026-11-10 · T1 · scripts `typecheck`/`lint`/`test` + vitest (`vitest.config.ts`, alias `@`); corrigidos 3 erros `react-hooks/set-state-in-effect` em `AutomatonWorkspace.tsx` e `AutomatonLabelEditor.tsx` (estado ajustado durante render; posição do editor via `useMemo` + origem do SVG por ResizeObserver) · restam 5 warnings em `usePendingPlacement.ts` (não bloqueiam) · editor de rótulo do autômato não testado no navegador.
+- 2026-11-10 · T2 · testes em `_algorithms/lineRasterization.test.ts` (Bresenham/DDA), `_algorithms/clipping.test.ts` (Cohen-Sutherland, Liang-Barsky, Sutherland-Hodgman) e `_utils/scenePersistence.test.ts` (ida e volta de 15 kinds); `vitest.config.ts` → `.mts` para evitar aviso de ESM · 26 testes passando · `.gitignore` agora ignora o estado do Ralph.
