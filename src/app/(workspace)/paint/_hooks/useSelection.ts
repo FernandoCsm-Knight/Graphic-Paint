@@ -1,4 +1,5 @@
 import { useCallback, useContext, useEffect, useRef } from "react";
+import { getSelectableSceneSlice } from "../_utils/sceneHistory";
 import type { RefObject } from "react";
 import { PaintContext } from "../_context/PaintContext";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
@@ -32,16 +33,6 @@ type SelectionInput = {
 type SelectionPhase = 'idle' | 'drawing';
 
 // ─── Overlay drawing helpers ──────────────────────────────────────────────────
-
-function getVisibleSceneSlice(scene: SceneItem[]): SceneItem[] {
-    for (let i = scene.length - 1; i >= 0; i--) {
-        if (scene[i].isCheckpoint()) {
-            return scene.slice(i);
-        }
-    }
-
-    return scene;
-}
 
 function applyViewportTransform(
     overlay: CanvasRenderingContext2D,
@@ -190,7 +181,7 @@ const useSelection = ({
                 return;
             }
 
-            const visibleScene = getVisibleSceneSlice(sceneRef.current);
+            const visibleScene = getSelectableSceneSlice(sceneRef.current);
             const { floatingShapes, floatingBounds } = clipSceneItemsToPixelBounds({
                 scene: visibleScene.filter(item => !(item instanceof Shape) || item.pixelated),
                 clipAlgorithm,

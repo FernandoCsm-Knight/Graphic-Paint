@@ -29,6 +29,23 @@ export abstract class SceneItem {
 
     /** Captures the current canvas state into this item after draw. No-op by default. */
     captureSnapshot(ctx: CanvasRenderingContext2D): void { void ctx; }
+
+    /**
+     * Drops the stored raster snapshot to free memory, turning the item back
+     * into a replayable (non-checkpoint) item.
+     * Without `force`, only items whose replay reproduces the live drawing
+     * exactly may release. With `force`, the caller guarantees the item will
+     * never be replayed (it is older than the undo floor's base checkpoint).
+     * Returns true if a snapshot was released.
+     */
+    releaseSnapshot(force = false): boolean { void force; return false; }
+
+    /**
+     * True if this item bakes everything before it for selection purposes
+     * (raster items such as freehand strokes and fills), regardless of
+     * whether it currently holds a snapshot.
+     */
+    isBarrier(): boolean { return this.isCheckpoint() || this.requiresSnapshot(); }
 }
 
 export abstract class Shape extends SceneItem {

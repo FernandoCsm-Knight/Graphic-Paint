@@ -51,6 +51,14 @@ export default class FreeForm extends SceneItem {
 
     override isCheckpoint(): boolean { return this.snapshot !== null; }
 
+    override releaseSnapshot(force = false): boolean {
+        if (this.snapshot === null) return false;
+        // Spray uses random dots while drawing, so its replay is not exact.
+        if (!force && this.brushStyle === 'spray') return false;
+        this.snapshot = null;
+        return true;
+    }
+
     override requiresSnapshot(): boolean { return true; }
 
     override draw(ctx: CanvasRenderingContext2D): void {

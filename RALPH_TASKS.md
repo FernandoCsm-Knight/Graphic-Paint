@@ -42,7 +42,7 @@ Regras gerais:
 
 **Pronto quando:** desfazer um traço feito na área nova (após o mundo crescer) remove o traço por completo; typecheck/lint/test passam.
 
-### [ ] 4. Limitar o uso de memória do histórico
+### [x] 4. Limitar o uso de memória do histórico
 - Hoje cada `FreeForm`/`FillShape` guarda um `ImageData` do canvas inteiro (~15 MB) e o histórico não tem limite.
 - Implementar: (a) checkpoints apenas a cada N itens (ex.: 10) em vez de em todo traço/preenchimento; os demais itens são redesenhados a partir do checkpoint anterior; (b) limite de passos de desfazer (ex.: 50) — itens mais antigos são "achatados" em um único checkpoint base.
 - Manter o comportamento de desfazer/refazer correto (testes unitários do `useScene` ou de uma classe extraída dele).
@@ -105,3 +105,4 @@ Regras gerais:
 - 2026-11-10 · T1 · scripts `typecheck`/`lint`/`test` + vitest (`vitest.config.ts`, alias `@`); corrigidos 3 erros `react-hooks/set-state-in-effect` em `AutomatonWorkspace.tsx` e `AutomatonLabelEditor.tsx` (estado ajustado durante render; posição do editor via `useMemo` + origem do SVG por ResizeObserver) · restam 5 warnings em `usePendingPlacement.ts` (não bloqueiam) · editor de rótulo do autômato não testado no navegador.
 - 2026-11-10 · T2 · testes em `_algorithms/lineRasterization.test.ts` (Bresenham/DDA), `_algorithms/clipping.test.ts` (Cohen-Sutherland, Liang-Barsky, Sutherland-Hodgman) e `_utils/scenePersistence.test.ts` (ida e volta de 15 kinds); `vitest.config.ts` → `.mts` para evitar aviso de ESM · 26 testes passando · `.gitignore` agora ignora o estado do Ralph.
 - 2026-11-10 · T3 · replay extraído para `_utils/sceneReplay.ts` (`replayScene` sempre limpa antes; `drawRedoItem` limpa antes de refazer checkpoint); `useScene.ts` usa os helpers · `sceneReplay.test.ts` com canvas falso reproduz o bug do canvas que cresce · 32 testes passando · não verificado no navegador.
+- 2026-11-10 · T4 · `_utils/sceneHistory.ts`: checkpoint no máximo a cada 10 itens (`applyCheckpointInterval`), desfazer limitado a 50 (`undoFloorRef` em `useScene.ts`) e snapshots anteriores ao checkpoint base liberados (`releaseSnapshotsBeforeFloor`); `SceneItem.releaseSnapshot()`/`isBarrier()`; seleção usa `getSelectableSceneSlice` (barreira) para manter o comportamento · itens continuam na cena para persistência · spray não libera pelo intervalo (replay inexato, ver T6) — após T6, trocar a condição em `FreeForm.releaseSnapshot` · `RasterCheckpoint` nunca é liberado (ver T5) · 42 testes · não verificado no navegador.

@@ -38,6 +38,12 @@ export default class FillShape extends SceneItem {
 
     override isCheckpoint(): boolean { return this.snapshot !== null; }
 
+    override releaseSnapshot(): boolean {
+        if (this.snapshot === null) return false;
+        this.snapshot = null;
+        return true;
+    }
+
     override requiresSnapshot(): boolean { return true; }
 
     override draw(ctx: CanvasRenderingContext2D): void {

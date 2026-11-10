@@ -1,6 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 import { SceneItem } from "../_shapes/ShapeTypes";
 import { drawRedoItem, replayScene } from "../_utils/sceneReplay";
+import {
+    applyCheckpointInterval,
+    computeUndoFloor,
+    releaseSnapshotsBeforeFloor,
+} from "../_utils/sceneHistory";
 
 export type { SceneItem };
 
@@ -26,10 +31,16 @@ class RasterCheckpoint extends SceneItem {
  *   1. Scan backwards to find the most recent checkpoint (isCheckpoint() === true).
  *   2. putImageData (O(pixels), very fast) to restore that checkpoint.
  *   3. Draw only the vector shapes that follow it (typically 0–10 items).
+ *
+ * Memory: raster snapshots (~4 bytes per canvas pixel each) are kept at most
+ * every CHECKPOINT_INTERVAL items, undo is limited to MAX_UNDO_STEPS, and
+ * snapshots older than the undo floor's base checkpoint are released.
  */
 const useScene = () => {
     const sceneRef = useRef<SceneItem[]>([]);
     const redoStackRef = useRef<SceneItem[]>([]);
+    /** Undo cannot shrink the scene below this length. */
+    const undoFloorRef = useRef(0);
     const [sceneRevision, setSceneRevision] = useState(0);
 
     const bumpSceneRevision = useCallback(() => {
@@ -52,8 +63,17 @@ const useScene = () => {
 
     /** Add an item to the scene and clear the redo stack. */
     const pushShape = useCallback((shape: SceneItem) => {
-        sceneRef.current.push(shape);
+        const scene = sceneRef.current;
+        scene.push(shape);
         redoStackRef.current = [];
+
+        applyCheckpointInterval(scene);
+        const floor = computeUndoFloor(undoFloorRef.current, scene.length);
+        if (floor !== undoFloorRef.current) {
+            undoFloorRef.current = floor;
+            releaseSnapshotsBeforeFloor(scene, floor);
+        }
+
         bumpSceneRevision();
     }, [bumpSceneRevision]);
 
@@ -62,7 +82,7 @@ const useScene = () => {
      * the scene changed (so the caller can decide whether to re-render).
      */
     const undoScene = useCallback((ctx: CanvasRenderingContext2D): boolean => {
-        const response: boolean = sceneRef.current.length !== 0;
+        const response: boolean = sceneRef.current.length > undoFloorRef.current;
 
         if (response) {
             const removed = sceneRef.current.pop()!;
@@ -96,12 +116,14 @@ const useScene = () => {
     const clearScene = useCallback(() => {
         sceneRef.current = [];
         redoStackRef.current = [];
+        undoFloorRef.current = 0;
         bumpSceneRevision();
     }, [bumpSceneRevision]);
 
     const replaceScene = useCallback((nextScene: SceneItem[]) => {
         sceneRef.current = nextScene;
         redoStackRef.current = [];
+        undoFloorRef.current = Math.min(undoFloorRef.current, nextScene.length);
         bumpSceneRevision();
     }, [bumpSceneRevision]);
 
