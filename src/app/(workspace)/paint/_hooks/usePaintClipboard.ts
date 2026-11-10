@@ -9,6 +9,7 @@ import ImageShape from "../_shapes/ImageShape";
 import ShapeGroup from "../_shapes/ShapeGroup";
 import { Shape } from "../_shapes/ShapeTypes";
 import type { Point } from "@/types/geometry";
+import { useToast } from "@/context/ToastContext";
 
 const STANDARD_CLIPBOARD_PASTE_OFFSET = 24;
 const PIXELATED_CLIPBOARD_PASTE_OFFSET = 1;
@@ -55,6 +56,7 @@ const usePaintClipboard = ({
     confirmPendingShape,
 }: UsePaintClipboardInput) => {
     const shapeClipboardRef = useRef<ShapeClipboardEntry | null>(null);
+    const { showToast } = useToast();
 
     const persistShapeClipboard = useCallback((entry: ShapeClipboardEntry | null) => {
         if (typeof window === 'undefined') return;
@@ -142,13 +144,13 @@ const usePaintClipboard = ({
             if (blob) {
                 try {
                     await ClipboardImageLoader.copyImageToClipboard(blob);
-                    alert('Imagem copiada para a área de transferência');
+                    showToast('Imagem copiada para a área de transferência', 'success');
                 } catch {
-                    alert('Falha ao copiar a imagem para a área de transferência');
+                    showToast('Falha ao copiar a imagem para a área de transferência', 'error');
                 }
             }
         }, 'image/png');
-    }, [documentCanvasRef, persistShapeClipboard]);
+    }, [documentCanvasRef, persistShapeClipboard, showToast]);
 
     const pasteSnapshot = useCallback(async ({ silent = false }: PasteSnapshotOptions = {}) => {
         const ctx = contextRef.current;
@@ -175,7 +177,7 @@ const usePaintClipboard = ({
             return true;
         } catch {
             if (!silent) {
-                alert('Falha ao colar imagem da área de transferência');
+                showToast('Falha ao colar imagem da área de transferência', 'error');
             }
             return false;
         }
@@ -186,6 +188,7 @@ const usePaintClipboard = ({
         enterPendingShape,
         pendingShapeRef,
         redrawFromScene,
+        showToast,
         viewOffset,
         zoom,
     ]);

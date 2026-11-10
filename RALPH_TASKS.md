@@ -86,7 +86,7 @@ Regras gerais:
 
 **Pronto quando:** arrastar/zoom não serializa a cena; status visível; typecheck/lint/test passam.
 
-### [ ] 10. Trocar `alert()` por aviso não bloqueante
+### [x] 10. Trocar `alert()` por aviso não bloqueante
 - Criar um componente de toast simples (sem nova dependência) em `src/components/` com contexto/provider.
 - Substituir os `alert()` de `paint/_hooks/usePaintClipboard.ts`.
 
@@ -111,3 +111,4 @@ Regras gerais:
 - 2026-11-10 · T7 [!] · funções `save_paint_project`, `save_graph_project`, `save_automaton_project` (plpgsql, SECURITY INVOKER, uma transação) em `supabase/migrations/20261110000000_atomic_project_save.sql` e anexadas a `src/lib/sql/schema.sql`; `projectPersistence.ts` usa `supabase.rpc(...)`; tipos em `db.types.ts`; rota: `unstable_rethrow`, ZodError → 400, `ProjectAccessError` → 404, resto → log no servidor + 500 genérico · **BLOQUEIO: a migração precisa ser aplicada no Supabase (SQL Editor ou `supabase db push`). Até lá, salvar projetos falha (dados existentes não são apagados).** · não testado contra banco real.
 - 2026-11-10 · T8 · `src/utils/isTypingTarget.ts` (input de texto, textarea, select, contentEditable; ignora range/checkbox/color etc.) aplicado em todos os listeners globais de keydown: `PaintWorkspace.tsx`, `usePendingPlacement.ts`, `usePolygonDrawing.ts`, `useCurveDrawing.ts`, `useGraphD3.ts`, `useAutomatonD3.ts`; Ctrl+Shift+Z refaz no Paint · 57 testes · não verificado no navegador.
 - 2026-11-10 · T9 · `src/lib/workspace/autosave.ts` (`Autosaver`: debounce 900 ms, não reenvia payload igual, status idle/saving/saved/error, novas tentativas 2s/5s/15s/30s, `flush` com keepalive só até 60 KB); `useCanvas.ts` usa um Autosaver por projeto, cacheia a cena serializada por `sceneRevision` (pan/zoom não reserializa), salva ao esconder a aba e ao sair do workspace, avisa no `beforeunload` com alterações pendentes; badge do Paint mostra "Salvando…/Salvo/Erro ao salvar — tentando novamente" · 64 testes · enquanto a migração da T7 não for aplicada o badge vai mostrar erro · não verificado no navegador.
+- 2026-11-10 · T10 · `src/context/ToastContext.ts` (contexto, `useToast`, `toastReducer`, máx. 3 avisos, duração por tipo) + `src/context/providers/ToastProvider.tsx` (avisos no topo, cores do tema, `role=alert` para erro, botão fechar) montado em `app/layout.tsx`; os 3 `alert()` de `usePaintClipboard.ts` viraram `showToast` · `grep alert( src` vazio · 66 testes · visual não verificado no navegador.
