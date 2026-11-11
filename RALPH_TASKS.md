@@ -28,7 +28,7 @@ Mapa rápido do código:
 
 ## Tarefas
 
-### [ ] 1. Delete apaga de verdade formas já colocadas
+### [x] 1. Delete apaga de verdade formas já colocadas
 **Bug (confirmado no código):** ao selecionar uma forma já colocada (arrastar com botão direito), `useMultiSelect` remove a forma da cena com `replaceScene` e entra no modo pendente com `onCancel: () => replaceScene(capturedScene)`. A tecla Delete/Backspace (`usePendingPlacement.ts`, listener de keydown) chama `cancelPending()`, que executa esse `onCancel` e **devolve a forma à cena**. Por isso só dá para apagar logo após criar (quando não há `onCancel`).
 - Criar `deletePending()` separado de `cancelPending()`: descarta a forma pendente **sem** chamar `onCancel`, e registra a remoção no histórico (ver tarefa 2 — se a 2 ainda não existir, ao menos garanta que a forma não volta).
 - Delete/Backspace chamam `deletePending()`; `cancelPending()` continua para "desistir da edição".
@@ -106,3 +106,4 @@ Mapa rápido do código:
 ## Notas de progresso
 
 <!-- Uma linha por iteração: data · tarefa · o que mudou · pendências -->
+- 2026-11-10 · T1 · `_utils/pendingActions.ts` (`resolvePendingAction` confirm/cancel/delete + `liftFromScene`); `usePendingPlacement.ts` ganhou `deletePending()` (nunca chama `onCancel`) e opção `onDelete`; Delete/Backspace usam `deletePending`; `useMultiSelect.ts` usa `liftFromScene` · 7 testes novos (73 no total) · verificado no navegador (modo livre): hexágono confirmado → seleção com botão direito → Delete → contorno some e não volta · a remoção ainda não entra no desfazer (tarefa 2).

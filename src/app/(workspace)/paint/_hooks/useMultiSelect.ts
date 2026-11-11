@@ -12,6 +12,7 @@ import {
     rectsIntersect,
 } from "../_utils/boundingBox";
 import ShapeGroup from "../_shapes/ShapeGroup";
+import { liftFromScene } from "../_utils/pendingActions";
 import type { SceneItem } from "./useScene";
 import type { EnterPendingOptions } from "./usePendingPlacement";
 import type { Point } from "@/types/geometry";
@@ -163,9 +164,10 @@ const useMultiSelect = ({
             return;
         }
 
-        // Remove selected shapes from scene and redraw.
-        const capturedScene = [...scene];
-        replaceScene(scene.filter(item => !selected.includes(item as Shape)));
+        // Remove selected shapes from scene and redraw. Cancel restores the
+        // original scene; Delete (no onCancel) keeps them removed.
+        const { remaining, original: capturedScene } = liftFromScene<SceneItem>(scene, selected);
+        replaceScene(remaining);
         redrawFromScene(ctx);
 
         if (selected.length === 1 && !(selected[0] instanceof ShapeGroup)) {

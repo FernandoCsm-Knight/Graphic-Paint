@@ -25,12 +25,15 @@ import {
     THEME_SURFACE_CSS_VAR,
 } from "@/utils/workspaceGrid";
 import { isTypingTarget } from "@/utils/isTypingTarget";
+import { resolvePendingAction } from "../_utils/pendingActions";
 
 export type EnterPendingOptions = {
     /** Called when the pending shape is cancelled; use to restore scene state. */
     onCancel?: () => void;
     /** Called instead of pushShape(shape) when the pending shape is confirmed. */
     onConfirm?: () => void;
+    /** Called when the pending shape is deleted (Delete/Backspace). Never restores the scene. */
+    onDelete?: () => void;
     /** Called when the lock button is clicked on a ShapeGroup overlay. */
     onLock?: () => void;
     /** Whether the pending ShapeGroup is already a persisted group (shows locked icon). */
@@ -234,6 +237,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
     const pendingRenderFrameRef = useRef<number | null>(null);
     const onCancelCallbackRef  = useRef<(() => void) | null>(null);
     const onConfirmCallbackRef = useRef<(() => void) | null>(null);
+    const onDeleteCallbackRef  = useRef<(() => void) | null>(null);
     const onLockCallbackRef    = useRef<(() => void) | null>(null);
     const isGroupLockedRef     = useRef<boolean>(false);
     const lockButtonRef        = useRef<HTMLButtonElement | null>(null);
@@ -279,6 +283,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         overlayHalfSizeRef.current = null;
         onCancelCallbackRef.current  = null;
         onConfirmCallbackRef.current = null;
+        onDeleteCallbackRef.current  = null;
         onLockCallbackRef.current    = null;
         isGroupLockedRef.current     = false;
         if (lockButtonRef.current) lockButtonRef.current.style.display = 'none';
@@ -572,6 +577,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         resetPendingState();
         onCancelCallbackRef.current  = options?.onCancel  ?? null;
         onConfirmCallbackRef.current = options?.onConfirm ?? null;
+        onDeleteCallbackRef.current  = options?.onDelete  ?? null;
         onLockCallbackRef.current    = options?.onLock    ?? null;
         isGroupLockedRef.current     = options?.isGroupLocked ?? false;
         pendingShapeRef.current = shape;
@@ -584,27 +590,40 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
     const confirmPending = useCallback(() => {
         const shape = pendingShapeRef.current;
         if (!shape) return;
-        const onConfirm = onConfirmCallbackRef.current;
+        const callbacks = { onConfirm: onConfirmCallbackRef.current };
         resetPendingState();
-        if (onConfirm) {
-            onConfirm();
-        } else {
-            pushShape(shape);
-        }
+        resolvePendingAction('confirm', shape, callbacks, pushShape);
         renderViewport();
     }, [pendingShapeRef, pushShape, renderViewport, resetPendingState]);
 
-    /** Discard the pending shape and restore the canvas to the committed scene. */
+    /** Give up the edit and restore the canvas to the committed scene. */
     const cancelPending = useCallback(() => {
+        const shape = pendingShapeRef.current;
         const ctx = contextRef.current;
-        const onCancel = onCancelCallbackRef.current;
+        const callbacks = { onCancel: onCancelCallbackRef.current };
         resetPendingState();
-        onCancel?.();
+        if (shape) resolvePendingAction('cancel', shape, callbacks, pushShape);
         if (ctx) {
             redrawFromScene(ctx);
             renderViewport();
         }
-    }, [contextRef, redrawFromScene, renderViewport, resetPendingState]);
+    }, [contextRef, pendingShapeRef, pushShape, redrawFromScene, renderViewport, resetPendingState]);
+
+    /**
+     * Delete the pending shape. Unlike cancel, this never restores the scene:
+     * a shape lifted from the scene for editing stays removed.
+     */
+    const deletePending = useCallback(() => {
+        const shape = pendingShapeRef.current;
+        const ctx = contextRef.current;
+        const callbacks = { onDelete: onDeleteCallbackRef.current };
+        resetPendingState();
+        if (shape) resolvePendingAction('delete', shape, callbacks, pushShape);
+        if (ctx) {
+            redrawFromScene(ctx);
+            renderViewport();
+        }
+    }, [contextRef, pendingShapeRef, pushShape, redrawFromScene, renderViewport, resetPendingState]);
 
     /**
      * Handle a pointer-down event while a shape is pending.
@@ -856,7 +875,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         return false;
     }, [flushPendingRender, pendingShapeRef, setCanvasCursor]);
 
-    // ── Delete/Backspace → descartar forma pendente ───────────────────────────
+    // ── Delete/Backspace → apagar forma pendente ──────────────────────────────
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
@@ -864,11 +883,11 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
             if (isTypingTarget(e.target)) return;
             if (!pendingShapeRef.current) return;
             e.preventDefault();
-            cancelPending();
+            deletePending();
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [cancelPending, pendingShapeRef]);
+    }, [deletePending, pendingShapeRef]);
 
     /** Called by the HTML lock button's onClick to group/ungroup the pending ShapeGroup. */
     const handleLockClick = useCallback(() => {
@@ -886,6 +905,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         enterPending,
         confirmPending,
         cancelPending,
+        deletePending,
         onPointerDown,
         onPointerMove,
         onPointerUp,
