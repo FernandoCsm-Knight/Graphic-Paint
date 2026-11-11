@@ -3,10 +3,10 @@ import { Shape, type SceneItem } from '@/app/(workspace)/paint/_shapes/ShapeType
 import FreeForm from '@/app/(workspace)/paint/_shapes/FreeForm';
 import ClearRectItem from '@/app/(workspace)/paint/_shapes/ClearRectItem';
 import ShapeGroup from '@/app/(workspace)/paint/_shapes/ShapeGroup';
-import ImageShape from '@/app/(workspace)/paint/_shapes/ImageShape';
 import {
     distanceToSegment,
     getShapeOutlines,
+    hasSolidInterior,
     pointInPolygon,
     segmentsIntersect,
     shapeIntersectsRect,
@@ -35,10 +35,6 @@ function eraserGeometry(eraser: FreeForm): { path: Point[]; reach: number } {
     // Spray scatters dots up to 2.5× the width around each point.
     const reach = eraser.brushStyle === 'spray' && !eraser.pixelated ? width * 2.5 : width / 2;
     return { path, reach };
-}
-
-function hasSolidInterior(shape: Shape): boolean {
-    return shape instanceof ImageShape || shape.filled;
 }
 
 /** True when an eraser stroke touches any painted part of the shape. */

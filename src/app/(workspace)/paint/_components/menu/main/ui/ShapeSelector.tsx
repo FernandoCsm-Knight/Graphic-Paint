@@ -14,7 +14,8 @@ import {
     LuStar,
     LuRectangleHorizontal,
     LuArrowUpRight,
-    LuSlash
+    LuSlash,
+    LuType
 } from "react-icons/lu";
 import { PaintContext } from "../../../../_context/PaintContext";
 import type { Geometric } from "../../../../_types/Graphics";
@@ -77,6 +78,14 @@ const ShapeSelector = () => {
                     </div>
                 </div>
                 <div className="mt-[var(--pm-gap)] flex items-center justify-center gap-[var(--pm-gap)]">
+                    <WorkspaceToolButton
+                        ariaLabel="Texto (clique no canvas para escrever)"
+                        onClick={() => onSelect('text')}
+                        active={selectedShape === 'text'}
+                        stayActive
+                    >
+                        <LuType className="ui-icon" />
+                    </WorkspaceToolButton>
                     <WorkspaceToolButton
                         ariaLabel="Selecionar reta"
                         onClick={() => onSelect('line')}

@@ -228,7 +228,7 @@ const useMultiSelect = ({
      * `point` (document pixels) and starts editing it. Returns true if a
      * shape was selected.
      */
-    const selectAt = useCallback((point: Point): boolean => {
+    const selectAt = useCallback((point: Point, accept: (shape: Shape) => boolean = () => true): boolean => {
         const ctx = contextRef.current;
         if (!ctx) return false;
         const tolerance = CLICK_TOLERANCE_PX / zoom;
@@ -236,7 +236,7 @@ const useMultiSelect = ({
             getEditableShapes(sceneRef.current),
             point,
             tolerance,
-            (shape) => shape.pixelated === pixelated,
+            (shape) => shape.pixelated === pixelated && accept(shape),
         );
         if (!hit) return false;
         beginEditing([hit], ctx);

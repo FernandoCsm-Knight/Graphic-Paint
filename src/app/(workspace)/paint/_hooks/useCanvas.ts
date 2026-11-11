@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { PaintContext } from "../_context/PaintContext";
 import { ReplacementContext } from "../_context/ReplacementContext";
 import { SettingsContext } from "../_context/SettingsContext";
@@ -14,6 +14,18 @@ import usePaintClipboard from "./usePaintClipboard";
 import useScene, { type SceneItem } from "./useScene";
 import type { PaintProjectSnapshot } from '@/lib/workspace/projectPersistence.schemas';
 import { Autosaver, type SaveStatus } from '@/lib/workspace/autosave';
+import TextShape from "../_shapes/TextShape";
+import type { Point } from "@/types/geometry";
+
+type TextDraft =
+    | { mode: 'create'; doc: Point; grid: Point; fontSize: number; color: string }
+    | { mode: 'edit'; shape: TextShape };
+
+/** Text size from the thickness slider: px in smooth mode, grid cells in pixel mode. */
+function getTextFontSize(thickness: number, pixelated: boolean): number {
+    // Pixel text needs ~11 cells to stay legible.
+    return pixelated ? Math.max(11, Math.round(thickness) + 10) : 12 + Math.round(thickness) * 2;
+}
 
 const MIN_CANVAS_WIDTH = 2400;
 const MIN_CANVAS_HEIGHT = 1600;
@@ -41,6 +53,8 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         pendingShapeRef,
         redrawPendingOverlayRef,
         selectionItemRef,
+        thicknessRef,
+        currentColorRef,
     } = useContext(PaintContext)!;
 
     const {
@@ -315,6 +329,22 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         };
     }, [contextRef, initialScene, redrawFromScene, resetScene]);
 
+    // ── Text tool: the input box shown while typing ───────────────────────────
+    const [textDraft, setTextDraft] = useState<TextDraft | null>(null);
+    const openTextInput = useCallback((doc: Point, grid: Point) => {
+        // Size and colour are taken from the current tool settings at click time.
+        setTextDraft({
+            mode: 'create',
+            doc,
+            grid,
+            fontSize: getTextFontSize(thicknessRef.current, pixelated),
+            color: currentColorRef.current,
+        });
+    }, [currentColorRef, pixelated, thicknessRef]);
+    const editText = useCallback((shape: TextShape) => {
+        setTextDraft({ mode: 'edit', shape });
+    }, []);
+
     const {
         handlePointerDown,
         handlePointerMove,
@@ -323,6 +353,8 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         enterPendingShape,
         confirmPendingShape,
         cancelPendingShape,
+        deletePendingShape,
+        refreshPendingShape,
         lockButtonRef,
         handleLockClick,
     } =
@@ -337,7 +369,67 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
             commitScene,
             setSceneTransient,
             redrawFromScene,
+            onTextTool: openTextInput,
+            onEditText: editText,
         });
+
+    /** Finish typing: create a new text (as a pending shape) or update the edited one. */
+    const commitText = useCallback((value: string) => {
+        const draft = textDraft;
+        setTextDraft(null);
+        if (!draft) return;
+        const text = value.replace(/\s+$/, '');
+
+        if (draft.mode === 'edit') {
+            if (pendingShapeRef.current !== draft.shape) return;
+            if (!text.trim()) {
+                deletePendingShape();
+            } else {
+                draft.shape.setText(text);
+                refreshPendingShape();
+            }
+            return;
+        }
+
+        if (!text.trim()) return;
+        const origin = pixelated ? draft.grid : draft.doc;
+        const shape = new TextShape(text, origin.x, origin.y, draft.fontSize, {
+            strokeStyle: draft.color,
+            pixelated,
+            pixelSize,
+        });
+        enterPendingShape(shape);
+    }, [deletePendingShape, enterPendingShape, pendingShapeRef, pixelSize, pixelated, refreshPendingShape, textDraft]);
+
+    const cancelText = useCallback(() => setTextDraft(null), []);
+
+    /** Where to show the input box (container pixels) and how big the text looks. */
+    const textInput = useMemo(() => {
+        if (!textDraft) return null;
+        const scale = pixelated ? pixelSize : 1;
+        if (textDraft.mode === 'create') {
+            const origin = pixelated ? { x: textDraft.grid.x * pixelSize, y: textDraft.grid.y * pixelSize } : textDraft.doc;
+            return {
+                left: origin.x * zoom + viewOffset.x,
+                top: origin.y * zoom + viewOffset.y,
+                fontPx: textDraft.fontSize * scale * zoom,
+                color: textDraft.color,
+                bold: pixelated,
+                initialText: '',
+            };
+        }
+        const shape = textDraft.shape;
+        const natural = shape.naturalSize();
+        const outerH = pixelated ? shape.height + 1 : shape.height;
+        return {
+            left: shape.x * scale * zoom + viewOffset.x,
+            top: shape.y * scale * zoom + viewOffset.y,
+            fontPx: shape.fontSize * (outerH / natural.height) * scale * zoom,
+            color: shape.strokeStyle,
+            bold: shape.pixelated,
+            initialText: shape.text,
+        };
+    }, [pixelSize, pixelated, textDraft, viewOffset.x, viewOffset.y, zoom]);
 
     const undo = useCallback(() => {
         if (pendingShapeRef.current !== null) {
@@ -489,6 +581,9 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         lockButtonRef,
         handleLockClick,
         saveStatus,
+        textInput,
+        commitText,
+        cancelText,
     };
 };
 

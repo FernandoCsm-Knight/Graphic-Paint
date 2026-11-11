@@ -4,7 +4,7 @@ export type Geometric = 'circle' | 'square' | 'triangle' | 'diamond' |
                         'pentagon' | 'hexagon' | 'heptagon' | 'octagon' | 'star' |
                         'rect' | 'line' | 'arrow' | 'board' | 'image' | 'group' |
                         'freeform' | 'ellipse' | 'floodfill' | 'polygon' |
-                        'bezier' | 'bspline';
+                        'bezier' | 'bspline' | 'text';
 
 export const lineInfo = (start: Point, end: Point): { angle: number; size: number } => {
     const angle = Math.atan2(end.y - start.y, end.x - start.x);

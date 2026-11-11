@@ -494,6 +494,14 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         renderPendingShapeNow();
     }, [cancelScheduledPendingRender, renderPendingShapeNow]);
 
+    /** Re-read the pending shape after it changed outside a drag (e.g. text edited). */
+    const refreshPending = useCallback(() => {
+        const shape = pendingShapeRef.current;
+        if (!shape) return;
+        syncOverlayFromShape(shape);
+        flushPendingRender();
+    }, [flushPendingRender, pendingShapeRef]);
+
     const getPointerDocPoint = useCallback((shape: Shape, docPoint: Point, canvasPoint?: Point): Point => (
         canvasPoint ?? (shape.pixelated
             ? { x: docPoint.x * shape.pixelSize, y: docPoint.y * shape.pixelSize }
@@ -946,6 +954,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         confirmPending,
         cancelPending,
         deletePending,
+        refreshPending,
         onPointerDown,
         onPointerMove,
         onPointerUp,

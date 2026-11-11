@@ -7,6 +7,7 @@ import Ellipse from '@/app/(workspace)/paint/_shapes/Ellipse';
 import BezierCurve, { sampleBezier } from '@/app/(workspace)/paint/_shapes/BezierCurve';
 import BSplineCurve, { sampleBSpline } from '@/app/(workspace)/paint/_shapes/BSplineCurve';
 import ImageShape from '@/app/(workspace)/paint/_shapes/ImageShape';
+import TextShape from '@/app/(workspace)/paint/_shapes/TextShape';
 import ShapeGroup from '@/app/(workspace)/paint/_shapes/ShapeGroup';
 
 /** A polyline in document pixels; `closed` joins the last point to the first. */
@@ -44,7 +45,7 @@ function sampleEllipse(center: Point, rx: number, ry: number, angle: number): Po
 /** Outlines in the shape's own coordinates (grid units when pixelated). */
 function localOutlines(shape: Shape): Outline[] {
     if (shape instanceof ShapeGroup) return shape.shapes.flatMap(localOutlines);
-    if (shape instanceof ImageShape) return [{ points: shape.getRotatedCorners(), closed: true }];
+    if (shape instanceof ImageShape || shape instanceof TextShape) return [{ points: shape.getRotatedCorners(), closed: true }];
     if (shape instanceof Arrow) {
         const [h1, h2] = shape.getHeadPoints();
         return [
@@ -118,9 +119,9 @@ export function pointInPolygon(p: Point, polygon: Point[]): boolean {
     return inside;
 }
 
-/** True when the shape's interior counts as a hit (images, filled shapes). */
-function hasSolidInterior(shape: Shape): boolean {
-    return shape instanceof ImageShape || shape.filled;
+/** True when the shape's interior counts as a hit (images, text, filled shapes). */
+export function hasSolidInterior(shape: Shape): boolean {
+    return shape instanceof ImageShape || shape instanceof TextShape || shape.filled;
 }
 
 /**
