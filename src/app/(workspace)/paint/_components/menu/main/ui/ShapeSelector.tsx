@@ -23,23 +23,14 @@ import { TbOvalVertical, TbPolygon, TbVectorBezier2, TbVectorSpline } from "reac
 import GlassCard from "@/components/GlassCard";
 import type { Point } from "@/types/geometry";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
+import { getPanelPositionBelow } from "./panelPosition";
 
 const ShapeSelector = () => {
     const { shapeButtonRef } = useContext(MenuContext)!;
     const { selectedShape, setSelectedShape, setFill, setSelectionActive } = useContext(PaintContext)!;
     const { setPanModeActive } = useWorkspaceContext();
 
-    const getInitialPos = (): Point => {
-        const btn = shapeButtonRef.current;
-        if (!btn) return { x: 0, y: 60 };
-        const btnRect = btn.getBoundingClientRect();
-        const offsetParent = btn.offsetParent instanceof HTMLElement ? btn.offsetParent : document.documentElement;
-        const parentRect = offsetParent.getBoundingClientRect();
-        return {
-            x: btnRect.left - parentRect.left,
-            y: btnRect.bottom - parentRect.top + 10
-        };
-    };
+    const getInitialPos = (): Point => getPanelPositionBelow(shapeButtonRef.current);
 
     const onSelect = useCallback((key: Geometric) => {
         const next = selectedShape !== key ? key : 'freeform';
@@ -55,8 +46,9 @@ const ShapeSelector = () => {
         <GlassCard initial={getInitialPos}>
             <div className="p-[var(--pm-pad)] pb-0">
                 <div className="ui-floating-card-inner shadow-lg rounded-xl overflow-hidden p-[var(--pm-btn-pad)]">
-                    <div className="scrollbar overflow-y-auto">
-                        <div className="aspect-square h-full grid grid-cols-3 gap-[var(--pm-gap)] p-[var(--pm-btn-pad)]">
+                    <div>
+                        {/* All shapes visible (no inner scroll, which pushed icons off-centre and hid the last row). */}
+                        <div className="grid grid-cols-3 place-items-center gap-[var(--pm-gap)] p-[var(--pm-btn-pad)]">
                             {[
                                 { key: 'circle', icon: <LuCircle className="ui-icon" /> },
                                 { key: 'square', icon: <LuSquare className="ui-icon" /> },

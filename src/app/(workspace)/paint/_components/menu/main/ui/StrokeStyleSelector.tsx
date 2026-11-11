@@ -9,6 +9,7 @@ import WorkspaceToolButton from "@/components/WorkspaceToolButton";
 import type { Point } from "@/types/geometry";
 import { TbLineDashed, TbLineDotted, TbSpray } from "react-icons/tb";
 import { LuPenTool, LuSlash } from "react-icons/lu";
+import { getPanelPositionBelow } from "./panelPosition";
 
 // ── Dash preview SVGs ────────────────────────────────────────────────────────
 
@@ -45,17 +46,7 @@ const StrokeStyleSelector = () => {
     const { lineDashPreset, setLineDashPreset, brushStyle, setBrushStyle } = useContext(SettingsContext)!;
     const { pixelated } = useContext(PaintContext)!;
 
-    const getInitialPos = (): Point => {
-        const btn = strokeStyleButtonRef.current;
-        if (!btn) return { x: 0, y: 60 };
-        const btnRect = btn.getBoundingClientRect();
-        const offsetParent = btn.offsetParent instanceof HTMLElement ? btn.offsetParent : document.documentElement;
-        const parentRect = offsetParent.getBoundingClientRect();
-        return {
-            x: btnRect.left - parentRect.left,
-            y: btnRect.bottom - parentRect.top + 10,
-        };
-    };
+    const getInitialPos = (): Point => getPanelPositionBelow(strokeStyleButtonRef.current);
 
     const dashPresets: LineDashPreset[] = ["solid", "dashed", "dotted"];
     const brushStyles: BrushStyle[] = ["smooth", "hard", "spray"];
