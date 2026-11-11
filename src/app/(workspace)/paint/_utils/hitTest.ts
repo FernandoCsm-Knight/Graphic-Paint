@@ -89,7 +89,7 @@ export function getShapeOutlines(shape: Shape): Outline[] {
 }
 
 /** Half the drawn stroke thickness in document pixels. */
-function strokeHalfWidth(shape: Shape): number {
+export function strokeHalfWidth(shape: Shape): number {
     if (shape instanceof ShapeGroup) {
         return Math.max(0, ...shape.shapes.map(strokeHalfWidth));
     }
@@ -141,7 +141,7 @@ export function hitTestShape(shape: Shape, point: Point, tolerance: number): boo
     return hasSolidInterior(shape) && outlines.some((o) => o.closed && pointInPolygon(point, o.points));
 }
 
-function segmentsIntersect(a: Point, b: Point, c: Point, d: Point): boolean {
+export function segmentsIntersect(a: Point, b: Point, c: Point, d: Point): boolean {
     const cross = (o: Point, p: Point, q: Point) => (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x);
     const d1 = cross(c, d, a);
     const d2 = cross(c, d, b);

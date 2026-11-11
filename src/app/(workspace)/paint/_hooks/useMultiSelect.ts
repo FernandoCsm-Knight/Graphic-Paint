@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useRef } from "react";
-import { getSelectableSceneSlice } from "../_utils/sceneHistory";
+import { getEditableShapes } from "../_utils/erasure";
 import type { RefObject } from "react";
 import { PaintContext } from "../_context/PaintContext";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
@@ -208,12 +208,11 @@ const useMultiSelect = ({
             return;
         }
 
-        // Search only the currently selectable scene contents, and select a
-        // shape only when the rectangle touches what is actually drawn.
-        const selected = getSelectableSceneSlice(sceneRef.current).filter(
-            (item): item is Shape => item instanceof Shape
-                && item.pixelated === pixelated
-                && shapeIntersectsRect(item, selectionBounds),
+        // Only shapes that are still editable vectors (not under a fill, not
+        // touched by the eraser / page eraser / a cut), and only when the
+        // rectangle touches what is actually drawn.
+        const selected = getEditableShapes(sceneRef.current).filter(
+            (item) => item.pixelated === pixelated && shapeIntersectsRect(item, selectionBounds),
         );
 
         if (selected.length === 0) {
@@ -234,7 +233,7 @@ const useMultiSelect = ({
         if (!ctx) return false;
         const tolerance = CLICK_TOLERANCE_PX / zoom;
         const hit = findTopmostHit(
-            getSelectableSceneSlice(sceneRef.current),
+            getEditableShapes(sceneRef.current),
             point,
             tolerance,
             (shape) => shape.pixelated === pixelated,
