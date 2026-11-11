@@ -35,6 +35,12 @@ function firstDifference(a: readonly SceneItem[], b: readonly SceneItem[]): numb
     return length;
 }
 
+function releaseCheckpointsFrom(scene: readonly SceneItem[], from: number): void {
+    for (let i = from; i < scene.length; i++) {
+        if (scene[i].isCheckpoint()) scene[i].releaseSnapshot(true);
+    }
+}
+
 function removeLast(scene: SceneItem[], item: SceneItem): SceneItem[] {
     const index = scene.lastIndexOf(item);
     if (index === -1) return scene;
@@ -92,17 +98,18 @@ export class SceneHistory {
 
         // Bitmaps of checkpoints at/after the first change may contain pixels
         // of removed or edited items: drop them (items replay from vector data).
-        const changedFrom = firstDifference(previous, next);
-        for (let i = changedFrom; i < next.length; i++) {
-            if (next[i].isCheckpoint()) next[i].releaseSnapshot(true);
-        }
+        releaseCheckpointsFrom(next, firstDifference(previous, next));
 
         this.record({ type: 'replace', before: previous, after: next });
     }
 
     /** Sets the scene without touching history (lift for editing / cancel). */
     setTransient(next: readonly SceneItem[]): void {
-        this.current = [...next];
+        const updated = [...next];
+        // A checkpoint after the first change still contains the pixels of a
+        // lifted item; drop it so the replay does not show a "ghost".
+        releaseCheckpointsFrom(updated, firstDifference(this.current, updated));
+        this.current = updated;
     }
 
     /** Replaces everything and clears history (e.g. after loading a project). */

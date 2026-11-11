@@ -41,11 +41,11 @@ export abstract class SceneItem {
     releaseSnapshot(force = false): boolean { void force; return false; }
 
     /**
-     * True if this item bakes everything before it for selection purposes
-     * (raster items such as freehand strokes and fills), regardless of
-     * whether it currently holds a snapshot.
+     * True if shapes drawn before this item can no longer be selected/edited.
+     * Only items whose result depends on the pixels beneath them (the fill
+     * bucket) need this; strokes and erasures simply replay on top.
      */
-    isBarrier(): boolean { return this.isCheckpoint() || this.requiresSnapshot(); }
+    isBarrier(): boolean { return this.requiresSnapshot(); }
 }
 
 export abstract class Shape extends SceneItem {
