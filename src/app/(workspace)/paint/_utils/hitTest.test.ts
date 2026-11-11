@@ -129,3 +129,12 @@ describe('findTopmostHit', () => {
         expect(findTopmostHit([bottom, top], { x: 50, y: 0 }, TOL, (s) => s !== top)).toBe(bottom);
     });
 });
+
+describe('shapeIntersectsRect com traço grosso', () => {
+    it('seleciona quando só a borda pintada do traço entra no retângulo', () => {
+        const line = new Line({ x: 0, y: 50 }, { x: 100, y: 50 }, { lineWidth: 20 });
+        // retângulo de y=55 a y=65: não toca a linha central (y=50), mas toca a borda pintada (até y=60)
+        expect(shapeIntersectsRect(line, { x: 40, y: 55, width: 20, height: 10 })).toBe(true);
+        expect(shapeIntersectsRect(line, { x: 40, y: 65, width: 20, height: 10 })).toBe(false);
+    });
+});

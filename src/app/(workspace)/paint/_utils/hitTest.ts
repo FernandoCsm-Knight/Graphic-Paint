@@ -154,10 +154,19 @@ function pointInRect(p: Point, r: BoundingBox): boolean {
     return p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
 }
 
-/** True when the drawn outline touches the rectangle (not just the bounding box). */
-export function shapeIntersectsRect(shape: Shape, rect: BoundingBox): boolean {
-    if (shape instanceof ShapeGroup) return shape.shapes.some((child) => shapeIntersectsRect(child, rect));
+/** True when the drawn stroke touches the rectangle (not just the bounding box). */
+export function shapeIntersectsRect(shape: Shape, selection: BoundingBox): boolean {
+    if (shape instanceof ShapeGroup) return shape.shapes.some((child) => shapeIntersectsRect(child, selection));
 
+    // Grow the rectangle by half the stroke so thick strokes count when only
+    // their painted edge (not the centre line) is inside the selection.
+    const reach = strokeHalfWidth(shape);
+    const rect = {
+        x: selection.x - reach,
+        y: selection.y - reach,
+        width: selection.width + reach * 2,
+        height: selection.height + reach * 2,
+    };
     const corners = rectCorners(rect);
     const edges: [Point, Point][] = corners.map((c, i) => [c, corners[(i + 1) % 4]]);
     const outlines = getShapeOutlines(shape);

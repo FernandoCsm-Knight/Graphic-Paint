@@ -26,6 +26,7 @@ import {
 } from "@/utils/workspaceGrid";
 import { isTypingTarget } from "@/utils/isTypingTarget";
 import { resolvePendingAction } from "../_utils/pendingActions";
+import { getOverlayPadding } from "../_utils/visualBounds";
 
 export type EnterPendingOptions = {
     /** Called when the pending shape is cancelled; use to restore scene state. */
@@ -48,6 +49,8 @@ const ROTATION_HANDLE_DIST_PX = 30;
 const RESIZE_HANDLE_HIT_RADIUS_PX = 10;
 /** Screen-space radius of vertex handle circles (px). */
 const VERTEX_HANDLE_RADIUS_PX = 6;
+/** Minimum half-size of the overlay box on screen (px), so thin shapes stay grabbable. */
+const OVERLAY_MIN_HALF_PX = 8;
 
 type PendingMode = 'move' | 'rotate' | 'resize' | 'vertex' | null;
 type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
@@ -223,6 +226,8 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
     const dragStart = useRef<Point | null>(null);
     const resizeHandleRef = useRef<ResizeHandle | null>(null);
     const resizeAnchorRef = useRef<Point | null>(null);
+    /** Offset between the grabbed (padded) handle and the geometric edge. */
+    const resizeGrabOffsetRef = useRef<Point>({ x: 0, y: 0 });
     const resizeBoundsRef = useRef<BoundingBox | null>(null);
     const vertexIdRef = useRef<string | null>(null);
     const rotatePivotRef = useRef<Point | null>(null);
@@ -318,7 +323,13 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         const hh = halfSize ? halfSize.hh : bb.height / 2;
         const angle = overlayAngleRef.current;
 
-        const obbBb: BoundingBox = { x: cx - hw, y: cy - hh, width: hw * 2, height: hh * 2 };
+        // Display box = geometric box + stroke thickness (+ minimum size), so the
+        // dashed box and handles enclose what is drawn. Resizing still maps the
+        // geometric box (see resizeGrabOffsetRef).
+        const pad = getOverlayPadding(shape, hw, hh, OVERLAY_MIN_HALF_PX / zoom);
+        const boxHw = hw + pad.x;
+        const boxHh = hh + pad.y;
+        const obbBb: BoundingBox = { x: cx - boxHw, y: cy - boxHh, width: boxHw * 2, height: boxHh * 2 };
 
         overlay.save();
         overlay.setTransform(scale, 0, 0, scale, viewOffset.x * dpr, viewOffset.y * dpr);
@@ -332,7 +343,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         overlay.setLineDash([4 * lw, 4 * lw]);
         overlay.lineWidth = lw;
         overlay.strokeStyle = overlayAccent;
-        overlay.strokeRect(cx - hw, cy - hh, hw * 2, hh * 2);
+        overlay.strokeRect(obbBb.x, obbBb.y, obbBb.width, obbBb.height);
 
         // Resize handles
         overlay.setLineDash([]);
@@ -347,12 +358,12 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
 
         // Rotation handle stem + circle (drawn above OBB top-center in rotated space)
         overlay.beginPath();
-        overlay.moveTo(cx, cy - hh);
-        overlay.lineTo(cx, cy - hh - handleDistDoc);
+        overlay.moveTo(cx, cy - boxHh);
+        overlay.lineTo(cx, cy - boxHh - handleDistDoc);
         overlay.stroke();
 
         overlay.beginPath();
-        overlay.arc(cx, cy - hh - handleDistDoc, handleRadiusDoc, 0, Math.PI * 2);
+        overlay.arc(cx, cy - boxHh - handleDistDoc, handleRadiusDoc, 0, Math.PI * 2);
         overlay.fillStyle = overlaySurface;
         overlay.fill();
         overlay.strokeStyle = overlayAccent;
@@ -367,8 +378,8 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
             const locked = isGroupLockedRef.current;
             // Near the top-right corner of the OBB, rotated into doc space.
             const cos = Math.cos(angle), sin = Math.sin(angle);
-            const lxLocal = hw - 24 / zoom;
-            const lyLocal = -(hh + 24 / zoom);
+            const lxLocal = boxHw - 24 / zoom;
+            const lyLocal = -(boxHh + 24 / zoom);
             const lockDocX = cx + lxLocal * cos - lyLocal * sin;
             const lockDocY = cy + lxLocal * sin + lyLocal * cos;
             btn.style.display = 'flex';
@@ -518,11 +529,13 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         };
         const localScreenPoint = toScreen(localPointer);
 
+        // Same padded display box as drawOverlay.
+        const pad = getOverlayPadding(shape, obbHw, obbHh, OVERLAY_MIN_HALF_PX / zoom);
         const obbBb: BoundingBox = {
-            x: center.x - obbHw,
-            y: center.y - obbHh,
-            width:  obbHw * 2,
-            height: obbHh * 2,
+            x: center.x - obbHw - pad.x,
+            y: center.y - obbHh - pad.y,
+            width:  (obbHw + pad.x) * 2,
+            height: (obbHh + pad.y) * 2,
         };
 
         // ── Vertex mode ───────────────────────────────────────────────────────
@@ -656,6 +669,11 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
             };
             resizeBoundsRef.current = resizeBox;
             resizeAnchorRef.current = getHandleAnchorPoint(resizeBox, hoverTarget.handle);
+            // The grabbed handle sits on the padded box; remove that padding from
+            // the pointer so the shape does not jump when the drag starts.
+            const grabPad = getOverlayPadding(shape, halfSize.hw, halfSize.hh, OVERLAY_MIN_HALF_PX / zoom);
+            const grabSigns = getHandleDefaultSigns(hoverTarget.handle);
+            resizeGrabOffsetRef.current = { x: grabSigns.x * grabPad.x, y: grabSigns.y * grabPad.y };
             dragStart.current = docPoint;
             const resizeShapeBox = toShapeBoundingBox(shape, resizeBox);
             shape.beginResize(
@@ -701,7 +719,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         // Clicked outside: commit shape
         confirmPending();
         return true;
-    }, [confirmPending, getHoverTarget, pendingShapeRef, setCanvasCursor]);
+    }, [confirmPending, getHoverTarget, pendingShapeRef, setCanvasCursor, zoom]);
 
     /**
      * Handle pointer-move while in pending mode.
@@ -753,11 +771,15 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
             const handleConfig = RESIZE_HANDLE_CONFIG[handle];
             const defaultSigns = getHandleDefaultSigns(handle);
             const resizeCenter = getBoundingBoxCenter(resizeBoundsRef.current);
-            const localPointerDocPoint = rotatePointAround(
+            const rotatedPointer = rotatePointAround(
                 getPointerDocPoint(shape, docPoint, canvasPoint),
                 resizeCenter,
                 -overlayAngleRef.current,
             );
+            const localPointerDocPoint = {
+                x: rotatedPointer.x - resizeGrabOffsetRef.current.x,
+                y: rotatedPointer.y - resizeGrabOffsetRef.current.y,
+            };
             const dragPoint = shape.pixelated
                 ? {
                     x: handleConfig.affectsX
