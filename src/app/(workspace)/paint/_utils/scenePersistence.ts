@@ -86,6 +86,7 @@ function getCommonFreeformData(shape: FreeForm) {
         brushStyle: shape.brushStyle,
         isEraser: shape.isEraser,
         filled: shape.filled,
+        seed: shape.seed,
     };
 }
 
@@ -305,14 +306,13 @@ async function serializeSceneItem(item: SceneItem): Promise<SerializedSceneItem 
     }
 
     if (item instanceof ClearRectItem) {
-        const raw = item as unknown as Record<string, number>;
         return {
             kind: 'clearrect',
             data: {
-                x: raw.x,
-                y: raw.y,
-                w: raw.w,
-                h: raw.h,
+                x: item.x,
+                y: item.y,
+                w: item.w,
+                h: item.h,
             },
         };
     }
@@ -481,6 +481,8 @@ async function deserializeSceneItem(item: SerializedSceneItem): Promise<SceneIte
                 brushStyle: (typeof data.brushStyle === 'string' ? data.brushStyle : 'smooth') as BrushStyle,
                 isEraser: Boolean(data.isEraser),
                 filled: Boolean(data.filled),
+                // Old saves have no seed: use a fixed one so every reload looks the same.
+                seed: typeof data.seed === 'number' ? data.seed >>> 0 : 0,
             });
         case 'floodfill':
             return new FillShape({

@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { unstable_rethrow } from 'next/navigation';
+import { ZodError } from 'zod';
 import {
     automatonProjectSnapshotSchema,
     graphProjectSnapshotSchema,
@@ -6,6 +8,7 @@ import {
     paintProjectSnapshotSchema,
 } from '@/lib/workspace/projectPersistence.schemas';
 import {
+    ProjectAccessError,
     saveAutomatonProjectSnapshot,
     saveGraphProjectSnapshot,
     savePaintProjectSnapshot,
@@ -65,10 +68,23 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
             }
         }
     } catch (error) {
-        if (error instanceof Error) {
-            return jsonResponse({ error: error.message }, 400);
+        // Let Next.js handle redirect()/notFound() thrown by auth helpers.
+        unstable_rethrow(error);
+
+        if (error instanceof ZodError) {
+            return jsonResponse({ error: error.issues[0]?.message ?? 'Dados do projeto invalidos.' }, 400);
         }
 
+        if (error instanceof ProjectAccessError) {
+            return jsonResponse({ error: error.message }, 404);
+        }
+
+        // Internal/database details stay in the server log only.
+        console.error('[api/projects] falha ao salvar projeto', {
+            module: parsedParams.data.module,
+            projectId: parsedParams.data.projectId,
+            error,
+        });
         return jsonResponse({ error: 'Nao foi possivel salvar o projeto.' }, 500);
     }
 

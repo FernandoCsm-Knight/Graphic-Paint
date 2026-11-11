@@ -24,6 +24,7 @@ import {
     THEME_ACCENT_CSS_VAR,
     THEME_SURFACE_CSS_VAR,
 } from "@/utils/workspaceGrid";
+import { isTypingTarget } from "@/utils/isTypingTarget";
 
 export type EnterPendingOptions = {
     /** Called when the pending shape is cancelled; use to restore scene state. */
@@ -860,6 +861,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+            if (isTypingTarget(e.target)) return;
             if (!pendingShapeRef.current) return;
             e.preventDefault();
             cancelPending();

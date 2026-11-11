@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useRef } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { PaintContext } from "../_context/PaintContext";
 import { ReplacementContext } from "../_context/ReplacementContext";
 import { SettingsContext } from "../_context/SettingsContext";
@@ -11,8 +11,9 @@ import {
 } from "../_utils/scenePersistence";
 import useDrawingHandlers from "./useDrawingHandlers";
 import usePaintClipboard from "./usePaintClipboard";
-import useScene from "./useScene";
+import useScene, { type SceneItem } from "./useScene";
 import type { PaintProjectSnapshot } from '@/lib/workspace/projectPersistence.schemas';
+import { Autosaver, type SaveStatus } from '@/lib/workspace/autosave';
 
 const MIN_CANVAS_WIDTH = 2400;
 const MIN_CANVAS_HEIGHT = 1600;
@@ -25,9 +26,11 @@ type UseCanvasOptions = {
 
 const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
     const documentCanvasRef = useRef<HTMLCanvasElement | null>(null);
-    const persistTimeoutRef = useRef<number | null>(null);
     const initialSceneLoadedRef = useRef(initialScene == null);
-    const lastSavedPayloadRef = useRef<string | null>(null);
+    const autosaverRef = useRef<Autosaver | null>(null);
+    /** Serialized scene cached per sceneRevision (view-only changes reuse it). */
+    const serializedSceneRef = useRef<{ revision: number; scene: PaintProjectSnapshot['scene'] } | null>(null);
+    const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
 
     const {
         canvasRef,
@@ -60,7 +63,7 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         placementMode,
     } = useContext(SettingsContext)!;
 
-    const { sceneRef, sceneRevision, pushShape, undoScene, redoScene, redrawFromScene, takeSnapshotShape, replaceScene } = useScene();
+    const { sceneRef, sceneRevision, pushShape, undoScene, redoScene, redrawFromScene, replaceScene } = useScene();
 
     const viewportCtxRef = useRef<CanvasRenderingContext2D | null>(null);
     const overlayViewportCtxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -192,67 +195,82 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         renderViewport();
     }, [renderViewport]);
 
+    // One autosaver per project: saves on change, flushes when the tab is
+    // hidden or the workspace unmounts, and warns before leaving with unsaved work.
     useEffect(() => {
-        return () => {
-            if (persistTimeoutRef.current !== null) {
-                window.clearTimeout(persistTimeoutRef.current);
-            }
-        };
-    }, []);
+        if (!projectId) return;
 
-    useEffect(() => {
-        if (!projectId || !initialSceneLoadedRef.current) return;
-
-        if (persistTimeoutRef.current !== null) {
-            window.clearTimeout(persistTimeoutRef.current);
-        }
-
-        persistTimeoutRef.current = window.setTimeout(() => {
-            void (async () => {
-                const payload = {
-                    canvasWidth: canvasSize.width,
-                    canvasHeight: canvasSize.height,
-                    pixelated,
-                    pixelSize,
-                    viewOffset,
-                    zoom,
-                    lineAlgorithm,
-                    gridDisplay: gridDisplayMode,
-                    clipAlgorithm,
-                    lineDash: lineDashPreset,
-                    brushStyle,
-                    placementMode,
-                    scene: await serializePaintScene(sceneRef.current),
-                } satisfies PaintProjectSnapshot;
-
-                const nextPayload = JSON.stringify(payload);
-                if (nextPayload === lastSavedPayloadRef.current) {
-                    return;
-                }
-
+        const autosaver = new Autosaver({
+            send: async (body, { keepalive }) => {
                 const response = await fetch(`/api/projects/paint/${projectId}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Cache-Control': 'no-store',
                     },
-                    body: nextPayload,
+                    body,
+                    keepalive,
                 });
+                return response.ok;
+            },
+            onStatusChange: setSaveStatus,
+        });
+        autosaverRef.current = autosaver;
 
-                if (response.ok) {
-                    lastSavedPayloadRef.current = nextPayload;
-                }
-            })().catch(() => {
-                // Preserve local state; the next change will attempt another save.
-            });
-        }, 900);
-
-        return () => {
-            if (persistTimeoutRef.current !== null) {
-                window.clearTimeout(persistTimeoutRef.current);
-                persistTimeoutRef.current = null;
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                void autosaver.flush({ keepalive: true });
             }
         };
+        const onBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (!autosaver.hasUnsavedChanges()) return;
+            void autosaver.flush({ keepalive: true });
+            event.preventDefault();
+            event.returnValue = '';
+        };
+
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        window.addEventListener('beforeunload', onBeforeUnload);
+
+        return () => {
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            window.removeEventListener('beforeunload', onBeforeUnload);
+            // Leaving the workspace (client navigation): save what is pending.
+            void autosaver.flush({ keepalive: true }).finally(() => autosaver.dispose());
+            if (autosaverRef.current === autosaver) autosaverRef.current = null;
+        };
+    }, [projectId]);
+
+    useEffect(() => {
+        const autosaver = autosaverRef.current;
+        if (!projectId || !autosaver || !initialSceneLoadedRef.current) return;
+
+        autosaver.schedule(async () => {
+            // Pan/zoom/settings changes reuse the serialized scene.
+            let cached = serializedSceneRef.current;
+            if (!cached || cached.revision !== sceneRevision) {
+                cached = { revision: sceneRevision, scene: await serializePaintScene(sceneRef.current) };
+                serializedSceneRef.current = cached;
+            }
+
+            const payload = {
+                canvasWidth: canvasSize.width,
+                canvasHeight: canvasSize.height,
+                pixelated,
+                pixelSize,
+                viewOffset,
+                zoom,
+                lineAlgorithm,
+                gridDisplay: gridDisplayMode,
+                clipAlgorithm,
+                lineDash: lineDashPreset,
+                brushStyle,
+                placementMode,
+                scene: cached.scene,
+            } satisfies PaintProjectSnapshot;
+
+            return JSON.stringify(payload);
+        });
     }, [
         brushStyle,
         canvasSize.height,
@@ -334,12 +352,11 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         if (ctx && redoScene(ctx)) renderViewport();
     }, [contextRef, redoScene, renderViewport]);
 
-    const saveSnapshot = useCallback(() => {
-        const ctx = contextRef.current;
-        if (!ctx) return;
-        pushShape(takeSnapshotShape(ctx));
+    /** Commit an item that was already drawn on the document canvas. */
+    const pushSceneItem = useCallback((item: SceneItem) => {
+        pushShape(item);
         renderViewport();
-    }, [contextRef, pushShape, takeSnapshotShape, renderViewport]);
+    }, [pushShape, renderViewport]);
 
     const {
         copySnapshot,
@@ -467,9 +484,10 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         isShapeClipboardCurrent,
         pasteShapeFromClipboard,
         copySnapshot,
-        saveSnapshot,
+        pushSceneItem,
         lockButtonRef,
         handleLockClick,
+        saveStatus,
     };
 };
 

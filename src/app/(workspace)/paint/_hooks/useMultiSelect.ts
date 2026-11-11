@@ -1,4 +1,5 @@
 import { useCallback, useContext, useEffect, useRef } from "react";
+import { getSelectableSceneSlice } from "../_utils/sceneHistory";
 import type { RefObject } from "react";
 import { PaintContext } from "../_context/PaintContext";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
@@ -28,16 +29,6 @@ type MultiSelectInput = {
 type SelectionPhase = 'idle' | 'drawing';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getVisibleSceneSlice(scene: SceneItem[]): SceneItem[] {
-    for (let i = scene.length - 1; i >= 0; i--) {
-        if (scene[i].isCheckpoint()) {
-            return scene.slice(i);
-        }
-    }
-
-    return scene;
-}
 
 function applyViewportTransform(
     overlay: CanvasRenderingContext2D,
@@ -159,7 +150,7 @@ const useMultiSelect = ({
         // a raster checkpoint (for example after erasing) should not come back
         // as selectable vector items.
         const scene = sceneRef.current;
-        const visibleScene = getVisibleSceneSlice(scene);
+        const visibleScene = getSelectableSceneSlice(scene);
         const selected = visibleScene.filter(item => {
             if (!(item instanceof Shape)) return false;
             if (item.pixelated !== pixelated) return false;

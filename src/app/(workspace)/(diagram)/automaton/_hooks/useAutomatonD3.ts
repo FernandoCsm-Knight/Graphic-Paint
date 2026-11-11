@@ -7,6 +7,7 @@ import type {
     AutomatonState,
     AutomatonTransition,
 } from '../_types/automaton';
+import { isTypingTarget } from "@/utils/isTypingTarget";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -268,7 +269,7 @@ export function useAutomatonD3(
                 dispatchRef.current({ type: 'CANCEL_TRANSITION' });
             }
             if (e.key === 'Delete' || e.key === 'Backspace') {
-                if ((e.target as HTMLElement).tagName === 'INPUT') return;
+                if (isTypingTarget(e.target)) return;
                 const s = stateRef.current;
                 if (s.editingStateId || s.editingTransitionId) return;
                 if (s.selectedStateId) {

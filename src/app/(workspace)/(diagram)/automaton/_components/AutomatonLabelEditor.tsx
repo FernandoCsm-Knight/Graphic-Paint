@@ -21,7 +21,7 @@ const AutomatonLabelEditor = ({ svgRef }: AutomatonLabelEditorProps) => {
     const [symbolValue, setSymbolValue] = useState('');
     const [popValue, setPopValue] = useState('');
     const [pushValue, setPushValue] = useState('');
-    const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+    const [svgOrigin, setSvgOrigin] = useState<{ left: number; top: number } | null>(null);
     const cancelledRef = useRef(false);
     const committedRef = useRef(false);
 
@@ -37,10 +37,12 @@ const AutomatonLabelEditor = ({ svgRef }: AutomatonLabelEditorProps) => {
 
     const isEditing = !!(editingState || editingTransition || isNewTransition);
 
-    // Reset editor state and seed values whenever the editing target changes.
-    useEffect(() => {
-        cancelledRef.current = false;
-        committedRef.current = false;
+    // Seed input values whenever the editing target changes
+    // (adjusting state during render instead of in an effect).
+    const editingKey = `${editingState?.id ?? ''}|${editingTransition?.id ?? ''}|${isNewTransition}`;
+    const [prevEditingKey, setPrevEditingKey] = useState<string | null>(null);
+    if (prevEditingKey !== editingKey) {
+        setPrevEditingKey(editingKey);
         if (editingState) {
             setSymbolValue(editingState.label);
             setPopValue('');
@@ -54,8 +56,13 @@ const AutomatonLabelEditor = ({ svgRef }: AutomatonLabelEditorProps) => {
             setPopValue('');
             setPushValue('');
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [editingState?.id, editingTransition?.id, isNewTransition]);
+    }
+
+    // Reset commit/cancel flags whenever the editing target changes.
+    useEffect(() => {
+        cancelledRef.current = false;
+        committedRef.current = false;
+    }, [editingKey]);
 
     // Focus + select on open
     useEffect(() => {
@@ -83,45 +90,61 @@ const AutomatonLabelEditor = ({ svgRef }: AutomatonLabelEditorProps) => {
         return null;
     }, [editingTransition, isNewTransition, state.pendingTransitionTargetId, state.states, state.transitionSourceId]);
 
+    // Track the SVG's on-screen origin through subscriptions (resize/scroll),
+    // so the editor can be positioned in viewport coordinates.
     useEffect(() => {
-        if (!isEditing) {
-            setPosition(null);
-            return;
-        }
+        const svg = svgRef.current;
+        if (!svg) return;
 
-        const svgRect = svgRef.current?.getBoundingClientRect();
-        if (!svgRect) {
-            setPosition(null);
-            return;
-        }
+        const updateOrigin = () => {
+            const rect = svg.getBoundingClientRect();
+            setSvgOrigin((prev) =>
+                prev && prev.left === rect.left && prev.top === rect.top
+                    ? prev
+                    : { left: rect.left, top: rect.top }
+            );
+        };
+
+        // ResizeObserver fires once right after observe(), seeding the origin.
+        const observer = new ResizeObserver(updateOrigin);
+        observer.observe(svg);
+        window.addEventListener('resize', updateOrigin);
+        window.addEventListener('scroll', updateOrigin, true);
+
+        return () => {
+            observer.disconnect();
+            window.removeEventListener('resize', updateOrigin);
+            window.removeEventListener('scroll', updateOrigin, true);
+        };
+    }, [svgRef]);
+
+    const position = useMemo<{ x: number; y: number } | null>(() => {
+        if (!isEditing || !svgOrigin) return null;
 
         if (editingState) {
-            setPosition({
-                x: svgRect.left + editingState.x * zoom + viewOffset.x,
-                y: svgRect.top + editingState.y * zoom + viewOffset.y,
-            });
-            return;
+            return {
+                x: svgOrigin.left + editingState.x * zoom + viewOffset.x,
+                y: svgOrigin.top + editingState.y * zoom + viewOffset.y,
+            };
         }
 
         if (activeTransitionEndpoints) {
             const { src, tgt } = activeTransitionEndpoints;
             if (src.id === tgt.id) {
-                setPosition({
-                    x: svgRect.left + src.x * zoom + viewOffset.x,
-                    y: svgRect.top + (src.y - 22 - 62) * zoom + viewOffset.y,
-                });
-                return;
+                return {
+                    x: svgOrigin.left + src.x * zoom + viewOffset.x,
+                    y: svgOrigin.top + (src.y - 22 - 62) * zoom + viewOffset.y,
+                };
             }
 
-            setPosition({
-                x: svgRect.left + ((src.x + tgt.x) / 2) * zoom + viewOffset.x,
-                y: svgRect.top + ((src.y + tgt.y) / 2) * zoom + viewOffset.y,
-            });
-            return;
+            return {
+                x: svgOrigin.left + ((src.x + tgt.x) / 2) * zoom + viewOffset.x,
+                y: svgOrigin.top + ((src.y + tgt.y) / 2) * zoom + viewOffset.y,
+            };
         }
 
-        setPosition(null);
-    }, [activeTransitionEndpoints, editingState, isEditing, svgRef, viewOffset.x, viewOffset.y, zoom]);
+        return null;
+    }, [activeTransitionEndpoints, editingState, isEditing, svgOrigin, viewOffset.x, viewOffset.y, zoom]);
 
     if (!isEditing || !position) return null;
 

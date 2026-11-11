@@ -30,6 +30,7 @@ import BSplineCurve from "../_shapes/BSplineCurve";
 import { toPixels } from "../_types/Graphics";
 import bresenham from "../_algorithms/BresenhamLine";
 import dda from "../_algorithms/DDA";
+import { isTypingTarget } from "@/utils/isTypingTarget";
 
 const BSPLINE_MIN_POINTS = 4;
 const BEZIER_MIN_POINTS = 3;
@@ -256,6 +257,7 @@ const useCurveDrawing = ({
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
+            if (isTypingTarget(e.target)) return;
             if (!isCurveShape || points.current.length === 0) return;
             if (e.key === 'Enter') { e.preventDefault(); finalize(); }
             else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
