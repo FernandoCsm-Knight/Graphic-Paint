@@ -13,6 +13,8 @@ import {
 } from "../_utils/boundingBox";
 import ShapeGroup from "../_shapes/ShapeGroup";
 import { liftFromScene } from "../_utils/pendingActions";
+import { cloneSceneItem } from "../_utils/cloneSceneItem";
+import { replaceItemsInPlace } from "../_utils/sceneOperations";
 import type { SceneItem } from "./useScene";
 import type { EnterPendingOptions } from "./usePendingPlacement";
 import type { Point } from "@/types/geometry";
@@ -22,8 +24,8 @@ import type { Point } from "@/types/geometry";
 type MultiSelectInput = {
     sceneRef: RefObject<SceneItem[]>;
     redrawFromScene: (ctx: CanvasRenderingContext2D) => void;
-    pushShape: (shape: SceneItem) => void;
-    replaceScene: (scene: SceneItem[]) => void;
+    commitScene: (after: SceneItem[], before?: SceneItem[]) => void;
+    setSceneTransient: (scene: SceneItem[]) => void;
     enterPendingShape: (shape: Shape, options?: EnterPendingOptions) => void;
 };
 
@@ -62,8 +64,8 @@ function drawDashedRect(
 const useMultiSelect = ({
     sceneRef,
     redrawFromScene,
-    pushShape,
-    replaceScene,
+    commitScene,
+    setSceneTransient,
     enterPendingShape,
 }: MultiSelectInput) => {
     const { contextRef, renderViewport, selectionItemRef } = useContext(PaintContext)!;
@@ -164,18 +166,29 @@ const useMultiSelect = ({
             return;
         }
 
-        // Remove selected shapes from scene and redraw. Cancel restores the
-        // original scene; Delete (no onCancel) keeps them removed.
-        const { remaining, original: capturedScene } = liftFromScene<SceneItem>(scene, selected);
-        replaceScene(remaining);
+        // Lift the selected shapes out of the scene (transient, no history)
+        // and edit COPIES, so the originals stay intact for cancel/undo.
+        // Confirm/delete commit one undoable change that replaces the
+        // originals in place (drawing order is preserved).
+        const { remaining, original } = liftFromScene<SceneItem>(scene, selected);
+        setSceneTransient(remaining);
         redrawFromScene(ctx);
 
+        const commitReplacing = (mapping: Map<SceneItem, SceneItem[]>) => {
+            commitScene(replaceItemsInPlace(original, mapping), original);
+        };
+        const deleteSelected = () => {
+            commitReplacing(new Map(selected.map((item): [SceneItem, SceneItem[]] => [item, []])));
+        };
+        const restore = () => setSceneTransient(original);
+
         if (selected.length === 1 && !(selected[0] instanceof ShapeGroup)) {
-            const shape = selected[0];
-            enterPendingShape(shape, {
-                onCancel: () => {
-                    replaceScene(capturedScene);
-                },
+            const target = selected[0];
+            const copy = cloneSceneItem(target);
+            enterPendingShape(copy, {
+                onCancel: restore,
+                onDelete: deleteSelected,
+                onConfirm: () => commitReplacing(new Map([[target, [copy]]])),
             });
             return;
         }
@@ -183,35 +196,26 @@ const useMultiSelect = ({
         // If exactly one ShapeGroup was selected, enter pending with it directly
         // so it stays as a group and the user can ungroup via the lock button.
         const isExistingGroup = selected.length === 1 && selected[0] instanceof ShapeGroup;
+        const copies = selected.map((item) => cloneSceneItem(item));
         const shapeGroup = isExistingGroup
-            ? selected[0] as ShapeGroup
-            : new ShapeGroup(selected, { pixelated, pixelSize });
-
-        /** Push children individually. Rotation is already baked into each shape by rotateBy(). */
-        const pushUngrouped = (children: Shape[]) => {
-            for (const s of children) pushShape(s);
-        };
+            ? copies[0] as ShapeGroup
+            : new ShapeGroup(copies, { pixelated, pixelSize });
 
         enterPendingShape(shapeGroup, {
-            onCancel: () => {
-                replaceScene(capturedScene);
-            },
+            onCancel: restore,
+            onDelete: deleteSelected,
             onConfirm: () => {
-                if (isExistingGroup) {
-                    // Existing group: push it back as a group.
-                    pushShape(shapeGroup);
-                } else {
-                    // New selection: push children individually (default behaviour).
-                    pushUngrouped(selected);
-                }
+                // Existing group stays a group; a new selection goes back as
+                // individual shapes, each in its original position.
+                commitReplacing(new Map(selected.map((item, i): [SceneItem, SceneItem[]] => [item, [copies[i]]])));
             },
             onLock: () => {
                 if (isExistingGroup) {
-                    // Ungroup: push children individually with baked rotation.
-                    pushUngrouped(shapeGroup.shapes);
+                    // Ungroup: the group is replaced by its (edited) children.
+                    commitReplacing(new Map([[selected[0], [...shapeGroup.shapes]]]));
                 } else {
-                    // Group: push the ShapeGroup as a single scene item.
-                    pushShape(shapeGroup);
+                    // Group: the first selected shape's slot gets the group.
+                    commitReplacing(new Map(selected.map((item, i): [SceneItem, SceneItem[]] => [item, i === 0 ? [shapeGroup] : []])));
                 }
             },
             isGroupLocked: isExistingGroup,
@@ -219,7 +223,7 @@ const useMultiSelect = ({
     }, [
         contextRef, sceneRef, pixelated, pixelSize,
         renderViewport, selectionItemRef, redrawFromScene,
-        pushShape, replaceScene, enterPendingShape,
+        commitScene, setSceneTransient, enterPendingShape,
     ]);
 
     return { startMultiSelect, updateMultiSelect, stopMultiSelect };

@@ -29,31 +29,6 @@ export function applyCheckpointInterval(scene: readonly SceneItem[], interval = 
     }
 }
 
-/** Lowest scene length undo may reach, given the current length. */
-export function computeUndoFloor(previousFloor: number, length: number, maxSteps = MAX_UNDO_STEPS): number {
-    return Math.max(previousFloor, length - maxSteps);
-}
-
-/**
- * Frees snapshots that can never be used again: once undo cannot go below
- * `floor`, every replay starts at (or after) the last checkpoint located
- * before `floor` — the "base". Checkpoints older than the base are released.
- * Items stay in the scene (they are still needed for persistence).
- * Returns how many snapshots were released.
- */
-export function releaseSnapshotsBeforeFloor(scene: readonly SceneItem[], floor: number): number {
-    const base = findLastCheckpointIndex(scene.slice(0, floor));
-    let released = 0;
-
-    for (let i = 0; i < base; i++) {
-        if (scene[i].isCheckpoint() && scene[i].releaseSnapshot(true)) {
-            released++;
-        }
-    }
-
-    return released;
-}
-
 /** Number of items currently holding a raster snapshot. */
 export function countCheckpoints(scene: readonly SceneItem[]): number {
     return scene.reduce((total, item) => total + (item.isCheckpoint() ? 1 : 0), 0);

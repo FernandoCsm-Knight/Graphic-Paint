@@ -34,7 +34,8 @@ type DrawingHandlersInput = {
     getMinAllowedZoom: (viewportWidth?: number, viewportHeight?: number, canvasWidth?: number, canvasHeight?: number) => number;
     sceneRef: React.RefObject<SceneItem[]>;
     pushShape: (shape: SceneItem) => void;
-    replaceScene: (scene: SceneItem[]) => void;
+    commitScene: (after: SceneItem[], before?: SceneItem[]) => void;
+    setSceneTransient: (scene: SceneItem[]) => void;
     redrawFromScene: (ctx: CanvasRenderingContext2D) => void;
 };
 
@@ -46,7 +47,8 @@ const useDrawingHandlers = ({
     getMinAllowedZoom,
     sceneRef,
     pushShape,
-    replaceScene,
+    commitScene,
+    setSceneTransient,
     redrawFromScene,
 }: DrawingHandlersInput) => {
     const {
@@ -93,16 +95,16 @@ const useDrawingHandlers = ({
 
     const { startSelection, updateSelection, stopSelection } = useSelection({
         sceneRef,
-        pushShape,
-        replaceScene,
+        commitScene,
+        setSceneTransient,
         enterPendingShape,
     });
 
     const { startMultiSelect, updateMultiSelect, stopMultiSelect } = useMultiSelect({
         sceneRef,
         redrawFromScene,
-        pushShape,
-        replaceScene,
+        commitScene,
+        setSceneTransient,
         enterPendingShape,
     });
 

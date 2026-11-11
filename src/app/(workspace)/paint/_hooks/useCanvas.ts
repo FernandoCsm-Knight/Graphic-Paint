@@ -63,7 +63,7 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         placementMode,
     } = useContext(SettingsContext)!;
 
-    const { sceneRef, sceneRevision, pushShape, undoScene, redoScene, redrawFromScene, replaceScene } = useScene();
+    const { sceneRef, sceneRevision, pushShape, commitScene, setSceneTransient, undoScene, redoScene, redrawFromScene, resetScene } = useScene();
 
     const viewportCtxRef = useRef<CanvasRenderingContext2D | null>(null);
     const overlayViewportCtxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -304,7 +304,7 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         void deserializePaintScene(initialScene).then((sceneItems) => {
             if (cancelled || !contextRef.current) return;
 
-            replaceScene(sceneItems);
+            resetScene(sceneItems);
             redrawFromScene(contextRef.current);
             initialSceneLoadedRef.current = true;
             renderViewportRef.current();
@@ -313,7 +313,7 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
         return () => {
             cancelled = true;
         };
-    }, [contextRef, initialScene, redrawFromScene, replaceScene]);
+    }, [contextRef, initialScene, redrawFromScene, resetScene]);
 
     const {
         handlePointerDown,
@@ -334,7 +334,8 @@ const useCanvas = ({ projectId, initialScene }: UseCanvasOptions = {}) => {
             getMinAllowedZoom,
             sceneRef,
             pushShape,
-            replaceScene,
+            commitScene,
+            setSceneTransient,
             redrawFromScene,
         });
 

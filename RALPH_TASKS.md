@@ -36,7 +36,7 @@ Mapa rápido do código:
 
 **Pronto quando:** teste de unidade (sobre a lógica extraída) prova que, após selecionar uma forma existente e apertar Delete, a cena não contém mais a forma; Esc/cancelar continua restaurando.
 
-### [ ] 2. Editar forma já colocada vira uma operação de desfazer/refazer correta
+### [x] 2. Editar forma já colocada vira uma operação de desfazer/refazer correta
 **Bugs (confirmados no código):**
 - Mover/girar/redimensionar uma forma existente: ela é removida via `replaceScene` (sem entrar no histórico) e reinserida no fim com `pushShape`. **Ctrl+Z depois disso apaga a forma** (o original já tinha sido removido).
 - A forma é editada *in place* (`moveBy`, `rotateBy`, `resizeToBoundingBox`) e o `capturedScene` guarda o mesmo objeto: **cancelar não desfaz o movimento**.
@@ -107,3 +107,4 @@ Mapa rápido do código:
 
 <!-- Uma linha por iteração: data · tarefa · o que mudou · pendências -->
 - 2026-11-10 · T1 · `_utils/pendingActions.ts` (`resolvePendingAction` confirm/cancel/delete + `liftFromScene`); `usePendingPlacement.ts` ganhou `deletePending()` (nunca chama `onCancel`) e opção `onDelete`; Delete/Backspace usam `deletePending`; `useMultiSelect.ts` usa `liftFromScene` · 7 testes novos (73 no total) · verificado no navegador (modo livre): hexágono confirmado → seleção com botão direito → Delete → contorno some e não volta · a remoção ainda não entra no desfazer (tarefa 2).
+- 2026-11-10 · T2 · histórico por operações em `_utils/sceneOperations.ts` (`SceneHistory`: `push`/`replace` antes-depois, `setTransient`, `reset`, desfazer/refazer, limite de 50 passos, libera checkpoints não alcançáveis e os posteriores a uma edição) + `replaceItemsInPlace`; `_utils/cloneSceneItem.ts` (cópia profunda); `useScene.ts` reescrito (`commitScene`, `setSceneTransient`, `resetScene`; estado transitório não dispara autosave); `useMultiSelect.ts` edita cópias e substitui no lugar (confirmar/apagar/agrupar/desagrupar = 1 passo); recorte em `useSelection.ts` (buraco transitório; confirmar/apagar = 1 passo; recorte pixelado = 1 passo); removidos `computeUndoFloor`/`releaseSnapshotsBeforeFloor` · 80 testes · verificado no navegador: mover existente → Ctrl+Z volta ao lugar → Ctrl+Y move de novo; Delete → Ctrl+Z traz de volta · colar grupo do clipboard ainda gera 1 passo por filho (menor).
