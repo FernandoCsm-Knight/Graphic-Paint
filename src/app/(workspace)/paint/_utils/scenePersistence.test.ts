@@ -100,3 +100,39 @@ describe('scenePersistence', () => {
         expect(restored[1]).toBeInstanceOf(ClearRectItem);
     });
 });
+
+describe('caixa de transformação de formas giradas', () => {
+    it('retângulo girado preserva caixa orientada e rotação ao salvar e recarregar', async () => {
+        const rect = new Rectangle({ x: 0, y: 0 }, { x: 100, y: 40 }, opts);
+        rect.beginRotate();
+        rect.rotateBy(Math.PI / 6, rect.getCenter());
+        rect.endRotate();
+        const bounds = rect.getOverlayBounds();
+        const rotation = rect.getVisualRotation();
+        expect(rotation).toBeCloseTo(Math.PI / 6);
+
+        const [restored] = await deserializePaintScene(await serializePaintScene([rect]));
+        const restoredRect = restored as Rectangle;
+
+        expect(restoredRect.getVisualRotation()).toBeCloseTo(rotation);
+        expect(restoredRect.getOverlayBounds().width).toBeCloseTo(bounds.width);
+        expect(restoredRect.getOverlayBounds().height).toBeCloseTo(bounds.height);
+        expect(restoredRect.getOverlayBounds().x).toBeCloseTo(bounds.x);
+        expect(restoredRect.getOverlayBounds().y).toBeCloseTo(bounds.y);
+        // A caixa orientada mantém as dimensões originais (100 x 40), não a do AABB girado.
+        expect(restoredRect.getOverlayBounds().width).toBeCloseTo(100);
+        expect(restoredRect.getOverlayBounds().height).toBeCloseTo(40);
+    });
+
+    it('formas sem rotação não gravam caixa de transformação', async () => {
+        const [saved] = await serializePaintScene([new Rectangle({ x: 0, y: 0 }, { x: 10, y: 10 }, opts)]);
+        expect((saved.data as Record<string, unknown>).transform).toBeUndefined();
+    });
+
+    it('projetos antigos sem caixa continuam carregando', async () => {
+        const [restored] = await deserializePaintScene([
+            { position: 0, kind: 'rect', data: { points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }] } },
+        ]);
+        expect((restored as Rectangle).getVisualRotation()).toBe(0);
+    });
+});

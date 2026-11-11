@@ -62,8 +62,30 @@ function getLineDashPreset(lineDash: number[] | undefined): LineDashPreset {
     return DASH_PRESET_BY_KEY.get((lineDash ?? []).join(',')) ?? 'solid';
 }
 
+/**
+ * Oriented transform box of a rotated shape (the overlay frame). Without it,
+ * a rotated shape reloads with an axis-aligned box and resizing distorts it.
+ * Omitted for unrotated shapes (their box is the plain bounding box).
+ */
+function getTransformData(shape: Shape): { bounds: BoundingBox; rotation: number } | undefined {
+    const rotation = shape.getVisualRotation();
+    if (!rotation) return undefined;
+    const bounds = shape.getOverlayBounds();
+    return { bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }, rotation };
+}
+
+function readTransformData(value: unknown): { bounds: BoundingBox; rotation: number } | null {
+    if (typeof value !== 'object' || value === null) return null;
+    const { bounds, rotation } = value as { bounds?: Partial<BoundingBox>; rotation?: unknown };
+    if (typeof rotation !== 'number' || !Number.isFinite(rotation) || !bounds) return null;
+    const { x, y, width, height } = bounds;
+    if ([x, y, width, height].some((n) => typeof n !== 'number' || !Number.isFinite(n))) return null;
+    return { bounds: { x: x!, y: y!, width: width!, height: height! }, rotation };
+}
+
 function getCommonShapeData(shape: Shape) {
     return {
+        transform: getTransformData(shape),
         strokeStyle: shape.strokeStyle,
         fillStyle: shape.fillStyle,
         lineWidth: shape.lineWidth,
@@ -115,8 +137,13 @@ function applyCommonShapeData(shape: Shape, data: Record<string, unknown>) {
     shape.lineAlgorithm = (typeof data.lineAlgorithm === 'string' ? data.lineAlgorithm : shape.lineAlgorithm) as LineAlgorithm;
     shape.lineDash = DASH_ARRAYS[(typeof data.lineDash === 'string' ? data.lineDash : 'solid') as LineDashPreset] ?? [];
     // Backward compat: old saves stored a `rotation` angle; bake it into the shape's data.
-    if (typeof data.rotation === 'number' && data.rotation !== 0) {
+    if (typeof data.rotation === 'number' && data.rotation !== 0 && !(shape instanceof ImageShape)) {
         shape.rotateBy(data.rotation, shape.getCenter());
+    }
+    // Restore the oriented transform box of rotated shapes (absent in old saves).
+    const transform = readTransformData(data.transform);
+    if (transform) {
+        shape.restoreTransformFrame(transform.bounds, transform.rotation);
     }
 }
 
