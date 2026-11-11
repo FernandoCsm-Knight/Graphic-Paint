@@ -63,7 +63,7 @@ export function getShapeVertices(shape: Shape): ShapeVertex[] {
  * dx/dy are in the same coordinate space as the shape's vertices
  * (grid units for pixelated shapes, doc pixels otherwise).
  */
-export function moveShapeVertex(shape: Shape, id: string, dx: number, dy: number): void {
+function moveVertexOnly(shape: Shape, id: string, dx: number, dy: number): void {
     if (hasStartEnd(shape)) {
         if (id === 'start') { shape.start.x += dx; shape.start.y += dy; }
         else if (id === 'end') { shape.end.x += dx; shape.end.y += dy; }
@@ -92,4 +92,54 @@ export function moveShapeVertex(shape: Shape, id: string, dx: number, dy: number
             shape.points[i].y += dy;
         }
     }
+}
+
+/**
+ * Moves a single vertex of the shape by (dx, dy), then refits the oriented
+ * transform box so the overlay keeps hugging the edited shape.
+ * dx/dy are in the same coordinate space as the shape's vertices
+ * (grid units for pixelated shapes, doc pixels otherwise).
+ */
+export function moveShapeVertex(shape: Shape, id: string, dx: number, dy: number): void {
+    moveVertexOnly(shape, id, dx, dy);
+    refitTransformFrame(shape);
+}
+
+/**
+ * Recomputes the oriented transform box from the current vertices, keeping
+ * the shape's visual rotation: the tightest box, in the rotated frame, that
+ * contains every vertex. Without this, editing a vertex of a rotated or
+ * resized shape left the overlay box at its old position/size.
+ */
+export function refitTransformFrame(shape: Shape): void {
+    const points = getShapeVertices(shape).map((v) => v.point);
+    if (points.length === 0) return;
+
+    const rotation = shape.getVisualRotation();
+    const previous = shape.getOverlayBounds();
+    const pivot = { x: previous.x + previous.width / 2, y: previous.y + previous.height / 2 };
+    const cos = Math.cos(-rotation), sin = Math.sin(-rotation);
+    const local = points.map((p) => ({
+        x: pivot.x + (p.x - pivot.x) * cos - (p.y - pivot.y) * sin,
+        y: pivot.y + (p.x - pivot.x) * sin + (p.y - pivot.y) * cos,
+    }));
+
+    const minX = Math.min(...local.map((p) => p.x));
+    const maxX = Math.max(...local.map((p) => p.x));
+    const minY = Math.min(...local.map((p) => p.y));
+    const maxY = Math.max(...local.map((p) => p.y));
+    const localCenter = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+
+    // Back to world space: the frame stores its world centre with unrotated size.
+    const c = Math.cos(rotation), s = Math.sin(rotation);
+    const worldCenter = {
+        x: pivot.x + (localCenter.x - pivot.x) * c - (localCenter.y - pivot.y) * s,
+        y: pivot.y + (localCenter.x - pivot.x) * s + (localCenter.y - pivot.y) * c,
+    };
+    const width = maxX - minX;
+    const height = maxY - minY;
+    shape.restoreTransformFrame(
+        { x: worldCenter.x - width / 2, y: worldCenter.y - height / 2, width, height },
+        rotation,
+    );
 }

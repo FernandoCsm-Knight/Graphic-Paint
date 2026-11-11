@@ -5,8 +5,11 @@ import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import { DASH_ARRAYS, SettingsContext } from "../_context/SettingsContext";
 import { Shape } from "../_shapes/ShapeTypes"; // needed for enterPendingShape cast
 import generator from "../_types/ShapeGenerator";
+import type { DragModifiers } from "../_utils/dragShapeGeometry";
 import FreeForm from "../_shapes/FreeForm";
 import FillShape from "../_shapes/FillShape";
+import TextShape from "../_shapes/TextShape";
+import { hitTestShape } from "../_utils/hitTest";
 
 import { map } from "../_types/Graphics";
 import useWorkspacePanZoom from "@/hooks/useWorkspacePanZoom";
@@ -34,8 +37,13 @@ type DrawingHandlersInput = {
     getMinAllowedZoom: (viewportWidth?: number, viewportHeight?: number, canvasWidth?: number, canvasHeight?: number) => number;
     sceneRef: React.RefObject<SceneItem[]>;
     pushShape: (shape: SceneItem) => void;
-    replaceScene: (scene: SceneItem[]) => void;
+    commitScene: (after: SceneItem[], before?: SceneItem[]) => void;
+    setSceneTransient: (scene: SceneItem[]) => void;
     redrawFromScene: (ctx: CanvasRenderingContext2D) => void;
+    /** Text tool clicked on empty canvas: open the text input there. */
+    onTextTool?: (docPoint: Point, gridPoint: Point) => void;
+    /** Edit an existing (pending) text. */
+    onEditText?: (shape: TextShape) => void;
 };
 
 const useDrawingHandlers = ({
@@ -46,8 +54,11 @@ const useDrawingHandlers = ({
     getMinAllowedZoom,
     sceneRef,
     pushShape,
-    replaceScene,
+    commitScene,
+    setSceneTransient,
     redrawFromScene,
+    onTextTool,
+    onEditText,
 }: DrawingHandlersInput) => {
     const {
         canvasRef,
@@ -87,22 +98,24 @@ const useDrawingHandlers = ({
         enterPending: enterPendingShape,
         confirmPending: confirmPendingShape,
         cancelPending: cancelPendingShape,
+        deletePending: deletePendingShape,
+        refreshPending: refreshPendingShape,
         lockButtonRef,
         handleLockClick,
     } = pending;
 
     const { startSelection, updateSelection, stopSelection } = useSelection({
         sceneRef,
-        pushShape,
-        replaceScene,
+        commitScene,
+        setSceneTransient,
         enterPendingShape,
     });
 
-    const { startMultiSelect, updateMultiSelect, stopMultiSelect } = useMultiSelect({
+    const { startMultiSelect, updateMultiSelect, stopMultiSelect, selectAt } = useMultiSelect({
         sceneRef,
         redrawFromScene,
-        pushShape,
-        replaceScene,
+        commitScene,
+        setSceneTransient,
         enterPendingShape,
     });
 
@@ -157,6 +170,8 @@ const useDrawingHandlers = ({
     const shapePreviewRafId = useRef<number | null>(null);
     const viewportRenderRafId = useRef<number | null>(null);
     const pendingPoint = useRef<Point | null>(null);
+    /** Shift/Alt held during the current shape drag (proportions / from centre). */
+    const dragModifiers = useRef<DragModifiers>({});
 
     /** Throttles shape preview redraws to one per animation frame. */
     const scheduleShapePreview = useCallback((point: Point, ctx: CanvasRenderingContext2D) => {
@@ -166,16 +181,17 @@ const useDrawingHandlers = ({
             shapePreviewRafId.current = null;
             if (!pendingPoint.current) return;
             redrawFromScene(ctx);
-                const shape = generator({
-                    start: start.current,
-                    end: pendingPoint.current,
-                    color: currentColorRef.current,
-                    thickness: thicknessRef.current,
-                    kind: selectedShape,
-                    pixelated,
-                    pixelSize,
+            const shape = generator({
+                start: start.current,
+                end: pendingPoint.current,
+                color: currentColorRef.current,
+                thickness: thicknessRef.current,
+                kind: selectedShape,
+                pixelated,
+                pixelSize,
                 lineAlgorithm,
                 lineDash,
+                modifiers: dragModifiers.current,
             });
             currentShape.current = shape;
             shape.draw(ctx);
@@ -253,14 +269,38 @@ const useDrawingHandlers = ({
         const { x, y } = point;
         const mappedPoint = pixelated ? map({ x, y }, pixelSize) : { x, y };
 
-        // While a shape is pending confirmation, all clicks are handled by the
-        // pending placement logic (move drag, rotate drag, or confirm on outside click).
-        if (hasPendingShape()) {
-            pendingPointerDown(mappedPoint, point);
-        } else if (selectedShape === 'polygon') {
+        // Double-click on the text being edited/placed: edit its content.
+        const pendingText = pendingShapeRef.current;
+        if (e.detail >= 2 && pendingText instanceof TextShape && hitTestShape(pendingText, point, 6 / zoom)) {
+            onEditText?.(pendingText);
+            return;
+        }
+
+        // While a shape is pending, the pending placement logic handles clicks on
+        // it (move/rotate/resize). A click outside confirms it and returns false,
+        // so the same click continues to the active tool below.
+        if (hasPendingShape() && pendingPointerDown(mappedPoint, point)) {
+            return;
+        }
+
+        if (selectedShape === 'text') {
+            // Click on an existing text edits it; anywhere else starts a new text.
+            if (selectAt({ x, y }, (shape) => shape instanceof TextShape)) {
+                const selected = pendingShapeRef.current;
+                if (selected instanceof TextShape) onEditText?.(selected);
+                return;
+            }
+            onTextTool?.({ x, y }, mappedPoint);
+            return;
+        }
+
+        if (selectedShape === 'polygon') {
             polygon.onPointerDown(mappedPoint);
         } else if (selectedShape === 'bezier' || selectedShape === 'bspline') {
             curve.onPointerDown(mappedPoint);
+        } else if (isSelectionActive && selectAt({ x, y })) {
+            // Clicked on a shape with the selection tool: it is now being edited.
+            return;
         } else {
             canvas.setPointerCapture(e.pointerId);
             isDrawing.current = true;
@@ -299,9 +339,9 @@ const useDrawingHandlers = ({
         }
     }, [
         panDown, canvasRef, contextRef, getCanvasPoint, pixelated, pixelSize,
-        isSelectionActive, startSelection, startMultiSelect, isFillActive, currentColorRef, isEraserActive,
+        isSelectionActive, selectAt, startSelection, startMultiSelect, isFillActive, currentColorRef, isEraserActive,
         selectedShape, thicknessRef, lineAlgorithm, lineDash, brushStyle, renderViewport, polygon, curve,
-        hasPendingShape, pendingPointerDown,
+        hasPendingShape, pendingPointerDown, pendingShapeRef, zoom, onTextTool, onEditText,
     ]);
 
     const handlePointerMove = useCallback((e: PointerEvent<HTMLCanvasElement>) => {
@@ -336,6 +376,7 @@ const useDrawingHandlers = ({
                     scheduleViewportRender();
                 }
             } else {
+                dragModifiers.current = { shift: e.shiftKey, alt: e.altKey };
                 scheduleShapePreview(point, ctx);
             }
         }
@@ -420,6 +461,8 @@ const useDrawingHandlers = ({
         enterPendingShape,
         confirmPendingShape,
         cancelPendingShape,
+        deletePendingShape,
+        refreshPendingShape,
         lockButtonRef,
         handleLockClick,
     };

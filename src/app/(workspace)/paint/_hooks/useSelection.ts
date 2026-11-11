@@ -25,8 +25,8 @@ import ClearRectItem from "../_shapes/ClearRectItem";
 
 type SelectionInput = {
     sceneRef: RefObject<SceneItem[]>;
-    pushShape: (shape: SceneItem) => void;
-    replaceScene: (scene: SceneItem[]) => void;
+    commitScene: (after: SceneItem[], before?: SceneItem[]) => void;
+    setSceneTransient: (scene: SceneItem[]) => void;
     enterPendingShape: (shape: Shape, options?: EnterPendingOptions) => void;
 };
 
@@ -64,8 +64,8 @@ function drawDashedRect(
 
 const useSelection = ({
     sceneRef,
-    pushShape,
-    replaceScene,
+    commitScene,
+    setSceneTransient,
     enterPendingShape,
 }: SelectionInput) => {
     const { contextRef, pixelated, renderViewport, selectionItemRef } = useContext(PaintContext)!;
@@ -201,9 +201,11 @@ const useSelection = ({
             // On confirm, push each shape individually back to the scene.
             // Rotation has already been baked into the shapes' data by rotateBy(),
             // so no additional transform is needed here.
+            // Pixel mode copies the clipped parts: on confirm they are added
+            // to the scene as one undoable step.
             enterPendingShape(shapeGroup, {
                 onConfirm: () => {
-                    for (const s of floatingShapes) pushShape(s);
+                    commitScene([...sceneRef.current, ...floatingShapes]);
                 },
             });
         } else {
@@ -223,25 +225,24 @@ const useSelection = ({
 
             const imageShape = new ImageShape(tmpCanvas, sx, sy, sw, sh);
 
-            // Capture scene before modifying it (needed to undo the hole on cancel).
-            const capturedScene = [...sceneRef.current];
+            // The hole is shown transiently while the cut image is pending;
+            // confirm/delete commit hole (+ image) as ONE undoable step,
+            // cancel restores the original scene.
+            const originalScene = [...sceneRef.current];
+            const hole = new ClearRectItem(sx, sy, sw, sh);
             ctx.clearRect(sx, sy, sw, sh);
-            // Push a ClearRectItem instead of a full RasterCheckpoint so that
-            // all vector shapes before the cut remain in the scene and stay
-            // selectable by the multi-select tool.
-            pushShape(new ClearRectItem(sx, sy, sw, sh));
+            setSceneTransient([...originalScene, hole]);
 
             enterPendingShape(imageShape, {
-                onCancel: () => {
-                    // Restore pre-hole scene so redrawFromScene shows the original painting.
-                    replaceScene(capturedScene);
-                },
+                onCancel: () => setSceneTransient(originalScene),
+                onConfirm: () => commitScene([...originalScene, hole, imageShape], originalScene),
+                onDelete: () => commitScene([...originalScene, hole], originalScene),
             });
         }
     }, [
         contextRef, sceneRef, pixelated, pixelSize, clipAlgorithm,
-        renderViewport, selectionItemRef, pushShape, enterPendingShape,
-        replaceScene,
+        renderViewport, selectionItemRef, enterPendingShape,
+        commitScene, setSceneTransient,
     ]);
 
     return {

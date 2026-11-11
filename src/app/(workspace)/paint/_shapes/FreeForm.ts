@@ -64,6 +64,9 @@ export default class FreeForm extends SceneItem {
 
     override requiresSnapshot(): boolean { return true; }
 
+    /** Strokes replay on top of whatever is below: shapes under them stay editable. */
+    override isBarrier(): boolean { return false; }
+
     override draw(ctx: CanvasRenderingContext2D): void {
         if (this.snapshot !== null) {
             ctx.putImageData(this.snapshot, 0, 0);

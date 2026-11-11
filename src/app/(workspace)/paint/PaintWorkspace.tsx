@@ -5,6 +5,7 @@ import { useWorkspaceShell, WorkspaceShellOptions } from '@/context/WorkspaceShe
 import Menu from '@/app/(workspace)/paint/_components/menu/main/ui/Menu';
 import ModeManager from '@/app/(workspace)/paint/_components/ModeManager';
 import PageSizeEraser from '@/app/(workspace)/paint/_components/PageSizeEraser';
+import TextInputOverlay from '@/app/(workspace)/paint/_components/TextInputOverlay';
 import { PaintContext } from '@/app/(workspace)/paint/_context/PaintContext';
 import MenuProvider from '@/app/(workspace)/paint/_context/providers/MenuProvider';
 import { ReplacementContext } from '@/app/(workspace)/paint/_context/ReplacementContext';
@@ -33,6 +34,7 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
     const {
         canvasRef,
         selectedShape,
+        isSelectionActive,
         pixelated,
         pushSceneItemRef,
         setPixelated,
@@ -72,6 +74,9 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
         lockButtonRef,
         handleLockClick,
         saveStatus,
+        textInput,
+        commitText,
+        cancelText,
     } = useCanvas({
         projectId,
         initialScene: initialSnapshot?.scene,
@@ -203,7 +208,11 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
     }, [containerRef]);
 
     let badge: string;
-    if (selectedShape === 'polygon') {
+    if (isSelectionActive) {
+        badge = 'Clique numa forma para editar · Arraste para recortar · Delete apaga · Ctrl+Z desfaz';
+    } else if (selectedShape === 'text') {
+        badge = 'Clique para escrever · Enter confirma · Shift+Enter nova linha · Clique num texto para editar';
+    } else if (selectedShape === 'polygon') {
         badge = 'Clique para adicionar vértices · Enter para finalizar · Esc para cancelar · Duplo clique para fechar';
     } else if (pixelated) {
         const mapped = map({ x: viewportSize.width, y: viewportSize.height }, pixelSize);
@@ -220,7 +229,7 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
             if ((event.target as HTMLElement).closest('[data-paint-menu]')) return;
             handleWheel(event);
         },
-        defaultCursor: selectedShape === 'polygon' ? 'crosshair' : 'default',
+        defaultCursor: selectedShape === 'polygon' ? 'crosshair' : selectedShape === 'text' ? 'text' : 'default',
         badge,
     }), [badge, handleWheel, selectedShape]);
 
@@ -249,6 +258,14 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
                     onPointerUp={handlePointerUp}
                     onPointerCancel={handlePointerUp}
                 />
+                {textInput ? (
+                    <TextInputOverlay
+                        key={`${textInput.left}:${textInput.top}:${textInput.initialText}`}
+                        {...textInput}
+                        onCommit={commitText}
+                        onCancel={cancelText}
+                    />
+                ) : null}
                 <button
                     ref={lockButtonRef}
                     onClick={handleLockClick}

@@ -25,12 +25,16 @@ import {
     THEME_SURFACE_CSS_VAR,
 } from "@/utils/workspaceGrid";
 import { isTypingTarget } from "@/utils/isTypingTarget";
+import { resolveEscapeAction, resolvePendingAction } from "../_utils/pendingActions";
+import { getOverlayPadding } from "../_utils/visualBounds";
 
 export type EnterPendingOptions = {
     /** Called when the pending shape is cancelled; use to restore scene state. */
     onCancel?: () => void;
     /** Called instead of pushShape(shape) when the pending shape is confirmed. */
     onConfirm?: () => void;
+    /** Called when the pending shape is deleted (Delete/Backspace). Never restores the scene. */
+    onDelete?: () => void;
     /** Called when the lock button is clicked on a ShapeGroup overlay. */
     onLock?: () => void;
     /** Whether the pending ShapeGroup is already a persisted group (shows locked icon). */
@@ -45,6 +49,8 @@ const ROTATION_HANDLE_DIST_PX = 30;
 const RESIZE_HANDLE_HIT_RADIUS_PX = 10;
 /** Screen-space radius of vertex handle circles (px). */
 const VERTEX_HANDLE_RADIUS_PX = 6;
+/** Minimum half-size of the overlay box on screen (px), so thin shapes stay grabbable. */
+const OVERLAY_MIN_HALF_PX = 8;
 
 type PendingMode = 'move' | 'rotate' | 'resize' | 'vertex' | null;
 type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
@@ -220,6 +226,8 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
     const dragStart = useRef<Point | null>(null);
     const resizeHandleRef = useRef<ResizeHandle | null>(null);
     const resizeAnchorRef = useRef<Point | null>(null);
+    /** Offset between the grabbed (padded) handle and the geometric edge. */
+    const resizeGrabOffsetRef = useRef<Point>({ x: 0, y: 0 });
     const resizeBoundsRef = useRef<BoundingBox | null>(null);
     const vertexIdRef = useRef<string | null>(null);
     const rotatePivotRef = useRef<Point | null>(null);
@@ -234,6 +242,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
     const pendingRenderFrameRef = useRef<number | null>(null);
     const onCancelCallbackRef  = useRef<(() => void) | null>(null);
     const onConfirmCallbackRef = useRef<(() => void) | null>(null);
+    const onDeleteCallbackRef  = useRef<(() => void) | null>(null);
     const onLockCallbackRef    = useRef<(() => void) | null>(null);
     const isGroupLockedRef     = useRef<boolean>(false);
     const lockButtonRef        = useRef<HTMLButtonElement | null>(null);
@@ -279,6 +288,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         overlayHalfSizeRef.current = null;
         onCancelCallbackRef.current  = null;
         onConfirmCallbackRef.current = null;
+        onDeleteCallbackRef.current  = null;
         onLockCallbackRef.current    = null;
         isGroupLockedRef.current     = false;
         if (lockButtonRef.current) lockButtonRef.current.style.display = 'none';
@@ -313,7 +323,13 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         const hh = halfSize ? halfSize.hh : bb.height / 2;
         const angle = overlayAngleRef.current;
 
-        const obbBb: BoundingBox = { x: cx - hw, y: cy - hh, width: hw * 2, height: hh * 2 };
+        // Display box = geometric box + stroke thickness (+ minimum size), so the
+        // dashed box and handles enclose what is drawn. Resizing still maps the
+        // geometric box (see resizeGrabOffsetRef).
+        const pad = getOverlayPadding(shape, hw, hh, OVERLAY_MIN_HALF_PX / zoom);
+        const boxHw = hw + pad.x;
+        const boxHh = hh + pad.y;
+        const obbBb: BoundingBox = { x: cx - boxHw, y: cy - boxHh, width: boxHw * 2, height: boxHh * 2 };
 
         overlay.save();
         overlay.setTransform(scale, 0, 0, scale, viewOffset.x * dpr, viewOffset.y * dpr);
@@ -327,7 +343,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         overlay.setLineDash([4 * lw, 4 * lw]);
         overlay.lineWidth = lw;
         overlay.strokeStyle = overlayAccent;
-        overlay.strokeRect(cx - hw, cy - hh, hw * 2, hh * 2);
+        overlay.strokeRect(obbBb.x, obbBb.y, obbBb.width, obbBb.height);
 
         // Resize handles
         overlay.setLineDash([]);
@@ -342,12 +358,12 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
 
         // Rotation handle stem + circle (drawn above OBB top-center in rotated space)
         overlay.beginPath();
-        overlay.moveTo(cx, cy - hh);
-        overlay.lineTo(cx, cy - hh - handleDistDoc);
+        overlay.moveTo(cx, cy - boxHh);
+        overlay.lineTo(cx, cy - boxHh - handleDistDoc);
         overlay.stroke();
 
         overlay.beginPath();
-        overlay.arc(cx, cy - hh - handleDistDoc, handleRadiusDoc, 0, Math.PI * 2);
+        overlay.arc(cx, cy - boxHh - handleDistDoc, handleRadiusDoc, 0, Math.PI * 2);
         overlay.fillStyle = overlaySurface;
         overlay.fill();
         overlay.strokeStyle = overlayAccent;
@@ -362,8 +378,8 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
             const locked = isGroupLockedRef.current;
             // Near the top-right corner of the OBB, rotated into doc space.
             const cos = Math.cos(angle), sin = Math.sin(angle);
-            const lxLocal = hw - 24 / zoom;
-            const lyLocal = -(hh + 24 / zoom);
+            const lxLocal = boxHw - 24 / zoom;
+            const lyLocal = -(boxHh + 24 / zoom);
             const lockDocX = cx + lxLocal * cos - lyLocal * sin;
             const lockDocY = cy + lxLocal * sin + lyLocal * cos;
             btn.style.display = 'flex';
@@ -478,6 +494,14 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         renderPendingShapeNow();
     }, [cancelScheduledPendingRender, renderPendingShapeNow]);
 
+    /** Re-read the pending shape after it changed outside a drag (e.g. text edited). */
+    const refreshPending = useCallback(() => {
+        const shape = pendingShapeRef.current;
+        if (!shape) return;
+        syncOverlayFromShape(shape);
+        flushPendingRender();
+    }, [flushPendingRender, pendingShapeRef]);
+
     const getPointerDocPoint = useCallback((shape: Shape, docPoint: Point, canvasPoint?: Point): Point => (
         canvasPoint ?? (shape.pixelated
             ? { x: docPoint.x * shape.pixelSize, y: docPoint.y * shape.pixelSize }
@@ -513,11 +537,13 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         };
         const localScreenPoint = toScreen(localPointer);
 
+        // Same padded display box as drawOverlay.
+        const pad = getOverlayPadding(shape, obbHw, obbHh, OVERLAY_MIN_HALF_PX / zoom);
         const obbBb: BoundingBox = {
-            x: center.x - obbHw,
-            y: center.y - obbHh,
-            width:  obbHw * 2,
-            height: obbHh * 2,
+            x: center.x - obbHw - pad.x,
+            y: center.y - obbHh - pad.y,
+            width:  (obbHw + pad.x) * 2,
+            height: (obbHh + pad.y) * 2,
         };
 
         // ── Vertex mode ───────────────────────────────────────────────────────
@@ -572,6 +598,7 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         resetPendingState();
         onCancelCallbackRef.current  = options?.onCancel  ?? null;
         onConfirmCallbackRef.current = options?.onConfirm ?? null;
+        onDeleteCallbackRef.current  = options?.onDelete  ?? null;
         onLockCallbackRef.current    = options?.onLock    ?? null;
         isGroupLockedRef.current     = options?.isGroupLocked ?? false;
         pendingShapeRef.current = shape;
@@ -584,27 +611,40 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
     const confirmPending = useCallback(() => {
         const shape = pendingShapeRef.current;
         if (!shape) return;
-        const onConfirm = onConfirmCallbackRef.current;
+        const callbacks = { onConfirm: onConfirmCallbackRef.current };
         resetPendingState();
-        if (onConfirm) {
-            onConfirm();
-        } else {
-            pushShape(shape);
-        }
+        resolvePendingAction('confirm', shape, callbacks, pushShape);
         renderViewport();
     }, [pendingShapeRef, pushShape, renderViewport, resetPendingState]);
 
-    /** Discard the pending shape and restore the canvas to the committed scene. */
+    /** Give up the edit and restore the canvas to the committed scene. */
     const cancelPending = useCallback(() => {
+        const shape = pendingShapeRef.current;
         const ctx = contextRef.current;
-        const onCancel = onCancelCallbackRef.current;
+        const callbacks = { onCancel: onCancelCallbackRef.current };
         resetPendingState();
-        onCancel?.();
+        if (shape) resolvePendingAction('cancel', shape, callbacks, pushShape);
         if (ctx) {
             redrawFromScene(ctx);
             renderViewport();
         }
-    }, [contextRef, redrawFromScene, renderViewport, resetPendingState]);
+    }, [contextRef, pendingShapeRef, pushShape, redrawFromScene, renderViewport, resetPendingState]);
+
+    /**
+     * Delete the pending shape. Unlike cancel, this never restores the scene:
+     * a shape lifted from the scene for editing stays removed.
+     */
+    const deletePending = useCallback(() => {
+        const shape = pendingShapeRef.current;
+        const ctx = contextRef.current;
+        const callbacks = { onDelete: onDeleteCallbackRef.current };
+        resetPendingState();
+        if (shape) resolvePendingAction('delete', shape, callbacks, pushShape);
+        if (ctx) {
+            redrawFromScene(ctx);
+            renderViewport();
+        }
+    }, [contextRef, pendingShapeRef, pushShape, redrawFromScene, renderViewport, resetPendingState]);
 
     /**
      * Handle a pointer-down event while a shape is pending.
@@ -637,6 +677,11 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
             };
             resizeBoundsRef.current = resizeBox;
             resizeAnchorRef.current = getHandleAnchorPoint(resizeBox, hoverTarget.handle);
+            // The grabbed handle sits on the padded box; remove that padding from
+            // the pointer so the shape does not jump when the drag starts.
+            const grabPad = getOverlayPadding(shape, halfSize.hw, halfSize.hh, OVERLAY_MIN_HALF_PX / zoom);
+            const grabSigns = getHandleDefaultSigns(hoverTarget.handle);
+            resizeGrabOffsetRef.current = { x: grabSigns.x * grabPad.x, y: grabSigns.y * grabPad.y };
             dragStart.current = docPoint;
             const resizeShapeBox = toShapeBoundingBox(shape, resizeBox);
             shape.beginResize(
@@ -679,10 +724,11 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
             return true;
         }
 
-        // Clicked outside: commit shape
+        // Clicked outside: commit the shape and let the click go on to the
+        // active tool (start the next shape, select another one, ...).
         confirmPending();
-        return true;
-    }, [confirmPending, getHoverTarget, pendingShapeRef, setCanvasCursor]);
+        return false;
+    }, [confirmPending, getHoverTarget, pendingShapeRef, setCanvasCursor, zoom]);
 
     /**
      * Handle pointer-move while in pending mode.
@@ -734,11 +780,15 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
             const handleConfig = RESIZE_HANDLE_CONFIG[handle];
             const defaultSigns = getHandleDefaultSigns(handle);
             const resizeCenter = getBoundingBoxCenter(resizeBoundsRef.current);
-            const localPointerDocPoint = rotatePointAround(
+            const rotatedPointer = rotatePointAround(
                 getPointerDocPoint(shape, docPoint, canvasPoint),
                 resizeCenter,
                 -overlayAngleRef.current,
             );
+            const localPointerDocPoint = {
+                x: rotatedPointer.x - resizeGrabOffsetRef.current.x,
+                y: rotatedPointer.y - resizeGrabOffsetRef.current.y,
+            };
             const dragPoint = shape.pixelated
                 ? {
                     x: handleConfig.affectsX
@@ -856,19 +906,36 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         return false;
     }, [flushPendingRender, pendingShapeRef, setCanvasCursor]);
 
-    // ── Delete/Backspace → descartar forma pendente ───────────────────────────
+    /**
+     * Esc: when editing something that already existed (an existing shape, a
+     * cut), revert the edit; for a freshly drawn shape, just deselect (keep it)
+     * instead of throwing away what the user just drew.
+     */
+    const escapePending = useCallback(() => {
+        if (resolveEscapeAction({ onCancel: onCancelCallbackRef.current }) === 'cancel') {
+            cancelPending();
+        } else {
+            confirmPending();
+        }
+    }, [cancelPending, confirmPending]);
+
+    // ── Delete/Backspace → apagar · Esc → reverter edição / tirar seleção ─────
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-            if (isTypingTarget(e.target)) return;
             if (!pendingShapeRef.current) return;
-            e.preventDefault();
-            cancelPending();
+            if (isTypingTarget(e.target)) return;
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                deletePending();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                escapePending();
+            }
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [cancelPending, pendingShapeRef]);
+    }, [deletePending, escapePending, pendingShapeRef]);
 
     /** Called by the HTML lock button's onClick to group/ungroup the pending ShapeGroup. */
     const handleLockClick = useCallback(() => {
@@ -886,6 +953,8 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         enterPending,
         confirmPending,
         cancelPending,
+        deletePending,
+        refreshPending,
         onPointerDown,
         onPointerMove,
         onPointerUp,

@@ -141,7 +141,7 @@ function deBoor(pts: Point[], T: number[], k: number, span: number, t: number): 
 /**
  * Amostra `steps + 1` pontos uniformes no domínio [T[k], T[n]].
  */
-function sampleBSpline(pts: Point[], steps: number): Point[] {
+export function sampleBSpline(pts: Point[], steps: number): Point[] {
     const n = pts.length;
     const k = DEGREE;
     const T = buildClampedKnots(n, k);

@@ -13,8 +13,10 @@ export default class Circle extends Shape {
         const center = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
         const radius = Math.hypot(end.x - start.x, end.y - start.y) / 2;
 
-        this.center = center;
-        this.radius = radius;
+        // Pixel mode works on whole grid cells: store integer geometry so the
+        // bounding box matches the cells that are actually painted.
+        this.center = this.pixelated ? { x: Math.round(center.x), y: Math.round(center.y) } : center;
+        this.radius = this.pixelated ? Math.round(radius) : radius;
     }
 
     pixelatedDraw(ctx: CanvasRenderingContext2D): void {
@@ -67,8 +69,8 @@ export default class Circle extends Shape {
     getCenter() { return { x: this.center.x, y: this.center.y }; }
 
     moveBy(dx: number, dy: number): void {
-        this.center.x += dx;
-        this.center.y += dy;
+        this.center.x += this.pixelated ? Math.round(dx) : dx;
+        this.center.y += this.pixelated ? Math.round(dy) : dy;
         this.moveTransformFrame(dx, dy);
     }
 

@@ -6,7 +6,7 @@ Ambiente web para estudar e visualizar algoritmos de computação gráfica, graf
 
 | Módulo | O que faz |
 | --- | --- |
-| **Paint** | Canvas com modo suave e modo pixelado (grade de pixels). Ferramentas de pincel (suave, duro, spray), borracha, balde (flood fill e scanline), formas (reta, seta, retângulo, círculo, elipse, polígonos, estrela), polígono livre, curvas de Bézier e B-spline, seleção com recorte, mover/girar/redimensionar, copiar/colar, desfazer/refazer. Rasterização de retas por **Bresenham** ou **DDA** e recorte por **Cohen-Sutherland**, **Liang-Barsky** ou **Sutherland-Hodgman**. |
+| **Paint** | Canvas com modo suave e modo pixelado (grade de pixels). Ferramentas de pincel (suave, duro, spray), borracha, balde (flood fill e scanline), formas (reta, seta, retângulo, círculo, elipse, polígonos, estrela), polígono livre, curvas de Bézier e B-spline, texto (editável, também em modo pixelado), seleção com recorte, mover/girar/redimensionar, copiar/colar, desfazer/refazer. Rasterização de retas por **Bresenham** ou **DDA** e recorte por **Cohen-Sutherland**, **Liang-Barsky** ou **Sutherland-Hodgman**. |
 | **Grafos** | Editor de grafos dirigidos ou não, com pesos. Executa passo a passo BFS, DFS, Dijkstra, Prim, Kruskal, ordenação topológica, caminho crítico, pontes e componentes fortemente conexos (Tarjan e Kosaraju). |
 | **Autômatos** | Editor de AFN-λ e autômato de pilha, com estados inicial/final e simulação passo a passo de entradas. |
 
@@ -105,5 +105,7 @@ docs/                        # material de apoio (curvas paramétricas)
 | `Ctrl+C` / `Ctrl+V` | Copiar / colar forma ou imagem |
 | `Delete` / `Backspace` | Descartar a forma selecionada |
 | `Enter` / `Esc` | Finalizar / cancelar polígono ou curva |
+| Ferramenta de texto | Clique para escrever · `Enter` confirma · `Shift+Enter` nova linha · clique num texto existente para editar |
+| `Shift` / `Alt` ao desenhar formas | Manter proporção / desenhar a partir do centro |
 
 Os atalhos não interferem quando o foco está em um campo de texto.

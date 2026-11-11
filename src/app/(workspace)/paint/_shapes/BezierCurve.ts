@@ -77,7 +77,7 @@ function deCasteljau(pts: Point[], t: Point['x']): Point {
  * Gera um array de `steps + 1` pontos amostrados uniformemente em t ∈ [0,1].
  * O resultado inclui t=0 e t=1 (pontos inicial e final).
  */
-function sampleBezier(pts: Point[], steps: number): Point[] {
+export function sampleBezier(pts: Point[], steps: number): Point[] {
     const out: Point[] = [];
     for (let i = 0; i <= steps; i++) {
         out.push(deCasteljau(pts, i / steps));

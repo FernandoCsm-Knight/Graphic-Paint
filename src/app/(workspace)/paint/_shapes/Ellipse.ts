@@ -17,9 +17,11 @@ export default class Ellipse extends Shape {
     constructor(start: Point, end: Point, opts: ShapeOptions) {
         super(opts);
 
-        const center = { x: Math.round((start.x + end.x) / 2), y: Math.round((start.y + end.y) / 2) };
-        const radiusX = Math.round(Math.abs(end.x - start.x) / 2);
-        const radiusY = Math.round(Math.abs(end.y - start.y) / 2);
+        // Integer geometry only in pixel mode (whole grid cells); smooth mode keeps precision.
+        const snap = (value: number) => (this.pixelated ? Math.round(value) : value);
+        const center = { x: snap((start.x + end.x) / 2), y: snap((start.y + end.y) / 2) };
+        const radiusX = snap(Math.abs(end.x - start.x) / 2);
+        const radiusY = snap(Math.abs(end.y - start.y) / 2);
 
         this.center = center;
         this.radiusX = radiusX;
@@ -120,8 +122,8 @@ export default class Ellipse extends Shape {
     }
 
     moveBy(dx: number, dy: number): void {
-        this.center.x += dx;
-        this.center.y += dy;
+        this.center.x += this.pixelated ? Math.round(dx) : dx;
+        this.center.y += this.pixelated ? Math.round(dy) : dy;
         this.moveTransformFrame(dx, dy);
     }
 

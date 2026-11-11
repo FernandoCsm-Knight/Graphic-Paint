@@ -1,11 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { SceneItem } from "../_shapes/ShapeTypes";
 import { drawRedoItem, replayScene } from "../_utils/sceneReplay";
-import {
-    applyCheckpointInterval,
-    computeUndoFloor,
-    releaseSnapshotsBeforeFloor,
-} from "../_utils/sceneHistory";
+import { SceneHistory } from "../_utils/sceneOperations";
 
 export type { SceneItem };
 
@@ -17,26 +13,28 @@ export type { SceneItem };
  */
 
 /**
- * Manages the ordered list of drawn items and the redo stack.
+ * Manages the ordered list of drawn items and the operation-based history
+ * (see SceneHistory): appending items, editing/deleting existing ones (as a
+ * single undoable replace), and transient states while a shape is lifted
+ * out for editing.
  *
  * Replay strategy — O(items since last checkpoint):
  *   1. Scan backwards to find the most recent checkpoint (isCheckpoint() === true).
  *   2. putImageData (O(pixels), very fast) to restore that checkpoint.
- *   3. Draw only the vector shapes that follow it (typically 0–10 items).
- *
- * Memory: raster snapshots (~4 bytes per canvas pixel each) are kept at most
- * every CHECKPOINT_INTERVAL items, undo is limited to MAX_UNDO_STEPS, and
- * snapshots older than the undo floor's base checkpoint are released.
+ *   3. Draw only the items that follow it.
  */
 const useScene = () => {
+    const historyRef = useRef<SceneHistory | null>(null);
+    if (historyRef.current === null) historyRef.current = new SceneHistory();
+
+    /** Always mirrors the history's current scene (read by many hooks). */
     const sceneRef = useRef<SceneItem[]>([]);
-    const redoStackRef = useRef<SceneItem[]>([]);
-    /** Undo cannot shrink the scene below this length. */
-    const undoFloorRef = useRef(0);
     const [sceneRevision, setSceneRevision] = useState(0);
 
-    const bumpSceneRevision = useCallback(() => {
-        setSceneRevision((revision) => revision + 1);
+    /** Mirror the scene; committed changes also bump the revision (autosave). */
+    const sync = useCallback((committed: boolean) => {
+        sceneRef.current = historyRef.current!.scene;
+        if (committed) setSceneRevision((revision) => revision + 1);
     }, []);
 
     /** Replay the scene onto ctx (clears, then draws from the last checkpoint). */
@@ -44,80 +42,65 @@ const useScene = () => {
         replayScene(sceneRef.current, ctx);
     }, []);
 
-    /** Add an item to the scene and clear the redo stack. */
+    /** Append an item (one undo step). */
     const pushShape = useCallback((shape: SceneItem) => {
-        const scene = sceneRef.current;
-        scene.push(shape);
-        redoStackRef.current = [];
-
-        applyCheckpointInterval(scene);
-        const floor = computeUndoFloor(undoFloorRef.current, scene.length);
-        if (floor !== undoFloorRef.current) {
-            undoFloorRef.current = floor;
-            releaseSnapshotsBeforeFloor(scene, floor);
-        }
-
-        bumpSceneRevision();
-    }, [bumpSceneRevision]);
+        historyRef.current!.push(shape);
+        sync(true);
+    }, [sync]);
 
     /**
-     * Undo: remove the last item, replay the remaining scene, return whether
-     * the scene changed (so the caller can decide whether to re-render).
+     * Commit a new scene as one undo step (edit/delete/group existing items).
+     * Pass `before` when the current scene is a transient editing state.
      */
+    const commitScene = useCallback((after: SceneItem[], before?: SceneItem[]) => {
+        historyRef.current!.replace(after, before);
+        sync(true);
+    }, [sync]);
+
+    /** Show a scene without recording history (lift for editing / cancel). */
+    const setSceneTransient = useCallback((next: SceneItem[]) => {
+        historyRef.current!.setTransient(next);
+        sync(false);
+    }, [sync]);
+
+    /** Undo the last operation and replay; returns whether anything changed. */
     const undoScene = useCallback((ctx: CanvasRenderingContext2D): boolean => {
-        const response: boolean = sceneRef.current.length > undoFloorRef.current;
+        const op = historyRef.current!.undo();
+        if (!op) return false;
+        sync(true);
+        redrawFromScene(ctx);
+        return true;
+    }, [redrawFromScene, sync]);
 
-        if (response) {
-            const removed = sceneRef.current.pop()!;
-            redoStackRef.current.push(removed);
-            redrawFromScene(ctx);
-            bumpSceneRevision();
-        }
-
-        return response;
-    }, [bumpSceneRevision, redrawFromScene]);
-
-    /**
-     * Redo: restore the last undone item and draw it on the current canvas.
-     * Checkpoints replace the entire bitmap; vector shapes draw on top of the
-     * state left by undoScene.
-     */
+    /** Redo the last undone operation; returns whether anything changed. */
     const redoScene = useCallback((ctx: CanvasRenderingContext2D): boolean => {
-        const response: boolean = redoStackRef.current.length !== 0;
-
-        if (response) {
-            const shape = redoStackRef.current.pop()!;
-            sceneRef.current.push(shape);
-            drawRedoItem(shape, ctx);
-            bumpSceneRevision();
+        const op = historyRef.current!.redo();
+        if (!op) return false;
+        sync(true);
+        if (op.type === 'push') {
+            // Appended item: draw on top of the current canvas state.
+            drawRedoItem(op.item, ctx);
+        } else {
+            redrawFromScene(ctx);
         }
+        return true;
+    }, [redrawFromScene, sync]);
 
-        return response;
-    }, [bumpSceneRevision]);
-
-    /** Discard all drawn items and reset redo stack (e.g. on canvas clear). */
-    const clearScene = useCallback(() => {
-        sceneRef.current = [];
-        redoStackRef.current = [];
-        undoFloorRef.current = 0;
-        bumpSceneRevision();
-    }, [bumpSceneRevision]);
-
-    const replaceScene = useCallback((nextScene: SceneItem[]) => {
-        sceneRef.current = nextScene;
-        redoStackRef.current = [];
-        undoFloorRef.current = Math.min(undoFloorRef.current, nextScene.length);
-        bumpSceneRevision();
-    }, [bumpSceneRevision]);
+    /** Replace everything and clear history (e.g. after loading a project). */
+    const resetScene = useCallback((items: SceneItem[]) => {
+        historyRef.current!.reset(items);
+        sync(true);
+    }, [sync]);
 
     return {
         sceneRef,
         sceneRevision,
         pushShape,
+        commitScene,
+        setSceneTransient,
         undoScene,
         redoScene,
-        clearScene,
-        replaceScene,
+        resetScene,
         redrawFromScene,
     };
 };

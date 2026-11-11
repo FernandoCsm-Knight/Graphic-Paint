@@ -14,6 +14,14 @@ import Diamond from "../_shapes/Diamond";
 import Arrow from "../_shapes/Arrow";
 import Heptagon from "../_shapes/Heptagon";
 import Ellipse from "../_shapes/Ellipse";
+import {
+    computeDragBox,
+    computeDragLine,
+    fitPointsToBox,
+    regularPolygonUnit,
+    starUnit,
+    type DragModifiers,
+} from "../_utils/dragShapeGeometry";
 
 // Type for shape constructor
 type ShapeConstructor = new (start: Point, end: Point, opts: ShapeOptions) => Shape;
@@ -47,7 +55,23 @@ type ShapeGeneratorProps = {
     pixelSize?: number;
     lineAlgorithm?: LineAlgorithm;
     lineDash?: number[];
+    /** Shift = keep proportions / snap lines to 45°, Alt = from the centre. */
+    modifiers?: DragModifiers;
 };
+
+/** Unit outline of each regular shape, stretched to fill the drag box. */
+const UNIT_OUTLINES: Partial<Record<string, () => Point[]>> = {
+    triangle: () => regularPolygonUnit(3),
+    diamond: () => regularPolygonUnit(4, true),
+    pentagon: () => regularPolygonUnit(5),
+    hexagon: () => regularPolygonUnit(6),
+    heptagon: () => regularPolygonUnit(7),
+    octagon: () => regularPolygonUnit(8),
+    star: () => starUnit(),
+};
+
+/** Shapes that always keep their proportions (as if Shift were held). */
+const ALWAYS_PROPORTIONAL = new Set(['square', 'circle']);
 
 /**
  * Factory function to create shapes based on the shape kind.
@@ -67,6 +91,7 @@ const generator = ({
     pixelSize = 20,
     lineAlgorithm = 'bresenham',
     lineDash = [],
+    modifiers = {},
 }: ShapeGeneratorProps): Shape => {
     const ShapeClass = SHAPE_REGISTRY[kind];
 
@@ -83,7 +108,35 @@ const generator = ({
         lineDash,
     };
 
-    return new ShapeClass(start, end, options);
+    // Lines: from the press point to the pointer (Shift snaps to 45°, Alt mirrors).
+    if (kind === 'line' || kind === 'arrow') {
+        const line = computeDragLine(start, end, modifiers, pixelated);
+        return new ShapeClass(line.start, line.end, options);
+    }
+
+    // Everything else is inscribed in the drag box (corner to corner).
+    const box = computeDragBox(start, end, {
+        proportional: Boolean(modifiers.shift) || ALWAYS_PROPORTIONAL.has(kind),
+        fromCenter: Boolean(modifiers.alt),
+    });
+    const topLeft = { x: box.x, y: box.y };
+    const bottomRight = { x: box.x + box.width, y: box.y + box.height };
+
+    if (kind === 'circle') {
+        const cy = box.y + box.height / 2;
+        // Circle takes the two ends of a diameter.
+        return new ShapeClass({ x: box.x, y: cy }, { x: box.x + box.width, y: cy }, options);
+    }
+
+    const unitOutline = UNIT_OUTLINES[kind];
+    if (unitOutline) {
+        const shape = new ShapeClass(topLeft, bottomRight, options) as Shape & { points: Point[] };
+        shape.points = fitPointsToBox(unitOutline(), box, pixelated);
+        return shape;
+    }
+
+    // rect, square, ellipse: constructed directly from the box corners.
+    return new ShapeClass(topLeft, bottomRight, options);
 };
 
 /**

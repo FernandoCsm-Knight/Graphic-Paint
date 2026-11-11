@@ -1,17 +1,17 @@
 import { useCallback, useContext, useEffect, useRef } from "react";
-import { getSelectableSceneSlice } from "../_utils/sceneHistory";
+import { getEditableShapes } from "../_utils/erasure";
 import type { RefObject } from "react";
 import { PaintContext } from "../_context/PaintContext";
 import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import { ReplacementContext } from "../_context/ReplacementContext";
 import { SettingsContext } from "../_context/SettingsContext";
 import { Shape } from "../_shapes/ShapeTypes";
-import {
-    getShapeDocBoundingBox,
-    normalizeBoundingBox,
-    rectsIntersect,
-} from "../_utils/boundingBox";
+import { normalizeBoundingBox } from "../_utils/boundingBox";
+import { findTopmostHit, shapeIntersectsRect } from "../_utils/hitTest";
 import ShapeGroup from "../_shapes/ShapeGroup";
+import { liftFromScene } from "../_utils/pendingActions";
+import { cloneSceneItem } from "../_utils/cloneSceneItem";
+import { replaceItemsInPlace } from "../_utils/sceneOperations";
 import type { SceneItem } from "./useScene";
 import type { EnterPendingOptions } from "./usePendingPlacement";
 import type { Point } from "@/types/geometry";
@@ -21,12 +21,15 @@ import type { Point } from "@/types/geometry";
 type MultiSelectInput = {
     sceneRef: RefObject<SceneItem[]>;
     redrawFromScene: (ctx: CanvasRenderingContext2D) => void;
-    pushShape: (shape: SceneItem) => void;
-    replaceScene: (scene: SceneItem[]) => void;
+    commitScene: (after: SceneItem[], before?: SceneItem[]) => void;
+    setSceneTransient: (scene: SceneItem[]) => void;
     enterPendingShape: (shape: Shape, options?: EnterPendingOptions) => void;
 };
 
 type SelectionPhase = 'idle' | 'drawing';
+
+/** Click tolerance around a stroke, in screen pixels. */
+const CLICK_TOLERANCE_PX = 6;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -61,8 +64,8 @@ function drawDashedRect(
 const useMultiSelect = ({
     sceneRef,
     redrawFromScene,
-    pushShape,
-    replaceScene,
+    commitScene,
+    setSceneTransient,
     enterPendingShape,
 }: MultiSelectInput) => {
     const { contextRef, renderViewport, selectionItemRef } = useContext(PaintContext)!;
@@ -118,6 +121,65 @@ const useMultiSelect = ({
         renderViewport();
     }, [renderViewport, drawSelectionOverlay, selectionItemRef]);
 
+    /** Lifts `selected` out of the scene and enters pending edit mode on copies. */
+    const beginEditing = useCallback((selected: Shape[], ctx: CanvasRenderingContext2D) => {
+        const scene = sceneRef.current;
+        // Lift the selected shapes out of the scene (transient, no history)
+        // and edit COPIES, so the originals stay intact for cancel/undo.
+        // Confirm/delete commit one undoable change that replaces the
+        // originals in place (drawing order is preserved).
+        const { remaining, original } = liftFromScene<SceneItem>(scene, selected);
+        setSceneTransient(remaining);
+        redrawFromScene(ctx);
+
+        const commitReplacing = (mapping: Map<SceneItem, SceneItem[]>) => {
+            commitScene(replaceItemsInPlace(original, mapping), original);
+        };
+        const deleteSelected = () => {
+            commitReplacing(new Map(selected.map((item): [SceneItem, SceneItem[]] => [item, []])));
+        };
+        const restore = () => setSceneTransient(original);
+
+        if (selected.length === 1 && !(selected[0] instanceof ShapeGroup)) {
+            const target = selected[0];
+            const copy = cloneSceneItem(target);
+            enterPendingShape(copy, {
+                onCancel: restore,
+                onDelete: deleteSelected,
+                onConfirm: () => commitReplacing(new Map([[target, [copy]]])),
+            });
+            return;
+        }
+
+        // If exactly one ShapeGroup was selected, enter pending with it directly
+        // so it stays as a group and the user can ungroup via the lock button.
+        const isExistingGroup = selected.length === 1 && selected[0] instanceof ShapeGroup;
+        const copies = selected.map((item) => cloneSceneItem(item));
+        const shapeGroup = isExistingGroup
+            ? copies[0] as ShapeGroup
+            : new ShapeGroup(copies, { pixelated, pixelSize });
+
+        enterPendingShape(shapeGroup, {
+            onCancel: restore,
+            onDelete: deleteSelected,
+            onConfirm: () => {
+                // Existing group stays a group; a new selection goes back as
+                // individual shapes, each in its original position.
+                commitReplacing(new Map(selected.map((item, i): [SceneItem, SceneItem[]] => [item, [copies[i]]])));
+            },
+            onLock: () => {
+                if (isExistingGroup) {
+                    // Ungroup: the group is replaced by its (edited) children.
+                    commitReplacing(new Map([[selected[0], [...shapeGroup.shapes]]]));
+                } else {
+                    // Group: the first selected shape's slot gets the group.
+                    commitReplacing(new Map(selected.map((item, i): [SceneItem, SceneItem[]] => [item, i === 0 ? [shapeGroup] : []])));
+                }
+            },
+            isGroupLocked: isExistingGroup,
+        });
+    }, [sceneRef, pixelated, pixelSize, redrawFromScene, commitScene, setSceneTransient, enterPendingShape]);
+
     const stopMultiSelect = useCallback(() => {
         const ctx = contextRef.current;
 
@@ -146,81 +208,42 @@ const useMultiSelect = ({
             return;
         }
 
-        // Search only the currently visible scene contents. Shapes hidden behind
-        // a raster checkpoint (for example after erasing) should not come back
-        // as selectable vector items.
-        const scene = sceneRef.current;
-        const visibleScene = getSelectableSceneSlice(scene);
-        const selected = visibleScene.filter(item => {
-            if (!(item instanceof Shape)) return false;
-            if (item.pixelated !== pixelated) return false;
-            const bb = getShapeDocBoundingBox(item);
-            return rectsIntersect(selectionBounds, bb);
-        }) as Shape[];
+        // Only shapes that are still editable vectors (not under a fill, not
+        // touched by the eraser / page eraser / a cut), and only when the
+        // rectangle touches what is actually drawn.
+        const selected = getEditableShapes(sceneRef.current).filter(
+            (item) => item.pixelated === pixelated && shapeIntersectsRect(item, selectionBounds),
+        );
 
         if (selected.length === 0) {
             renderViewport();
             return;
         }
 
-        // Remove selected shapes from scene and redraw.
-        const capturedScene = [...scene];
-        replaceScene(scene.filter(item => !selected.includes(item as Shape)));
-        redrawFromScene(ctx);
+        beginEditing(selected, ctx);
+    }, [contextRef, sceneRef, pixelated, renderViewport, selectionItemRef, beginEditing]);
 
-        if (selected.length === 1 && !(selected[0] instanceof ShapeGroup)) {
-            const shape = selected[0];
-            enterPendingShape(shape, {
-                onCancel: () => {
-                    replaceScene(capturedScene);
-                },
-            });
-            return;
-        }
+    /**
+     * Click selection: picks the topmost shape whose drawn outline is under
+     * `point` (document pixels) and starts editing it. Returns true if a
+     * shape was selected.
+     */
+    const selectAt = useCallback((point: Point, accept: (shape: Shape) => boolean = () => true): boolean => {
+        const ctx = contextRef.current;
+        if (!ctx) return false;
+        const tolerance = CLICK_TOLERANCE_PX / zoom;
+        const hit = findTopmostHit(
+            getEditableShapes(sceneRef.current),
+            point,
+            tolerance,
+            (shape) => shape.pixelated === pixelated && accept(shape),
+        );
+        if (!hit) return false;
+        beginEditing([hit], ctx);
+        return true;
+    }, [beginEditing, contextRef, pixelated, sceneRef, zoom]);
 
-        // If exactly one ShapeGroup was selected, enter pending with it directly
-        // so it stays as a group and the user can ungroup via the lock button.
-        const isExistingGroup = selected.length === 1 && selected[0] instanceof ShapeGroup;
-        const shapeGroup = isExistingGroup
-            ? selected[0] as ShapeGroup
-            : new ShapeGroup(selected, { pixelated, pixelSize });
-
-        /** Push children individually. Rotation is already baked into each shape by rotateBy(). */
-        const pushUngrouped = (children: Shape[]) => {
-            for (const s of children) pushShape(s);
-        };
-
-        enterPendingShape(shapeGroup, {
-            onCancel: () => {
-                replaceScene(capturedScene);
-            },
-            onConfirm: () => {
-                if (isExistingGroup) {
-                    // Existing group: push it back as a group.
-                    pushShape(shapeGroup);
-                } else {
-                    // New selection: push children individually (default behaviour).
-                    pushUngrouped(selected);
-                }
-            },
-            onLock: () => {
-                if (isExistingGroup) {
-                    // Ungroup: push children individually with baked rotation.
-                    pushUngrouped(shapeGroup.shapes);
-                } else {
-                    // Group: push the ShapeGroup as a single scene item.
-                    pushShape(shapeGroup);
-                }
-            },
-            isGroupLocked: isExistingGroup,
-        });
-    }, [
-        contextRef, sceneRef, pixelated, pixelSize,
-        renderViewport, selectionItemRef, redrawFromScene,
-        pushShape, replaceScene, enterPendingShape,
-    ]);
-
-    return { startMultiSelect, updateMultiSelect, stopMultiSelect };
+    return { startMultiSelect, updateMultiSelect, stopMultiSelect, selectAt };
 };
 
 export default useMultiSelect;

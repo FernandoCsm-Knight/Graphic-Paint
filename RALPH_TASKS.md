@@ -1,115 +1,123 @@
-# Ralph Loop — Correções estruturais do Graphic Paint
+# Ralph Loop — Rodada 2: mecânicas de formas, seleção e bounding box
+
+A rodada 1 (estrutura, histórico, persistência) está em `docs/ralph/rodada-1.md`.
 
 ## Como trabalhar (leia a cada iteração)
 
 1. Rode `git status` e `git log --oneline -10` para ver o que já foi feito.
-2. Se não estiver na branch `ralph/correcoes`, crie/troque para ela (`git switch -c ralph/correcoes` ou `git switch ralph/correcoes`). Nunca trabalhe na `main`.
+2. Trabalhe na branch `ralph/formas` (crie a partir da branch atual com `git switch -c ralph/formas` se não existir; senão `git switch ralph/formas`). Nunca trabalhe na `main`.
 3. Escolha a **primeira tarefa com `[ ]`** abaixo. Faça **apenas essa tarefa** nesta iteração.
-4. Implemente a correção com a menor mudança possível. Não refatore o que a tarefa não pede.
-5. Verifique: `npm run typecheck`, `npm run lint` e `npm test` (quando existirem) precisam passar. Todos os "Critérios de pronto" da tarefa precisam ser verdadeiros.
-6. Marque a tarefa como `[x]` neste arquivo e escreva uma linha em **Notas de progresso** (o que mudou, arquivos tocados, algo que ficou pendente).
-7. Faça commit com mensagem curta em português: `fix(paint): <resumo>` (ou `chore:`/`test:`).
-8. Se uma tarefa estiver bloqueada (algo exige decisão humana, ex.: mudar schema do banco em produção), marque `[!]`, explique o bloqueio em Notas de progresso e passe para a próxima.
-9. Quando **todas** as tarefas estiverem `[x]` ou `[!]` e as verificações passarem, responda exatamente: `<promise>TODAS AS TAREFAS CONCLUIDAS</promise>`. Não diga isso antes.
+4. Implemente com a menor mudança que resolva a causa (não só o sintoma). Lógica nova deve ficar em funções/classes puras testáveis (ex.: `_utils/`), e os hooks só chamam essas funções.
+5. Verifique: `npm run typecheck`, `npm run lint` (0 erros) e `npm test` precisam passar, e os "Critérios de pronto" da tarefa precisam ser verdadeiros.
+6. Marque a tarefa como `[x]` e escreva uma linha em **Notas de progresso** (o que mudou, arquivos, o que não foi verificado).
+7. Commit com mensagem curta em português: `fix(paint): <resumo>` (ou `feat:`/`test:`), terminando com a linha `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+8. Tarefa bloqueada por decisão humana → marque `[!]`, explique em Notas de progresso e siga para a próxima.
+9. Quando **todas** as tarefas estiverem `[x]` ou `[!]` e as verificações passarem, responda exatamente: `<promise>RODADA 2 CONCLUIDA</promise>`. Não diga isso antes.
 
-Regras gerais:
-- Código do Paint fica em `src/app/(workspace)/paint/`. Persistência em `src/lib/workspace/` e `src/app/api/projects/`.
-- Mantenha textos de UI em português.
-- Não apague dados do usuário nem altere `supabase/config.toml` sem necessidade.
-- Testes novos ficam ao lado do código (`*.test.ts`) e usam Vitest.
+Mapa rápido do código:
+- Ferramentas e roteamento de eventos: `src/app/(workspace)/paint/_hooks/useDrawingHandlers.ts`
+- Forma "pendente" (alças de mover/girar/redimensionar, confirmar/cancelar, Delete): `_hooks/usePendingPlacement.ts`
+- Seleção de formas já colocadas (arrastar com botão direito): `_hooks/useMultiSelect.ts`
+- Recorte retangular (ferramenta de seleção): `_hooks/useSelection.ts`
+- Cena, desfazer/refazer: `_hooks/useScene.ts`, `_utils/sceneReplay.ts`, `_utils/sceneHistory.ts`
+- Formas: `_shapes/*.ts` (base em `_shapes/ShapeTypes.ts`), fábrica em `_types/ShapeGenerator.ts`
+- Bounding boxes: `_utils/boundingBox.ts`
+- Persistência: `_utils/scenePersistence.ts`
 
 ---
 
 ## Tarefas
 
-### [x] 1. Preparar ferramentas de verificação
-- Rodar `npm install`.
-- Adicionar em `package.json`: `"typecheck": "tsc --noEmit"`, `"lint": "eslint ."`, `"test": "vitest run"`.
-- Instalar `vitest` como devDependency e criar `vitest.config.ts` com o alias `@` → `src`.
-- Corrigir os erros de typecheck/lint que já existirem (apenas os necessários para ficar verde).
+### [x] 1. Delete apaga de verdade formas já colocadas
+**Bug (confirmado no código):** ao selecionar uma forma já colocada (arrastar com botão direito), `useMultiSelect` remove a forma da cena com `replaceScene` e entra no modo pendente com `onCancel: () => replaceScene(capturedScene)`. A tecla Delete/Backspace (`usePendingPlacement.ts`, listener de keydown) chama `cancelPending()`, que executa esse `onCancel` e **devolve a forma à cena**. Por isso só dá para apagar logo após criar (quando não há `onCancel`).
+- Criar `deletePending()` separado de `cancelPending()`: descarta a forma pendente **sem** chamar `onCancel`, e registra a remoção no histórico (ver tarefa 2 — se a 2 ainda não existir, ao menos garanta que a forma não volta).
+- Delete/Backspace chamam `deletePending()`; `cancelPending()` continua para "desistir da edição".
+- Também vale para grupos (`ShapeGroup`) e para o recorte de imagem (`useSelection`): Delete remove o recorte (o buraco `ClearRectItem` fica).
 
-**Pronto quando:** `npm run typecheck`, `npm run lint` e `npm test` rodam e passam (mesmo que ainda sem testes, use `--passWithNoTests`).
+**Pronto quando:** teste de unidade (sobre a lógica extraída) prova que, após selecionar uma forma existente e apertar Delete, a cena não contém mais a forma; Esc/cancelar continua restaurando.
 
-### [x] 2. Testes dos algoritmos puros
-- Criar testes para `_algorithms/BresenhamLine.ts`, `DDA.ts`, `CohenSutherland.ts`, `LiangBarsky.ts`, `SutherlandHodgman.ts`.
-- Criar teste de ida e volta para `_utils/scenePersistence.ts` (serializar → desserializar → mesmos dados) para formas vetoriais (line, rect, circle, ellipse, polygon, bezier, bspline, freeform, floodfill, clearrect, group). Use mocks simples de canvas quando necessário.
+### [x] 2. Editar forma já colocada vira uma operação de desfazer/refazer correta
+**Bugs (confirmados no código):**
+- Mover/girar/redimensionar uma forma existente: ela é removida via `replaceScene` (sem entrar no histórico) e reinserida no fim com `pushShape`. **Ctrl+Z depois disso apaga a forma** (o original já tinha sido removido).
+- A forma é editada *in place* (`moveBy`, `rotateBy`, `resizeToBoundingBox`) e o `capturedScene` guarda o mesmo objeto: **cancelar não desfaz o movimento**.
+- `replaceScene` limpa a pilha de refazer.
+- A forma editada vai para o topo da pilha de desenho: se ela tinha sido parcialmente apagada (`ClearRectItem` depois dela), a parte apagada reaparece.
 
-**Pronto quando:** testes passam e cobrem os casos básicos (reta horizontal/vertical/diagonal, linha totalmente dentro/fora/cruzando a janela).
+**O que fazer:**
+- Ao levantar uma forma para edição, trabalhar numa **cópia** (ex.: `clone()` em `Shape`, pode usar a serialização existente) para que o original fique intacto até confirmar.
+- Transformar o histórico de `useScene` em **operações**: `push` (como hoje) e `replace { index, before: SceneItem[], after: SceneItem[] }` (editar/excluir/agrupar/desagrupar). Desfazer/refazer aplicam a operação inversa. Ao confirmar a edição, a forma volta **na mesma posição** da pilha (mantém a ordem de desenho).
+- Respeitar o limite de memória da rodada 1 (`MAX_UNDO_STEPS`, liberação de snapshots) e invalidar (liberar) checkpoints posteriores ao índice editado, para o replay não mostrar o "fantasma" da forma antiga.
+- Extrair a lógica para `_utils/sceneOperations.ts` (puro) com testes.
 
-### [x] 3. Desfazer não deixa sobras após o canvas crescer
-- Em `_hooks/useScene.ts` (`redrawFromScene`), sempre limpar o canvas (`clearRect`) antes de aplicar o checkpoint.
-- Garantir que `RasterCheckpoint`, `FreeForm.draw` e `FillShape.draw` com snapshot não deixem pixels fora da área do snapshot.
+**Pronto quando:** testes cobrem: mover existente + desfazer → forma volta à posição original; refazer → posição nova; excluir existente + desfazer → forma volta; cancelar edição → geometria original; ordem de desenho preservada.
 
-**Pronto quando:** desfazer um traço feito na área nova (após o mundo crescer) remove o traço por completo; typecheck/lint/test passam.
+### [x] 3. Selecionar forma com clique (hit-test pela geometria)
+**Problema:** hoje a única forma de selecionar uma forma já colocada é arrastar um retângulo com o **botão direito** (pouco descobrível), e o teste é por interseção de **bounding box**: arrastar perto de uma reta diagonal ou dentro de um círculo vazio seleciona a forma mesmo sem tocá-la.
+- Adicionar `hitTest(point, tolerance)` em `Shape` (contorno com tolerância `lineWidth/2 + 4px` em coordenadas de tela; interior quando `filled`). Implementar para reta/seta (distância ao segmento), polígonos/retângulos/estrela (distância às arestas), círculo/elipse (distância ao contorno), curvas (amostrar a curva), grupo (qualquer filho).
+- Com a ferramenta de seleção ativa, **clique** sobre uma forma seleciona a de cima (última na cena); arrastar no vazio continua fazendo o recorte retangular atual. O arraste com botão direito continua funcionando, mas usando hit-test geométrico (retângulo intersecta o contorno), não só bbox.
+- Mostrar dica no badge quando a ferramenta de seleção estiver ativa (ex.: "Clique numa forma para editar · Delete apaga · Esc cancela").
 
-### [x] 4. Limitar o uso de memória do histórico
-- Hoje cada `FreeForm`/`FillShape` guarda um `ImageData` do canvas inteiro (~15 MB) e o histórico não tem limite.
-- Implementar: (a) checkpoints apenas a cada N itens (ex.: 10) em vez de em todo traço/preenchimento; os demais itens são redesenhados a partir do checkpoint anterior; (b) limite de passos de desfazer (ex.: 50) — itens mais antigos são "achatados" em um único checkpoint base.
-- Manter o comportamento de desfazer/refazer correto (testes unitários do `useScene` ou de uma classe extraída dele).
+**Pronto quando:** testes de `hitTest` para cada tipo de forma (dentro da tolerância / fora); clique seleciona a forma de cima.
 
-**Pronto quando:** no máximo ~`50/N + 1` ImageData vivos na cena; desfazer/refazer continuam corretos; testes cobrem o limite.
+### [x] 4. Formas antigas continuam selecionáveis depois de pincel/apagar
+**Problema:** `getSelectableSceneSlice` corta a cena no último item raster (`isBarrier`): depois de **qualquer** pincelada ou balde, todas as formas anteriores ficam impossíveis de selecionar/apagar.
+- Só o **balde** (`FillShape`) precisa ser barreira (o preenchimento depende do que está embaixo). Pincel (`FreeForm`) e `ClearRectItem` não devem bloquear a seleção.
+- Ao levantar uma forma que está antes de checkpoints, liberar esses checkpoints (todos os itens são redesenháveis desde a rodada 1) para o replay não mostrar a forma antiga.
 
-### [x] 5. "Apagar página" e recortes de seleção persistem após recarregar
-- `RasterCheckpoint` (usado por `saveSnapshot` em `useCanvas.ts`, pelo `PageSizeEraser` e por recortes em `useSelection.ts`) não é serializado em `scenePersistence.ts` e some ao recarregar.
-- Opção preferida: transformar "apagar página" em um item vetorial (ex.: `ClearRectItem` do tamanho do canvas) e recortes de seleção em `ClearRectItem` + `ImageShape`. Alternativa: serializar o checkpoint como PNG (data URL) com kind `checkpoint`.
-- Adicionar o novo kind ao schema zod em `src/lib/workspace/projectPersistence.schemas.ts` se necessário.
+**Pronto quando:** testes: forma → pincelada → forma continua selecionável; forma → balde → forma não é selecionável; replay após remover a forma não a desenha.
 
-**Pronto quando:** teste de ida e volta prova que a cena com apagar/recorte é restaurada igual; typecheck/lint/test passam.
+### [x] 5. Bounding box visual inclui espessura do traço e ponta da seta
+**Problema:** `getBoundingBox()` de todas as formas usa só a geometria: traços grossos e a ponta da seta (`Arrow`, `headLength = 2 * lineWidth`) ficam **fora** da caixa de seleção/alças, e uma reta horizontal tem altura 0.
+- Adicionar `getVisualBounds()` = bbox geométrica expandida por `lineWidth/2` (e pela ponta da seta; no modo pixelado, pela espessura em células conforme `drawPixel`). Usar no overlay de seleção, no hit-test de retângulo e em `getShapeDocBoundingBox`; manter a bbox geométrica para redimensionar.
+- Garantir alças utilizáveis em formas de altura/largura 0 (reta horizontal/vertical).
 
-### [x] 6. Spray igual depois de recarregar
-- Em `_shapes/FreeForm.ts`, o spray usa `Math.random()` ao desenhar, mas o replay desenha círculos.
-- Usar um gerador pseudoaleatório com semente (ex.: mulberry32) salva no item, usado tanto no desenho ao vivo quanto no replay. Serializar a semente.
+**Pronto quando:** testes de `getVisualBounds` para reta grossa, seta e polígono; reta horizontal tem caixa com altura > 0.
 
-**Pronto quando:** teste mostra que duas execuções de replay com a mesma semente geram os mesmos pontos; desenho ao vivo e replay usam o mesmo algoritmo.
+### [x] 6. Círculo pixelado: contorno e bounding box alinhados
+**Problema:** no modo pixelado, `Circle` guarda centro/raio fracionários (centro = ponto médio do arraste, ex. 3.5) e só arredonda no desenho; `getBoundingBox()` usa os valores sem arredondar, então a caixa fica deslocada até meia célula do desenho. A espessura par (`drawPixel`, `lineWidth % 2 === 0`) também é assimétrica.
+- Regra: no modo pixelado, a geometria guardada é sempre inteira (centro e raio arredondados na construção, no mover, no redimensionar). Revisar `Circle`, `Ellipse` e formas por pontos.
+- Espessura par: deslocamento simétrico ou documentado; a bbox visual (tarefa 5) deve bater com as células pintadas.
 
-### [!] 7. Salvamento atômico no servidor
-- `savePaintProjectSnapshot` (e as versões de grafo/autômato) em `src/lib/workspace/projectPersistence.ts` apaga tudo e depois insere; se a inserção falhar, o projeto fica vazio.
-- Criar funções SQL (RPC) em `src/lib/sql/schema.sql` que façam apagar+inserir dentro de uma transação, e chamá-las com `supabase.rpc(...)`. Atualizar `src/lib/supabase/db.types.ts` com as assinaturas.
-- Se aplicar a migração no banco exigir ação humana, implemente o código e o SQL, e marque `[!]` explicando que a migração precisa ser aplicada.
-- Na rota `src/app/api/projects/[module]/[projectId]/route.ts`, não devolver mensagens internas de erro ao cliente; logar no servidor e responder mensagem genérica (zod → 400 com a mensagem de validação; resto → 500).
+**Pronto quando:** teste que rasteriza o círculo pixelado (capturando `fillRect`) e confere que todas as células pintadas ficam dentro da bbox visual e tocam suas bordas.
 
-**Pronto quando:** não existe mais caminho em que o delete roda sem o insert na mesma transação; typecheck/lint passam.
+### [x] 7. Rotação e caixa de transformação sobrevivem ao recarregar
+**Problema:** a caixa orientada (`_transformBounds`/`_transformRotation`) só existe em memória (o clipboard salva, a cena não). Depois de recarregar, um retângulo girado volta com caixa alinhada aos eixos e **redimensionar distorce** a forma.
+- Serializar `transformBounds` e `transformRotation` em `scenePersistence.ts` (opcional na leitura, compatível com projetos antigos) e restaurar com `restoreTransformFrame`.
 
-### [x] 8. Atalhos de teclado não atrapalham campos de texto
-- Criar `src/utils/isTypingTarget.ts` (retorna true para `input`, `textarea`, `select` e `contentEditable`).
-- Usar em todos os listeners de `keydown`: `paint/PaintWorkspace.tsx`, `paint/_hooks/usePendingPlacement.ts`, `usePolygonDrawing.ts`, `useCurveDrawing.ts`, `graph/_hooks/useGraphD3.ts`, `automaton/_hooks/useAutomatonD3.ts` (substituir o `tagName === 'INPUT'` atual).
-- Adicionar Ctrl+Shift+Z como refazer no Paint.
+**Pronto quando:** teste de ida e volta de um retângulo girado preserva `getOverlayBounds()` e `getVisualRotation()`.
 
-**Pronto quando:** teste unitário do `isTypingTarget`; nenhum handler de keydown do projeto deixa de usá-lo.
+### [x] 8. Ajustes de interação do modo pendente
+- **Esc** cancela a edição pendente (hoje não há atalho; só clique fora confirma).
+- Clique fora confirma a forma **e** já inicia a próxima ação (hoje o clique é "engolido" e é preciso clicar de novo).
+- `Line` e `Arrow` guardam referências aos pontos recebidos (`this.start = start`): clonar no construtor para evitar alterações acidentais.
+- Respeitar `isTypingTarget` em tudo que for adicionado.
 
-### [x] 9. Salvamento automático visível e confiável
-- Em `paint/_hooks/useCanvas.ts`:
-  - Separar o salvamento de visualização (`viewOffset`, `zoom`) do salvamento da cena, ou pelo menos não reserializar a cena quando só a visualização mudou (comparar `sceneRevision`).
-  - Expor um estado `saveStatus: 'idle' | 'saving' | 'saved' | 'error'` e mostrá-lo no badge do workspace (ex.: "Salvo", "Salvando…", "Erro ao salvar — tentando novamente").
-  - Tentar de novo com backoff em caso de erro.
-  - Salvar imediatamente em `visibilitychange` (aba escondida) usando `fetch(..., { keepalive: true })`, e avisar com `beforeunload` se houver alterações não salvas.
+**Pronto quando:** testes para a clonagem; comportamento de Esc/clique fora descrito em Notas de progresso (não verificável sem navegador).
 
-**Pronto quando:** arrastar/zoom não serializa a cena; status visível; typecheck/lint/test passam.
+### [x] 9. Formação consistente das formas pelo arraste
+**Problema:** cada forma interpreta o arraste de um jeito: quadrado e elipse usam o arraste como **caixa** (canto a canto); círculo usa como **diâmetro** (direção qualquer); triângulo, estrela e polígonos usam o ponto inicial como **centro** e a distância como raio (e giram conforme a direção). O resultado parece aleatório para o usuário. Além disso, triângulo/estrela/polígonos arredondam os pontos para inteiro mesmo no modo suave.
+- **Decisão humana necessária** antes de implementar. Proposta padrão: todas as formas regulares inscritas na caixa do arraste (canto a canto), Shift = manter proporção, Alt = desenhar a partir do centro; rotação só pela alça.
+- Se não houver decisão registrada aqui, marque `[!]` e siga.
+- **Decisão (2026-11-10, usuário): usar a proposta padrão.** Formas regulares inscritas na caixa do arraste (canto a canto); Shift = manter proporção; Alt = desenhar a partir do centro; rotação só pela alça. Quadrado e círculo são sempre proporcionais. Reta/seta: Shift prende em múltiplos de 45°, Alt espelha a partir do ponto inicial.
 
-### [x] 10. Trocar `alert()` por aviso não bloqueante
-- Criar um componente de toast simples (sem nova dependência) em `src/components/` com contexto/provider.
-- Substituir os `alert()` de `paint/_hooks/usePaintClipboard.ts`.
-
-**Pronto quando:** `grep -r "alert(" src` não retorna nada; typecheck/lint passam.
-
-### [x] 11. README do projeto
-- Substituir o README padrão do create-next-app por um README em português: o que é o app (Paint, Grafos, Autômatos), como rodar (`npm install`, variáveis do Supabase, `npm run dev`), scripts disponíveis e estrutura de pastas.
-
-**Pronto quando:** README não contém mais texto do template.
+**Pronto quando:** decisão registrada; testes garantem que cada forma cabe na caixa do arraste.
 
 ---
 
 ## Notas de progresso
 
 <!-- Uma linha por iteração: data · tarefa · o que mudou · pendências -->
-- 2026-11-10 · T1 · scripts `typecheck`/`lint`/`test` + vitest (`vitest.config.ts`, alias `@`); corrigidos 3 erros `react-hooks/set-state-in-effect` em `AutomatonWorkspace.tsx` e `AutomatonLabelEditor.tsx` (estado ajustado durante render; posição do editor via `useMemo` + origem do SVG por ResizeObserver) · restam 5 warnings em `usePendingPlacement.ts` (não bloqueiam) · editor de rótulo do autômato não testado no navegador.
-- 2026-11-10 · T2 · testes em `_algorithms/lineRasterization.test.ts` (Bresenham/DDA), `_algorithms/clipping.test.ts` (Cohen-Sutherland, Liang-Barsky, Sutherland-Hodgman) e `_utils/scenePersistence.test.ts` (ida e volta de 15 kinds); `vitest.config.ts` → `.mts` para evitar aviso de ESM · 26 testes passando · `.gitignore` agora ignora o estado do Ralph.
-- 2026-11-10 · T3 · replay extraído para `_utils/sceneReplay.ts` (`replayScene` sempre limpa antes; `drawRedoItem` limpa antes de refazer checkpoint); `useScene.ts` usa os helpers · `sceneReplay.test.ts` com canvas falso reproduz o bug do canvas que cresce · 32 testes passando · não verificado no navegador.
-- 2026-11-10 · T4 · `_utils/sceneHistory.ts`: checkpoint no máximo a cada 10 itens (`applyCheckpointInterval`), desfazer limitado a 50 (`undoFloorRef` em `useScene.ts`) e snapshots anteriores ao checkpoint base liberados (`releaseSnapshotsBeforeFloor`); `SceneItem.releaseSnapshot()`/`isBarrier()`; seleção usa `getSelectableSceneSlice` (barreira) para manter o comportamento · itens continuam na cena para persistência · spray não libera pelo intervalo (replay inexato, ver T6) — após T6, trocar a condição em `FreeForm.releaseSnapshot` · `RasterCheckpoint` nunca é liberado (ver T5) · 42 testes · não verificado no navegador.
-- 2026-11-10 · T5 · "apagar página" agora registra um `ClearRectItem` com a união da faixa apagada (`_utils/eraseBand.ts`) via novo `pushSceneItemRef` (substitui `saveSnapshotRef`); `RasterCheckpoint`/`takeSnapshotShape` removidos (não há mais item raster sem dados vetoriais); recorte de seleção já usava `ClearRectItem` + `ImageShape` (persistidos); campos do `ClearRectItem` públicos (sem cast na serialização) · 46 testes · `ImageShape` não testado em Node (precisa de DOM) · não verificado no navegador.
-- 2026-11-10 · T6 · `_algorithms/Spray.ts` (mulberry32 + `sprayDots` por semente e índice do ponto); `FreeForm` guarda `seed`, desenho ao vivo e replay usam a mesma função (antes o replay desenhava círculos); semente serializada (projetos antigos → semente 0); `FreeForm.releaseSnapshot` agora libera spray também (pendência da T4 resolvida) · 54 testes · não verificado no navegador.
-- 2026-11-10 · T7 [!] · funções `save_paint_project`, `save_graph_project`, `save_automaton_project` (plpgsql, SECURITY INVOKER, uma transação) em `supabase/migrations/20261110000000_atomic_project_save.sql` e anexadas a `src/lib/sql/schema.sql`; `projectPersistence.ts` usa `supabase.rpc(...)`; tipos em `db.types.ts`; rota: `unstable_rethrow`, ZodError → 400, `ProjectAccessError` → 404, resto → log no servidor + 500 genérico · **BLOQUEIO: a migração precisa ser aplicada no Supabase (SQL Editor ou `supabase db push`). Até lá, salvar projetos falha (dados existentes não são apagados).** · não testado contra banco real.
-- 2026-11-10 · T8 · `src/utils/isTypingTarget.ts` (input de texto, textarea, select, contentEditable; ignora range/checkbox/color etc.) aplicado em todos os listeners globais de keydown: `PaintWorkspace.tsx`, `usePendingPlacement.ts`, `usePolygonDrawing.ts`, `useCurveDrawing.ts`, `useGraphD3.ts`, `useAutomatonD3.ts`; Ctrl+Shift+Z refaz no Paint · 57 testes · não verificado no navegador.
-- 2026-11-10 · T9 · `src/lib/workspace/autosave.ts` (`Autosaver`: debounce 900 ms, não reenvia payload igual, status idle/saving/saved/error, novas tentativas 2s/5s/15s/30s, `flush` com keepalive só até 60 KB); `useCanvas.ts` usa um Autosaver por projeto, cacheia a cena serializada por `sceneRevision` (pan/zoom não reserializa), salva ao esconder a aba e ao sair do workspace, avisa no `beforeunload` com alterações pendentes; badge do Paint mostra "Salvando…/Salvo/Erro ao salvar — tentando novamente" · 64 testes · enquanto a migração da T7 não for aplicada o badge vai mostrar erro · não verificado no navegador.
-- 2026-11-10 · T10 · `src/context/ToastContext.ts` (contexto, `useToast`, `toastReducer`, máx. 3 avisos, duração por tipo) + `src/context/providers/ToastProvider.tsx` (avisos no topo, cores do tema, `role=alert` para erro, botão fechar) montado em `app/layout.tsx`; os 3 `alert()` de `usePaintClipboard.ts` viraram `showToast` · `grep alert( src` vazio · 66 testes · visual não verificado no navegador.
-- 2026-11-10 · T11 · README em português (módulos, tecnologias, como rodar com Supabase, scripts, estrutura de pastas, como o Paint guarda o desenho, atalhos); `.env.example` com as duas variáveis do Supabase e exceção `!.env.example` no `.gitignore` · todas as tarefas `[x]` exceto T7 `[!]` (migração a aplicar no Supabase).
+- 2026-11-10 · T1 · `_utils/pendingActions.ts` (`resolvePendingAction` confirm/cancel/delete + `liftFromScene`); `usePendingPlacement.ts` ganhou `deletePending()` (nunca chama `onCancel`) e opção `onDelete`; Delete/Backspace usam `deletePending`; `useMultiSelect.ts` usa `liftFromScene` · 7 testes novos (73 no total) · verificado no navegador (modo livre): hexágono confirmado → seleção com botão direito → Delete → contorno some e não volta · a remoção ainda não entra no desfazer (tarefa 2).
+- 2026-11-10 · T2 · histórico por operações em `_utils/sceneOperations.ts` (`SceneHistory`: `push`/`replace` antes-depois, `setTransient`, `reset`, desfazer/refazer, limite de 50 passos, libera checkpoints não alcançáveis e os posteriores a uma edição) + `replaceItemsInPlace`; `_utils/cloneSceneItem.ts` (cópia profunda); `useScene.ts` reescrito (`commitScene`, `setSceneTransient`, `resetScene`; estado transitório não dispara autosave); `useMultiSelect.ts` edita cópias e substitui no lugar (confirmar/apagar/agrupar/desagrupar = 1 passo); recorte em `useSelection.ts` (buraco transitório; confirmar/apagar = 1 passo; recorte pixelado = 1 passo); removidos `computeUndoFloor`/`releaseSnapshotsBeforeFloor` · 80 testes · verificado no navegador: mover existente → Ctrl+Z volta ao lugar → Ctrl+Y move de novo; Delete → Ctrl+Z traz de volta · colar grupo do clipboard ainda gera 1 passo por filho (menor).
+- 2026-11-10 · T3 · `_utils/hitTest.ts` (contornos em pixels do documento por tipo: reta, seta com ponta via `Arrow.getHeadPoints()`, polígonos, círculo/elipse amostrados, Bézier/B-spline via `sampleBezier`/`sampleBSpline` exportados, imagem via `getRotatedCorners()` público, grupo; `hitTestShape` com tolerância + meia espessura e interior para preenchidas/imagens; `shapeIntersectsRect`; `findTopmostHit`); `useMultiSelect.ts` ganhou `beginEditing` + `selectAt` (clique, tolerância 6px de tela) e o arraste com botão direito usa o contorno; `useDrawingHandlers.ts`: com a ferramenta de seleção, clique numa forma edita, no vazio recorta; badge mostra a dica · 16 testes novos (96) · verificado no navegador: clique na borda do hexágono seleciona, Delete apaga, Ctrl+Z volta, clique no centro vazio não seleciona · imagem pixelada usa centro de célula para os cantos (aproximação).
+- 2026-11-10 · T4 · `SceneItem.isBarrier()` agora = `requiresSnapshot()` e `FreeForm` sobrescreve para `false` (só o balde bloqueia a seleção); `SceneHistory.setTransient` libera checkpoints a partir da primeira diferença (sem fantasma ao levantar forma), helper `releaseCheckpointsFrom` usado também em `replace` · `_utils/selectionBarrier.test.ts` (5 testes, 101 no total) · verificado no navegador: hexágono → pincelada por cima → clique seleciona o hexágono → mover não deixa fantasma e a pincelada continua.
+- 2026-11-10 · T5 · `_utils/visualBounds.ts`: `pixelStrokeExtent` (células de `drawPixel`), `getStrokeReach`, `getShapeVisualBounds` (contorno com ponta da seta/curvas + espessura; pixelado bate com as células), `getOverlayPadding` (meia espessura + caixa mínima de 8px de tela); `usePendingPlacement.ts` desenha e testa alças/rotação/mover na caixa com folga e compensa a folga ao redimensionar (`resizeGrabOffsetRef`), sem mudar a matemática de resize; `shapeIntersectsRect` expande o retângulo pela meia espessura · 10 testes novos (111) · verificado no navegador: reta horizontal de espessura 20 → caixa envolve o traço com alças separadas; arrastar a alça direita 60px move a ponta ~61px (sem salto) · a folga do overlay usa só a espessura (não a ponta da seta) porque a caixa é orientada; `getShapeDocBoundingBox` continua geométrico (usado no resize).
+- 2026-11-10 · T6 · `Circle`: no modo pixelado arredonda centro e raio na construção e no `moveBy` (antes o centro podia ser x.5 e a caixa ficava meia célula fora); `Ellipse`: arredonda só no modo pixelado (modo suave mantém precisão) e `moveBy` arredonda no pixelado · espessura par é assimétrica por natureza (`drawPixel`) e está documentada em `pixelStrokeExtent`; a caixa visual da T5 já a considera · `_shapes/pixelGeometry.test.ts` rasteriza (captura `fillRect`) círculo/elipse/retângulo/reta/hexágono com espessuras 1–4 e compara com `getShapeVisualBounds` (8 testes, 119 no total) · verificado no navegador: círculo pixelado com caixa tracejada coincidindo com as células.
+- 2026-11-10 · T7 · `scenePersistence.ts` grava `transform: { bounds, rotation }` (via `getOverlayBounds()`/`getVisualRotation()`) só para formas giradas e restaura com `restoreTransformFrame` (opcional, projetos antigos carregam igual); corrigido também bug antigo: o código de compatibilidade aplicava `rotateBy(data.rotation)` em `ImageShape`, cujo `rotation` é campo próprio · 3 testes novos (122) · não verificado no navegador (persistência exige login; o modo livre não salva).
+- 2026-11-10 · T8 · Esc no modo pendente (`usePendingPlacement.ts`, respeita `isTypingTarget`): reverte quando é edição de algo existente/recorte (há `onCancel`) e, para forma recém-criada, confirma e tira a seleção (decisão: não apagar o que acabou de ser desenhado; apagar continua sendo Delete) — regra pura `resolveEscapeAction` em `pendingActions.ts`; clique fora confirma e retorna `false`, e `useDrawingHandlers.ts` deixa o mesmo clique seguir para a ferramenta ativa; `Line`/`Arrow` copiam os pontos no construtor · 6 testes novos (128) · verificado no navegador (por pixels do canvas): arrastar fora confirma o 1º hexágono e já desenha o 2º; Esc no novo mantém a forma sem alças; mover existente + Esc volta exatamente à posição original.
+- 2026-11-10 · T9 [!] · **BLOQUEIO: decisão humana necessária** sobre como as formas nascem do arraste (hoje: quadrado/elipse canto a canto; círculo = diâmetro; triângulo/estrela/polígonos = ponto inicial como centro e giram com a direção do arraste; triângulo/estrela/polígonos arredondam pontos mesmo no modo suave). Proposta padrão continua na descrição da tarefa. Registrar a decisão aqui e desmarcar para implementar.
+- 2026-11-10 · T9 · decisão registrada (proposta padrão); `_utils/dragShapeGeometry.ts` (`computeDragBox` com proporção/centro, `regularPolygonUnit` — ímpares e losango com vértice em cima, pares com lado plano em cima —, `starUnit`, `fitPointsToBox`, `computeDragLine` com Shift = 45° e Alt = espelhar); `ShapeGenerator.ts` monta cada forma inscrita na caixa (quadrado/círculo sempre proporcionais; triângulo, losango, polígonos e estrela esticados para a caixa e sem girar com a direção do arraste); `useDrawingHandlers.ts` passa Shift/Alt do evento · 22 testes novos (150) · verificado no navegador (pixels): hexágono arrastado de baixo-direita para cima-esquerda preenche exatamente a caixa (bordas planas em cima/embaixo, vértice à esquerda, nada fora) · construtores antigos das formas mantidos (usados ao carregar projetos).
+- 2026-11-10 · pós-rodada (relato do usuário) · caixa deslocada: editar um vértice (modo vértices) de forma girada ou já redimensionada não atualizava a caixa orientada — `moveShapeVertex` agora chama `refitTransformFrame` (caixa justa no ângulo atual); `_shapes/transformFrame.test.ts` verifica que a caixa envolve e encosta nos vértices para 7 formas × 8 operações (criar, girar, girar 2×, girar+redimensionar, girar+mover, vértice, redimensionar+vértice, girar+vértice) · seletor de formas: abria por baixo da barra (posição medida no referencial errado) e com rolagem interna que descentralizava os ícones e escondia retângulo/elipse — `panelPosition.ts` (`getPanelPositionBelow`, usado também no seletor de traço) e grade 3 colunas sem rolagem com `place-items-center` · 206 testes · verificado no navegador: seletor abaixo da barra, 11 ícones visíveis e centralizados.
+- 2026-11-10 · pós-rodada (relato do usuário) · forma apagada pela borracha continuava selecionável (desde a T4 pinceladas não bloqueiam): `_utils/erasure.ts` — `isShapeErasedBy` (borracha: distância entre o traço da borracha e o contorno, com larguras; interior de preenchidas/imagens; `ClearRectItem` do apagar página/recorte) e `getEditableShapes` (exclui formas tocadas por apagamento posterior e as que estão sob balde); `useMultiSelect.ts` usa no clique e no botão direito; a forma continua na cena (desfazer a borracha devolve a forma editável) · 10 testes (216) · verificado no navegador: hexágono apagado pela borracha não é selecionado por clique nem botão direito; Ctrl+Z na borracha → volta a ser selecionável.
+- 2026-11-10 · pós-rodada (relato do usuário) · caixa se deslocava ao mover a forma: `Shape.moveTransformFrame` é chamado depois de a geometria já ter sido movida e, sem caixa guardada, lia `getOverlayBounds()` (= caixa da geometria já movida) e somava o deslocamento de novo — agora só desloca uma caixa guardada; vale para todas as formas e grupos · 13 testes em `transformFrame.test.ts` (229 no total) · verificado no navegador: círculo recém-desenhado movido com a caixa acompanhando.
+- 2026-11-10 · pós-rodada (pedido do usuário) · ferramenta de texto: `_shapes/TextShape.ts` (caixa x/y/largura/altura + rotação como a imagem; texto esticado para a caixa, editável com `setText`; modo pixelado rasteriza o texto em negrito uma célula por pixel), salva/carrega (`kind: text`), clique/seleção/borracha pela caixa; botão "T" no seletor de formas; `TextInputOverlay.tsx` (Enter confirma, Shift+Enter nova linha, Esc cancela, clicar fora confirma); clicar num texto com a ferramenta de texto (ou duplo clique no texto em edição) edita; tamanho vem do controle de espessura · 9 testes (238) · verificado no navegador: criar, editar, desfazer edição, redimensionar (escala o texto) e texto pixelado.

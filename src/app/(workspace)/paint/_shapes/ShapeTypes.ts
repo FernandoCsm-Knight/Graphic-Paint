@@ -41,11 +41,11 @@ export abstract class SceneItem {
     releaseSnapshot(force = false): boolean { void force; return false; }
 
     /**
-     * True if this item bakes everything before it for selection purposes
-     * (raster items such as freehand strokes and fills), regardless of
-     * whether it currently holds a snapshot.
+     * True if shapes drawn before this item can no longer be selected/edited.
+     * Only items whose result depends on the pixels beneath them (the fill
+     * bucket) need this; strokes and erasures simply replay on top.
      */
-    isBarrier(): boolean { return this.isCheckpoint() || this.requiresSnapshot(); }
+    isBarrier(): boolean { return this.requiresSnapshot(); }
 }
 
 export abstract class Shape extends SceneItem {
@@ -321,8 +321,16 @@ export abstract class Shape extends SceneItem {
         this.moveTransformFrame(dx, dy);
     }
 
+    /**
+     * Shifts the stored transform frame. Called AFTER the geometry has moved,
+     * so when there is no stored frame there is nothing to do: the overlay
+     * box is derived from the (already moved) geometry. Reading
+     * getOverlayBounds() here would add the offset a second time and the box
+     * would drift away from the shape.
+     */
     protected moveTransformFrame(dx: number, dy: number): void {
-        const bounds = this.getOverlayBounds();
+        const bounds = this._transformBounds;
+        if (!bounds) return;
         this._transformBounds = {
             x: bounds.x + dx,
             y: bounds.y + dy,

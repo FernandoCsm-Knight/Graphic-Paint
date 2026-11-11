@@ -11,8 +11,8 @@ export default class Line extends Shape {
 
     constructor(start: Point, end: Point, opts: ShapeOptions) {
         super(opts);
-        this.start = start;
-        this.end = end;
+        this.start = { x: start.x, y: start.y }; // copy: callers reuse their point objects
+        this.end = { x: end.x, y: end.y };
     }
 
     pixelatedDraw(ctx: CanvasRenderingContext2D): void {
