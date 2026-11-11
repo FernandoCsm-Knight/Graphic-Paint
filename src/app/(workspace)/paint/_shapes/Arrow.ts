@@ -14,6 +14,16 @@ export default class Arrow extends Shape {
         this.end = end;
     }
 
+    /** The two endpoints of the arrow head strokes (same formula as drawing). */
+    getHeadPoints(): [Point, Point] {
+        const angle = Math.atan2(this.end.y - this.start.y, this.end.x - this.start.x);
+        const headLength = Math.max(3, 2 * this.lineWidth);
+        return [
+            { x: this.end.x - headLength * Math.cos(angle - Math.PI / 6), y: this.end.y - headLength * Math.sin(angle - Math.PI / 6) },
+            { x: this.end.x - headLength * Math.cos(angle + Math.PI / 6), y: this.end.y - headLength * Math.sin(angle + Math.PI / 6) },
+        ];
+    }
+
     pixelatedDraw(ctx: CanvasRenderingContext2D): void {
         ctx.fillStyle = this.strokeStyle;
         const angle = Math.atan2(this.end.y - this.start.y, this.end.x - this.start.x);

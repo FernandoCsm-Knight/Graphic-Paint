@@ -156,7 +156,7 @@ export default class ImageShape extends Shape {
         this.y = this.pixelated ? Math.round(nextY) : nextY;
     }
 
-    private getRotatedCorners(): Point[] {
+    getRotatedCorners(): Point[] {
         const center = this.getCenter();
         const cos = Math.cos(this.rotation);
         const sin = Math.sin(this.rotation);

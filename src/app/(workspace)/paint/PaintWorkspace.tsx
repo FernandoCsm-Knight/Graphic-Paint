@@ -33,6 +33,7 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
     const {
         canvasRef,
         selectedShape,
+        isSelectionActive,
         pixelated,
         pushSceneItemRef,
         setPixelated,
@@ -203,7 +204,9 @@ export default function PaintWorkspace({ projectId, initialSnapshot }: PaintWork
     }, [containerRef]);
 
     let badge: string;
-    if (selectedShape === 'polygon') {
+    if (isSelectionActive) {
+        badge = 'Clique numa forma para editar · Arraste para recortar · Delete apaga · Ctrl+Z desfaz';
+    } else if (selectedShape === 'polygon') {
         badge = 'Clique para adicionar vértices · Enter para finalizar · Esc para cancelar · Duplo clique para fechar';
     } else if (pixelated) {
         const mapped = map({ x: viewportSize.width, y: viewportSize.height }, pixelSize);

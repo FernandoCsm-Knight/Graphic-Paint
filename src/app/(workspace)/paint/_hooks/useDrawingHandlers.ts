@@ -100,7 +100,7 @@ const useDrawingHandlers = ({
         enterPendingShape,
     });
 
-    const { startMultiSelect, updateMultiSelect, stopMultiSelect } = useMultiSelect({
+    const { startMultiSelect, updateMultiSelect, stopMultiSelect, selectAt } = useMultiSelect({
         sceneRef,
         redrawFromScene,
         commitScene,
@@ -263,6 +263,9 @@ const useDrawingHandlers = ({
             polygon.onPointerDown(mappedPoint);
         } else if (selectedShape === 'bezier' || selectedShape === 'bspline') {
             curve.onPointerDown(mappedPoint);
+        } else if (isSelectionActive && selectAt({ x, y })) {
+            // Clicked on a shape with the selection tool: it is now being edited.
+            return;
         } else {
             canvas.setPointerCapture(e.pointerId);
             isDrawing.current = true;
@@ -301,7 +304,7 @@ const useDrawingHandlers = ({
         }
     }, [
         panDown, canvasRef, contextRef, getCanvasPoint, pixelated, pixelSize,
-        isSelectionActive, startSelection, startMultiSelect, isFillActive, currentColorRef, isEraserActive,
+        isSelectionActive, selectAt, startSelection, startMultiSelect, isFillActive, currentColorRef, isEraserActive,
         selectedShape, thicknessRef, lineAlgorithm, lineDash, brushStyle, renderViewport, polygon, curve,
         hasPendingShape, pendingPointerDown,
     ]);

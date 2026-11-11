@@ -6,11 +6,8 @@ import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import { ReplacementContext } from "../_context/ReplacementContext";
 import { SettingsContext } from "../_context/SettingsContext";
 import { Shape } from "../_shapes/ShapeTypes";
-import {
-    getShapeDocBoundingBox,
-    normalizeBoundingBox,
-    rectsIntersect,
-} from "../_utils/boundingBox";
+import { normalizeBoundingBox } from "../_utils/boundingBox";
+import { findTopmostHit, shapeIntersectsRect } from "../_utils/hitTest";
 import ShapeGroup from "../_shapes/ShapeGroup";
 import { liftFromScene } from "../_utils/pendingActions";
 import { cloneSceneItem } from "../_utils/cloneSceneItem";
@@ -30,6 +27,9 @@ type MultiSelectInput = {
 };
 
 type SelectionPhase = 'idle' | 'drawing';
+
+/** Click tolerance around a stroke, in screen pixels. */
+const CLICK_TOLERANCE_PX = 6;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -121,51 +121,9 @@ const useMultiSelect = ({
         renderViewport();
     }, [renderViewport, drawSelectionOverlay, selectionItemRef]);
 
-    const stopMultiSelect = useCallback(() => {
-        const ctx = contextRef.current;
-
-        const abort = () => {
-            phase.current    = 'idle';
-            selStart.current = null;
-            selEnd.current   = null;
-            selectionItemRef.current.update(null);
-            renderViewport();
-        };
-
-        if (!ctx || !selStart.current || !selEnd.current) {
-            abort();
-            return;
-        }
-
-        const selectionBounds = normalizeBoundingBox(selStart.current, selEnd.current);
-
-        phase.current    = 'idle';
-        selStart.current = null;
-        selEnd.current   = null;
-        selectionItemRef.current.update(null);
-
-        if (selectionBounds.width < 2 || selectionBounds.height < 2) {
-            renderViewport();
-            return;
-        }
-
-        // Search only the currently visible scene contents. Shapes hidden behind
-        // a raster checkpoint (for example after erasing) should not come back
-        // as selectable vector items.
+    /** Lifts `selected` out of the scene and enters pending edit mode on copies. */
+    const beginEditing = useCallback((selected: Shape[], ctx: CanvasRenderingContext2D) => {
         const scene = sceneRef.current;
-        const visibleScene = getSelectableSceneSlice(scene);
-        const selected = visibleScene.filter(item => {
-            if (!(item instanceof Shape)) return false;
-            if (item.pixelated !== pixelated) return false;
-            const bb = getShapeDocBoundingBox(item);
-            return rectsIntersect(selectionBounds, bb);
-        }) as Shape[];
-
-        if (selected.length === 0) {
-            renderViewport();
-            return;
-        }
-
         // Lift the selected shapes out of the scene (transient, no history)
         // and edit COPIES, so the originals stay intact for cancel/undo.
         // Confirm/delete commit one undoable change that replaces the
@@ -220,13 +178,73 @@ const useMultiSelect = ({
             },
             isGroupLocked: isExistingGroup,
         });
-    }, [
-        contextRef, sceneRef, pixelated, pixelSize,
-        renderViewport, selectionItemRef, redrawFromScene,
-        commitScene, setSceneTransient, enterPendingShape,
-    ]);
+    }, [sceneRef, pixelated, pixelSize, redrawFromScene, commitScene, setSceneTransient, enterPendingShape]);
 
-    return { startMultiSelect, updateMultiSelect, stopMultiSelect };
+    const stopMultiSelect = useCallback(() => {
+        const ctx = contextRef.current;
+
+        const abort = () => {
+            phase.current    = 'idle';
+            selStart.current = null;
+            selEnd.current   = null;
+            selectionItemRef.current.update(null);
+            renderViewport();
+        };
+
+        if (!ctx || !selStart.current || !selEnd.current) {
+            abort();
+            return;
+        }
+
+        const selectionBounds = normalizeBoundingBox(selStart.current, selEnd.current);
+
+        phase.current    = 'idle';
+        selStart.current = null;
+        selEnd.current   = null;
+        selectionItemRef.current.update(null);
+
+        if (selectionBounds.width < 2 || selectionBounds.height < 2) {
+            renderViewport();
+            return;
+        }
+
+        // Search only the currently selectable scene contents, and select a
+        // shape only when the rectangle touches what is actually drawn.
+        const selected = getSelectableSceneSlice(sceneRef.current).filter(
+            (item): item is Shape => item instanceof Shape
+                && item.pixelated === pixelated
+                && shapeIntersectsRect(item, selectionBounds),
+        );
+
+        if (selected.length === 0) {
+            renderViewport();
+            return;
+        }
+
+        beginEditing(selected, ctx);
+    }, [contextRef, sceneRef, pixelated, renderViewport, selectionItemRef, beginEditing]);
+
+    /**
+     * Click selection: picks the topmost shape whose drawn outline is under
+     * `point` (document pixels) and starts editing it. Returns true if a
+     * shape was selected.
+     */
+    const selectAt = useCallback((point: Point): boolean => {
+        const ctx = contextRef.current;
+        if (!ctx) return false;
+        const tolerance = CLICK_TOLERANCE_PX / zoom;
+        const hit = findTopmostHit(
+            getSelectableSceneSlice(sceneRef.current),
+            point,
+            tolerance,
+            (shape) => shape.pixelated === pixelated,
+        );
+        if (!hit) return false;
+        beginEditing([hit], ctx);
+        return true;
+    }, [beginEditing, contextRef, pixelated, sceneRef, zoom]);
+
+    return { startMultiSelect, updateMultiSelect, stopMultiSelect, selectAt };
 };
 
 export default useMultiSelect;
