@@ -321,8 +321,16 @@ export abstract class Shape extends SceneItem {
         this.moveTransformFrame(dx, dy);
     }
 
+    /**
+     * Shifts the stored transform frame. Called AFTER the geometry has moved,
+     * so when there is no stored frame there is nothing to do: the overlay
+     * box is derived from the (already moved) geometry. Reading
+     * getOverlayBounds() here would add the offset a second time and the box
+     * would drift away from the shape.
+     */
     protected moveTransformFrame(dx: number, dy: number): void {
-        const bounds = this.getOverlayBounds();
+        const bounds = this._transformBounds;
+        if (!bounds) return;
         this._transformBounds = {
             x: bounds.x + dx,
             y: bounds.y + dy,

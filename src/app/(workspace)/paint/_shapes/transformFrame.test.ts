@@ -111,3 +111,33 @@ describe.each(kinds)('caixa orientada acompanha a forma: %s', (kind) => {
     });
 });
 
+
+describe('mover não desloca a caixa (forma sem caixa guardada)', () => {
+    const allKinds = ['line', 'arrow', 'rect', 'square', 'circle', 'ellipse', 'triangle', 'diamond', 'pentagon', 'hexagon', 'octagon', 'star'];
+
+    it.each(allKinds)('%s recém-criada: caixa acompanha o movimento exatamente', (kind) => {
+        const shape = make(kind);
+        const before = shape.getOverlayBounds();
+        shape.moveBy(30, 45);
+        shape.moveBy(-10, 5);
+        const after = shape.getOverlayBounds();
+        expect(after.x).toBeCloseTo(before.x + 20);
+        expect(after.y).toBeCloseTo(before.y + 50);
+        expect(after.width).toBeCloseTo(before.width);
+        expect(after.height).toBeCloseTo(before.height);
+        // e continua igual à caixa da geometria
+        const bb = shape.getBoundingBox();
+        expect(after.x).toBeCloseTo(bb.x);
+        expect(after.y).toBeCloseTo(bb.y);
+    });
+
+    it('grupo recém-criado: caixa acompanha o movimento', async () => {
+        const { default: ShapeGroup } = await import('./ShapeGroup');
+        const group = new ShapeGroup([make('rect'), make('circle')], {});
+        const before = group.getOverlayBounds();
+        group.moveBy(25, -15);
+        const after = group.getOverlayBounds();
+        expect(after.x).toBeCloseTo(before.x + 25);
+        expect(after.y).toBeCloseTo(before.y - 15);
+    });
+});
