@@ -5,6 +5,7 @@ import { useWorkspaceContext } from "@/context/WorkspaceContext";
 import { DASH_ARRAYS, SettingsContext } from "../_context/SettingsContext";
 import { Shape } from "../_shapes/ShapeTypes"; // needed for enterPendingShape cast
 import generator from "../_types/ShapeGenerator";
+import type { DragModifiers } from "../_utils/dragShapeGeometry";
 import FreeForm from "../_shapes/FreeForm";
 import FillShape from "../_shapes/FillShape";
 
@@ -159,6 +160,8 @@ const useDrawingHandlers = ({
     const shapePreviewRafId = useRef<number | null>(null);
     const viewportRenderRafId = useRef<number | null>(null);
     const pendingPoint = useRef<Point | null>(null);
+    /** Shift/Alt held during the current shape drag (proportions / from centre). */
+    const dragModifiers = useRef<DragModifiers>({});
 
     /** Throttles shape preview redraws to one per animation frame. */
     const scheduleShapePreview = useCallback((point: Point, ctx: CanvasRenderingContext2D) => {
@@ -168,16 +171,17 @@ const useDrawingHandlers = ({
             shapePreviewRafId.current = null;
             if (!pendingPoint.current) return;
             redrawFromScene(ctx);
-                const shape = generator({
-                    start: start.current,
-                    end: pendingPoint.current,
-                    color: currentColorRef.current,
-                    thickness: thicknessRef.current,
-                    kind: selectedShape,
-                    pixelated,
-                    pixelSize,
+            const shape = generator({
+                start: start.current,
+                end: pendingPoint.current,
+                color: currentColorRef.current,
+                thickness: thicknessRef.current,
+                kind: selectedShape,
+                pixelated,
+                pixelSize,
                 lineAlgorithm,
                 lineDash,
+                modifiers: dragModifiers.current,
             });
             currentShape.current = shape;
             shape.draw(ctx);
@@ -344,6 +348,7 @@ const useDrawingHandlers = ({
                     scheduleViewportRender();
                 }
             } else {
+                dragModifiers.current = { shift: e.shiftKey, alt: e.altKey };
                 scheduleShapePreview(point, ctx);
             }
         }
