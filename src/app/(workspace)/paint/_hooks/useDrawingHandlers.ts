@@ -255,11 +255,14 @@ const useDrawingHandlers = ({
         const { x, y } = point;
         const mappedPoint = pixelated ? map({ x, y }, pixelSize) : { x, y };
 
-        // While a shape is pending confirmation, all clicks are handled by the
-        // pending placement logic (move drag, rotate drag, or confirm on outside click).
-        if (hasPendingShape()) {
-            pendingPointerDown(mappedPoint, point);
-        } else if (selectedShape === 'polygon') {
+        // While a shape is pending, the pending placement logic handles clicks on
+        // it (move/rotate/resize). A click outside confirms it and returns false,
+        // so the same click continues to the active tool below.
+        if (hasPendingShape() && pendingPointerDown(mappedPoint, point)) {
+            return;
+        }
+
+        if (selectedShape === 'polygon') {
             polygon.onPointerDown(mappedPoint);
         } else if (selectedShape === 'bezier' || selectedShape === 'bspline') {
             curve.onPointerDown(mappedPoint);

@@ -3,7 +3,7 @@ import Line from '@/app/(workspace)/paint/_shapes/Line';
 import Circle from '@/app/(workspace)/paint/_shapes/Circle';
 import ClearRectItem from '@/app/(workspace)/paint/_shapes/ClearRectItem';
 import type { SceneItem } from '@/app/(workspace)/paint/_shapes/ShapeTypes';
-import { liftFromScene, resolvePendingAction } from './pendingActions';
+import { liftFromScene, resolveEscapeAction, resolvePendingAction } from './pendingActions';
 
 const line = () => new Line({ x: 0, y: 0 }, { x: 10, y: 10 }, {});
 const circle = () => new Circle({ x: 0, y: 0 }, { x: 10, y: 0 }, {});
@@ -70,5 +70,16 @@ describe('resolvePendingAction', () => {
         resolvePendingAction('confirm', line(), { onConfirm }, pushShape);
         expect(onConfirm).toHaveBeenCalledOnce();
         expect(pushShape).not.toHaveBeenCalled();
+    });
+});
+
+describe('resolveEscapeAction', () => {
+    it('reverte a edição de algo existente', () => {
+        expect(resolveEscapeAction({ onCancel: () => {} })).toBe('cancel');
+    });
+
+    it('mantém (confirma) uma forma recém-criada', () => {
+        expect(resolveEscapeAction({})).toBe('confirm');
+        expect(resolveEscapeAction({ onCancel: null })).toBe('confirm');
     });
 });

@@ -25,7 +25,7 @@ import {
     THEME_SURFACE_CSS_VAR,
 } from "@/utils/workspaceGrid";
 import { isTypingTarget } from "@/utils/isTypingTarget";
-import { resolvePendingAction } from "../_utils/pendingActions";
+import { resolveEscapeAction, resolvePendingAction } from "../_utils/pendingActions";
 import { getOverlayPadding } from "../_utils/visualBounds";
 
 export type EnterPendingOptions = {
@@ -716,9 +716,10 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
             return true;
         }
 
-        // Clicked outside: commit shape
+        // Clicked outside: commit the shape and let the click go on to the
+        // active tool (start the next shape, select another one, ...).
         confirmPending();
-        return true;
+        return false;
     }, [confirmPending, getHoverTarget, pendingShapeRef, setCanvasCursor, zoom]);
 
     /**
@@ -897,19 +898,36 @@ const usePendingPlacement = ({ renderViewport, redrawFromScene, pushShape }: Pen
         return false;
     }, [flushPendingRender, pendingShapeRef, setCanvasCursor]);
 
-    // ── Delete/Backspace → apagar forma pendente ──────────────────────────────
+    /**
+     * Esc: when editing something that already existed (an existing shape, a
+     * cut), revert the edit; for a freshly drawn shape, just deselect (keep it)
+     * instead of throwing away what the user just drew.
+     */
+    const escapePending = useCallback(() => {
+        if (resolveEscapeAction({ onCancel: onCancelCallbackRef.current }) === 'cancel') {
+            cancelPending();
+        } else {
+            confirmPending();
+        }
+    }, [cancelPending, confirmPending]);
+
+    // ── Delete/Backspace → apagar · Esc → reverter edição / tirar seleção ─────
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-            if (isTypingTarget(e.target)) return;
             if (!pendingShapeRef.current) return;
-            e.preventDefault();
-            deletePending();
+            if (isTypingTarget(e.target)) return;
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                deletePending();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                escapePending();
+            }
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [deletePending, pendingShapeRef]);
+    }, [deletePending, escapePending, pendingShapeRef]);
 
     /** Called by the HTML lock button's onClick to group/ungroup the pending ShapeGroup. */
     const handleLockClick = useCallback(() => {

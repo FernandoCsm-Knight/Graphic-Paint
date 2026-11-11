@@ -39,6 +39,15 @@ export function resolvePendingAction<T extends SceneItem>(
 }
 
 /**
+ * What Esc does to a pending shape: revert the edit when something existing
+ * is being edited (there is an `onCancel` to restore it); otherwise the shape
+ * was just drawn, so Esc keeps it and simply deselects.
+ */
+export function resolveEscapeAction(callbacks: Pick<PendingCallbacks, 'onCancel'>): 'cancel' | 'confirm' {
+    return callbacks.onCancel ? 'cancel' : 'confirm';
+}
+
+/**
  * Removes `selected` items from the scene for editing.
  * Returns the scene without them plus the original scene (for cancel).
  */
